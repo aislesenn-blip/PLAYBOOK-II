@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playbook - Analytics</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .chart-container {
+            display: flex;
+            align-items: flex-end;
+            height: 200px;
+            gap: 10px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: var(--spacing-md);
+        }
+        .bar {
+            flex: 1;
+            background-color: var(--accent-color);
+            position: relative;
+            transition: background-color 0.2s;
+        }
+        .bar:hover {
+            background-color: var(--highlight-color);
+        }
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .bar-value {
+            position: absolute;
+            top: -20px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">Playbook</div>
+            <ul class="sidebar-nav">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="upload.html">Upload Exams</a></li>
+                <li><a href="review.html">Review & Override</a></li>
+                <li><a href="analytics.html" class="active">Analytics</a></li>
+                <li><a href="#">Settings</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="flex justify-between items-center mb-2">
+                <div>
+                    <h1>Analytics: HIST 202 - Midterm</h1>
+                    <p>Review class performance, score distributions, and export results.</p>
+                </div>
+                <div class="flex gap-1">
+                    <button class="btn btn-secondary" onclick="window.print()">Print Report</button>
+                    <button class="btn">Download CSV</button>
+                </div>
+            </header>
+
+            <!-- Stats Grid -->
+            <section class="grid gap-2 mb-2" style="grid-template-columns: repeat(4, 1fr);">
+                <div class="card stat-card">
+                    <div class="stat-number">42</div>
+                    <div class="stat-label">Total Students</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-number">76%</div>
+                    <div class="stat-label">Average Score</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-number">98%</div>
+                    <div class="stat-label">Highest Score</div>
+                </div>
+                <div class="card stat-card" style="border-left-color: var(--highlight-color);">
+                    <div class="stat-number">Q3</div>
+                    <div class="stat-label">Lowest Performing Q</div>
+                </div>
+            </section>
+
+            <div class="grid gap-2" style="grid-template-columns: 2fr 1fr;">
+
+                <!-- Distribution Chart (Pure CSS) -->
+                <section class="card">
+                    <h3 class="mb-1">Score Distribution</h3>
+                    <div class="chart-container">
+                        <div class="bar" style="height: 10%;"><span class="bar-value">2</span><span class="bar-label">&lt;60</span></div>
+                        <div class="bar" style="height: 30%;"><span class="bar-value">6</span><span class="bar-label">60-69</span></div>
+                        <div class="bar" style="height: 70%;"><span class="bar-value">14</span><span class="bar-label">70-79</span></div>
+                        <div class="bar" style="height: 100%;"><span class="bar-value">20</span><span class="bar-label">80-89</span></div>
+                        <div class="bar" style="height: 50%;"><span class="bar-value">10</span><span class="bar-label">90+</span></div>
+                    </div>
+                </section>
+
+                <!-- Insights -->
+                <section class="card">
+                    <h3 class="mb-1">AI Insights</h3>
+                    <ul style="padding-left: 1.2rem; color: var(--text-secondary); font-size: 0.95rem;">
+                        <li class="mb-1"><strong>Strong Performance:</strong> 85% of students scored perfectly on Question 2 (Industrialization).</li>
+                        <li class="mb-1"><strong>Area of Concern:</strong> Question 3 (Cold War Essay) had the lowest average score (65%). Many students struggled with chronological accuracy regarding the Vietnam War.</li>
+                        <li><strong>Actionable Advice:</strong> Consider a brief review session on Cold War timelines before the next assignment.</li>
+                    </ul>
+                </section>
+
+            </div>
+
+            <!-- Student Results Table -->
+            <section class="card mt-2">
+                <div class="flex justify-between items-center mb-1">
+                    <h3>Individual Results</h3>
+                    <input type="text" class="form-control" placeholder="Search student..." style="width: 250px;">
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Score</th>
+                            <th>Grade</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>#10042</td>
+                            <td>Emily Chen</td>
+                            <td>88 / 100</td>
+                            <td><span class="score-badge" style="color: var(--success-color);">B+</span></td>
+                            <td><a href="#">Download Feedback</a></td>
+                        </tr>
+                        <tr>
+                            <td>#10043</td>
+                            <td>Michael Smith</td>
+                            <td>94 / 100</td>
+                            <td><span class="score-badge" style="color: var(--success-color);">A</span></td>
+                            <td><a href="#">Download Feedback</a></td>
+                        </tr>
+                        <tr>
+                            <td>#10044</td>
+                            <td>Sarah Johnson</td>
+                            <td>72 / 100</td>
+                            <td><span class="score-badge" style="color: var(--highlight-color);">C</span></td>
+                            <td><a href="#">Download Feedback</a></td>
+                        </tr>
+                        <tr>
+                            <td>#10045</td>
+                            <td>David Williams</td>
+                            <td>58 / 100</td>
+                            <td><span class="score-badge" style="color: var(--error-color);">F</span></td>
+                            <td><a href="#">Download Feedback</a></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+    <script src="js/app.js"></script>
+</body>
+</html>

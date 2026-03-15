@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playbook - Upload Exams</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">Playbook</div>
+            <ul class="sidebar-nav">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="upload.html" class="active">Upload Exams</a></li>
+                <li><a href="review.html">Review & Override</a></li>
+                <li><a href="analytics.html">Analytics</a></li>
+                <li><a href="#">Settings</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="mb-2">
+                <h1>New Grading Session</h1>
+                <p>Upload your scanned student exams and the corresponding marking scheme. Playbook's AI will automatically grade all responses—essays, formulas, and short answers.</p>
+            </header>
+
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Session Name (e.g. HIST 202 - Midterm)</label>
+                    <input type="text" class="form-control" placeholder="Enter session name...">
+                </div>
+
+                <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
+                    <!-- Upload Marking Scheme -->
+                    <div class="card flex-col items-center">
+                        <h3 class="mb-1">Marking Scheme</h3>
+                        <div class="upload-zone" style="width: 100%;">
+                            <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag & drop marking scheme here</p>
+                            <p style="font-size: 0.85rem;">or</p>
+                            <button type="button" class="btn btn-secondary mt-1">Browse Files</button>
+                            <p class="mt-1" style="font-size: 0.8rem;">Supports PDF, DOCX, TXT</p>
+                        </div>
+                    </div>
+
+                    <!-- Upload Scanned Exams -->
+                    <div class="card flex-col items-center">
+                        <h3 class="mb-1">Student Exams</h3>
+                        <div class="upload-zone" style="width: 100%;">
+                            <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag & drop scanned exams here</p>
+                            <p style="font-size: 0.85rem;">or</p>
+                            <button type="button" class="btn btn-secondary mt-1">Browse Files</button>
+                            <p class="mt-1" style="font-size: 0.8rem;">Supports PDF, JPG, PNG (Bulk Upload)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-2">
+                    <button type="button" id="start-grading-btn" class="btn" style="padding: 1rem 3rem; font-size: 1.1rem;">Start AI Grading</button>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <h2 style="margin-top: 1rem;">Analyzing Exams...</h2>
+        <p>Playbook AI is evaluating student responses against your marking scheme.</p>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

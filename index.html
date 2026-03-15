@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playbook - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">Playbook</div>
+            <ul class="sidebar-nav">
+                <li><a href="index.html" class="active">Dashboard</a></li>
+                <li><a href="upload.html">Upload Exams</a></li>
+                <li><a href="review.html">Review & Override</a></li>
+                <li><a href="analytics.html">Analytics</a></li>
+                <li><a href="#">Settings</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="flex justify-between items-center mb-2">
+                <div>
+                    <h1>Dashboard</h1>
+                    <p>Welcome back, Professor Smith. Here is an overview of your grading.</p>
+                </div>
+                <a href="upload.html" class="btn">New Grading Session</a>
+            </header>
+
+            <!-- Stats Grid -->
+            <section class="grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="card stat-card">
+                    <div class="stat-number">1,248</div>
+                    <div class="stat-label">Exams Graded</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Pending Reviews</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-number">84%</div>
+                    <div class="stat-label">Avg. Class Score</div>
+                </div>
+            </section>
+
+            <!-- Recent Activity -->
+            <section class="card">
+                <h3 class="mb-1">Recent Sessions</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Exam Type</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>ECON 101</td>
+                            <td>Midterm</td>
+                            <td>Oct 24, 2023</td>
+                            <td><span class="score-badge" style="color: var(--success-color);">Completed</span></td>
+                            <td><a href="analytics.html">View Analytics</a></td>
+                        </tr>
+                        <tr>
+                            <td>HIST 202</td>
+                            <td>Essay Draft 1</td>
+                            <td>Oct 26, 2023</td>
+                            <td><span class="score-badge" style="color: var(--highlight-color);">Pending Review</span></td>
+                            <td><a href="review.html">Review</a></td>
+                        </tr>
+                        <tr>
+                            <td>CS 300</td>
+                            <td>Algorithms Quiz</td>
+                            <td>Oct 27, 2023</td>
+                            <td><span class="score-badge" style="color: var(--text-secondary);">Uploading...</span></td>
+                            <td>-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+    <script src="js/app.js"></script>
+</body>
+</html>
