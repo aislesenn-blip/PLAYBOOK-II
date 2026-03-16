@@ -1,40 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-    /* Apple-Caliber Palette: Ultra-clean, subtle contrasts */
-    --bg-color: #f9f9fb;
+    /* Editorial Luxury: Monochromatic, High-Contrast */
+    --bg-color: #fcfcfc;
     --surface-color: #ffffff;
-    --text-primary: #1d1d1f;
-    --text-secondary: #86868b;
-    --border-color: #e5e5ea;
+    --text-primary: #0a0a0a;
+    --text-secondary: #737373;
+    --border-color: #e5e5e5;
 
-    /* Playful but purposeful accents */
-    --accent-color: #0071e3; /* Apple Blue */
-    --accent-hover: #0077ed;
-    --highlight-color: #ff9500; /* Subtle warning/highlight */
-    --success-color: #34c759;
-    --error-color: #ff3b30;
+    /* Monochromatic Accents */
+    --accent-color: #0a0a0a; /* True Black */
+    --accent-hover: #262626; /* Deep Gray */
+    --highlight-color: #525252;
+    --success-color: #0a0a0a; /* Subdued for monochromatic look */
+    --error-color: #0a0a0a;
 
-    /* Crisp Typography */
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --font-serif: 'Playfair Display', "SF Pro Display", Georgia, serif;
+    /* Strict Premium Typography */
+    --font-sans: 'Inter', "Helvetica Neue", Helvetica, Arial, sans-serif;
 
-    --spacing-xs: 0.5rem;
-    --spacing-sm: 1rem;
-    --spacing-md: 2rem;
-    --spacing-lg: 3rem;
-    --spacing-xl: 6rem;
+    /* Generous Macro & Micro Spacing */
+    --spacing-xs: 0.75rem;
+    --spacing-sm: 1.5rem;
+    --spacing-md: 3rem;
+    --spacing-lg: 5rem;
+    --spacing-xl: 8rem;
 
-    /* Refined structural variables */
-    --radius-sm: 8px;
-    --radius-md: 14px;
-    --radius-lg: 20px;
+    /* Minimalist Structure */
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 4px;
 
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.12);
+    /* Subtle, intentional shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.03);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.02);
 
-    --transition-speed: 0.3s;
+    --transition-speed: 0.4s; /* Smoother, more intentional fades */
 }
 
 * {
@@ -55,16 +56,16 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-sans); /* Switch headings to clean sans for enterprise feel */
-    font-weight: 600;
+    font-family: var(--font-sans);
+    font-weight: 500;
     color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
 }
 
-h1 { font-size: 2.8rem; letter-spacing: -0.04em; font-weight: 700; line-height: 1.1; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.4rem; }
+h1 { font-size: 2.5rem; font-weight: 600; line-height: 1.1; }
+h2 { font-size: 1.8rem; }
+h3 { font-size: 1.2rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
 
 p {
     margin-bottom: var(--spacing-sm);
@@ -98,12 +99,15 @@ a:hover {
 }
 
 .sidebar-logo {
-    font-family: var(--font-serif);
-    font-size: 1.8rem;
-    font-weight: 600;
+    font-family: var(--font-sans);
+    font-size: 1.2rem;
+    font-weight: 700;
     margin-bottom: var(--spacing-lg);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    border-bottom: 2px solid var(--accent-color);
+    display: inline-block;
+    padding-bottom: var(--spacing-xs);
 }
 
 .sidebar-nav {
@@ -142,53 +146,41 @@ a:hover {
     align-items: center;
     justify-content: center;
     background-color: var(--accent-color);
-    color: #fff;
-    border: none;
-    padding: 0.8rem 1.6rem;
+    color: var(--surface-color);
+    border: 1px solid var(--accent-color);
+    padding: 0.75rem 2rem;
     font-family: var(--font-sans);
     font-weight: 500;
-    font-size: 1rem;
-    letter-spacing: -0.01em;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     cursor: pointer;
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-speed) cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 14px 0 rgba(0, 113, 227, 0.39);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-speed) ease;
 }
 
 .btn:hover {
-    background-color: var(--accent-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(0, 113, 227, 0.4);
-}
-
-.btn:active {
-    transform: translateY(1px);
-    box-shadow: none;
+    background-color: var(--surface-color);
+    color: var(--accent-color);
 }
 
 .btn-secondary {
-    background-color: rgba(0, 113, 227, 0.1);
+    background-color: transparent;
     color: var(--accent-color);
-    box-shadow: none;
+    border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-    background-color: rgba(0, 113, 227, 0.15);
-    box-shadow: none;
+    border-color: var(--accent-color);
 }
 
 .card {
     background-color: var(--surface-color);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
     padding: var(--spacing-md);
     margin-bottom: var(--spacing-md);
     box-shadow: var(--shadow-sm);
-    transition: box-shadow var(--transition-speed) ease;
-}
-
-.card:hover {
-    box-shadow: var(--shadow-md);
 }
 
 /* Forms */
@@ -219,7 +211,6 @@ a:hover {
 .form-control:focus {
     outline: none;
     border-color: var(--accent-color);
-    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
 }
 
 /* Tables */
@@ -262,7 +253,7 @@ a:hover {
 
 /* specific styles that will be used */
 .upload-zone {
-    border: 2px dashed var(--border-color);
+    border: 1px dashed var(--border-color);
     border-radius: var(--radius-md);
     padding: var(--spacing-lg);
     text-align: center;
@@ -282,14 +273,13 @@ a:hover {
 }
 
 .document-preview {
-    background-color: #f2f2f7;
+    background-color: #f9f9f9;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .document-preview img {
@@ -312,10 +302,11 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.3rem 0.6rem;
-    background-color: rgba(52, 199, 89, 0.1);
-    color: var(--success-color);
-    border-radius: 20px;
+    padding: 0.2rem 0.5rem;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
     font-weight: 600;
     font-size: 0.85rem;
 }
@@ -323,20 +314,23 @@ a:hover {
 .override-input {
     width: 65px;
     padding: 0.4rem;
-    border: 1px solid var(--accent-color);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     font-family: var(--font-sans);
     font-size: 1rem;
     font-weight: 600;
     text-align: center;
-    box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.2);
+}
+.override-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
 }
 
 /* Loading overlay */
 #loading-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(255,255,255,0.9);
+    background-color: rgba(255,255,255,0.95);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -344,7 +338,7 @@ a:hover {
     z-index: 1000;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
 }
 
 #loading-overlay.active {
@@ -353,12 +347,12 @@ a:hover {
 }
 
 .spinner {
-    width: 48px;
-    height: 48px;
-    border: 3px solid rgba(0, 113, 227, 0.1);
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border-color);
     border-top-color: var(--accent-color);
     border-radius: 50%;
-    animation: spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+    animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     margin-bottom: var(--spacing-sm);
 }
 
@@ -367,7 +361,7 @@ a:hover {
 }
 
 .stat-card {
-    border-left: 4px solid var(--accent-color);
+    border-left: 2px solid var(--accent-color);
 }
 .stat-number {
     font-size: 3rem;
@@ -380,7 +374,7 @@ a:hover {
 }
 .stat-label {
     text-transform: uppercase;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     letter-spacing: 0.05em;
     color: var(--text-secondary);
 }
