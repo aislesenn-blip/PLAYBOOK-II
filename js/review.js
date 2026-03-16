@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
             const questionId = q.questionId !== undefined ? q.questionId : q.questionNumber;
             const justification = q.justification !== undefined ? q.justification : q.analysis;
-            const constructiveFeedback = q.constructive_feedback !== undefined ? q.constructive_feedback : q.feedback;
+            const constructiveFeedback = q.constructive_feedback || q.feedback || "No actionable feedback provided by AI.";
             const answerStatus = q.answer_status || "Answered"; // Default to Answered for legacy data
 
             // Apply conditional styling for Skipped vs Answered
