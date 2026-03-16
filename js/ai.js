@@ -116,7 +116,7 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
         return parsedContent;
 
     } catch (error) {
-        console.error("Error in AI grading:", error);
+        console.error("Error in Playbook grading:", error);
 
         // Fallback mock data in case API fails or hits rate limits
         return {

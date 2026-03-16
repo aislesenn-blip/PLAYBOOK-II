@@ -25,7 +25,7 @@
         <main class="main-content">
             <header class="mb-2">
                 <h1>New Grading Session</h1>
-                <p>Upload your scanned student exams and the corresponding marking scheme. Playbook's AI will automatically grade all responses—essays, formulas, and short answers.</p>
+                <p>Upload your scanned student exams and the corresponding marking scheme. Playbook will automatically grade all responses—essays, formulas, and short answers.</p>
             </header>
 
             <form id="upload-form">
@@ -55,7 +55,7 @@
                             <ul style="padding-left: 1rem; margin-top: 0.25rem;">
                                 <li>Use hierarchical labels (e.g., <strong>1a</strong>, <strong>1b(i)</strong>).</li>
                                 <li>Explicitly allocate points (e.g., <em>"Award [1 mark] for..."</em>).</li>
-                                <li>For diagrams/code, define exact shapes, labels, or syntax the AI must find.</li>
+                                <li>For diagrams/code, define exact shapes, labels, or syntax the Playbook must find.</li>
                             </ul>
                         </div>
                     </div>
@@ -76,7 +76,7 @@
                 </div>
 
                 <div class="text-center mt-2">
-                    <button type="submit" id="start-grading-btn" class="btn" style="padding: 1rem 3rem; font-size: 1.1rem;">Start AI Grading</button>
+                    <button type="submit" id="start-grading-btn" class="btn" style="padding: 1rem 3rem; font-size: 1.1rem;">Start Playbook Grading</button>
                 </div>
             </form>
         </main>
@@ -86,7 +86,7 @@
     <div id="loading-overlay">
         <div class="spinner"></div>
         <h2 style="margin-top: 1rem;" id="loading-status">Analyzing Exams...</h2>
-        <p id="loading-detail">Playbook AI is evaluating student responses against your marking scheme.</p>
+        <p id="loading-detail">Playbook is evaluating student responses against your marking scheme.</p>
 
         <!-- Real-time grading progress log -->
         <div id="realtime-log-container" style="display: none; width: 80%; max-width: 600px; margin-top: 2rem; text-align: left; background: #fff; padding: 1rem; border-radius: 4px; box-shadow: var(--shadow); max-height: 200px; overflow-y: auto;">

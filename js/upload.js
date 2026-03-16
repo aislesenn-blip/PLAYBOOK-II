@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { type, payload } = msg.data;
 
                 if (type === 'PROGRESS_UPDATE') {
-                    statusEl.textContent = `AI Grading Student ${payload.studentIndex + 1} of ${payload.totalStudents}...`;
+                    statusEl.textContent = `Playbook Grading Student ${payload.studentIndex + 1} of ${payload.totalStudents}...`;
                     detailEl.textContent = 'Evaluating responses and generating feedback in the background.';
                 }
                 else if (type === 'STUDENT_GRADED') {

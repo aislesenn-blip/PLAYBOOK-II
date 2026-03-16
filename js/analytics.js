@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 content += `Question ${qId}: ${q.questionTitle}\n`;
                 content += `Score: ${marksAwarded} / ${maxMarks}\n\n`;
-                content += `AI Justification:\n${justification}\n\n`;
+                content += `Playbook Justification:\n${justification}\n\n`;
                 content += `Constructive Feedback:\n${constructiveFeedback}\n\n`;
                 content += `----------------------------------------\n\n`;
             });

@@ -1,4 +1,4 @@
-// Web Worker for Background AI Processing
+// Web Worker for Background Playbook Processing
 // This prevents browser throttling in inactive tabs and enables real-time UI updates.
 
 importScripts('ai.js');
@@ -23,7 +23,7 @@ self.onmessage = async function(e) {
 
                 const pages = studentExams[i];
 
-                // Call the AI (which is now accessible via self.PlaybookAI due to importScripts)
+                // Call the Playbook (which is now accessible via self.PlaybookAI due to importScripts)
                 const gradingResult = await self.PlaybookAI.analyzeExamWithAI(pages, markingSchemeText, apiKey);
 
                 const studentData = {
