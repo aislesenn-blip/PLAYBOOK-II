@@ -53,7 +53,7 @@
                 <li><a href="review.html">Review & Override</a></li>
                 <li><a href="analytics.html" class="active">Analytics</a></li>
                 <li><a href="manual.html">User Manual</a></li>
-                <li><a href="#">Settings</a></li>
+                <li><a href="settings.html">Settings</a></li>
             </ul>
         </aside>
 
@@ -67,6 +67,7 @@
                 <div class="flex gap-1">
                     <button class="btn btn-secondary" onclick="window.print()">Print Report</button>
                     <button class="btn" id="download-csv-btn">Download CSV</button>
+                    <button class="btn" id="download-all-feedback-btn">Download All Feedback (.txt)</button>
                 </div>
             </header>
 
@@ -116,7 +117,7 @@
                     <h3>Individual Results</h3>
                     <input type="text" id="student-search" class="form-control" placeholder="Search student..." style="width: 250px;">
                 </div>
-                <table class="table">
+                <div class="table-container"><table class="table">
                     <thead>
                         <tr>
                             <th>Registration No.</th>
@@ -129,7 +130,7 @@
                     <tbody id="students-table-body">
                         <!-- Populated by JS -->
                     </tbody>
-                </table>
+                </table></div>
             </section>
 
         </main>

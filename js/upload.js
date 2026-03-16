@@ -4,11 +4,50 @@ document.addEventListener('DOMContentLoaded', () => {
     const schemeFileInput = document.getElementById('scheme-file');
     const examsFileInput = document.getElementById('exams-file');
 
-    // Update filenames
-    schemeFileInput.addEventListener('change', (e) => {
+    // Smart Pre-Processor Logic
+    const optimizeBtn = document.getElementById('optimize-scheme-btn');
+    const resetBtn = document.getElementById('reset-scheme-btn');
+    const rawContainer = document.getElementById('raw-scheme-container');
+    const optimizedContainer = document.getElementById('optimized-scheme-container');
+    const rawTextarea = document.getElementById('raw-scheme-text');
+    const optimizedTextarea = document.getElementById('optimized-scheme-text');
+
+    // Handle .txt upload and dump into textarea
+    schemeFileInput.addEventListener('change', async (e) => {
         if(e.target.files[0]) {
-            document.getElementById('scheme-filename').textContent = e.target.files[0].name;
+            const text = await e.target.files[0].text();
+            rawTextarea.value = text;
         }
+    });
+
+    optimizeBtn.addEventListener('click', async () => {
+        if (!rawTextarea.value.trim()) {
+            alert('Please paste or upload a raw scheme first.');
+            return;
+        }
+
+        optimizeBtn.textContent = 'Formatting...';
+        optimizeBtn.disabled = true;
+
+        try {
+            const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
+            optimizedTextarea.value = structured;
+
+            rawContainer.style.display = 'none';
+            optimizedContainer.style.display = 'block';
+        } catch (e) {
+            console.error(e);
+            alert(`Failed to optimize: ${e.message}`);
+        } finally {
+            optimizeBtn.textContent = 'Auto-Format Scheme';
+            optimizeBtn.disabled = false;
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        optimizedContainer.style.display = 'none';
+        rawContainer.style.display = 'block';
+        optimizedTextarea.value = '';
     });
     examsFileInput.addEventListener('change', (e) => {
         if(e.target.files[0]) {
@@ -20,11 +59,16 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
 
         const sessionName = document.getElementById('session-name').value;
-        const schemeFile = schemeFileInput.files[0];
         const examsFile = examsFileInput.files[0];
 
-        if (!schemeFile || !examsFile || !sessionName) {
-            alert('Please provide a session name, marking scheme, and exams PDF.');
+        // Decide which scheme text to use
+        let markingSchemeText = optimizedTextarea.value.trim();
+        if (!markingSchemeText) {
+            markingSchemeText = rawTextarea.value.trim();
+        }
+
+        if (!markingSchemeText || !examsFile || !sessionName) {
+            alert('Please provide a session name, define a marking scheme, and upload an exams PDF.');
             return;
         }
 
@@ -34,9 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.add('active');
 
         try {
-            statusEl.textContent = 'Reading Marking Scheme...';
-            const markingSchemeText = await schemeFile.text();
-
             statusEl.textContent = 'Processing PDF...';
             detailEl.textContent = 'Extracting pages and detecting separators.';
 

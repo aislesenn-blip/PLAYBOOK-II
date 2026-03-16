@@ -17,7 +17,7 @@
                 <li><a href="review.html">Review & Override</a></li>
                 <li><a href="analytics.html">Analytics</a></li>
                 <li><a href="manual.html">User Manual</a></li>
-                <li><a href="#">Settings</a></li>
+                <li><a href="settings.html">Settings</a></li>
             </ul>
         </aside>
 
@@ -35,28 +35,32 @@
                 </div>
 
                 <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
-                    <!-- Upload Marking Scheme -->
-                    <div class="card flex-col items-center">
-                        <div class="flex justify-between items-center" style="width: 100%;">
-                            <h3 class="mb-1">Marking Scheme (.txt)</h3>
-                            <a href="manual.html#standard-marking-scheme" target="_blank" style="font-size: 0.8rem; text-decoration: underline; color: var(--text-secondary); margin-bottom: var(--spacing-sm);">View Format Guide</a>
+                    <!-- Smart Marking Scheme Builder -->
+                    <div class="card flex-col">
+                        <div class="flex justify-between items-center w-100">
+                            <h3 class="mb-1">Smart Marking Scheme</h3>
+                            <a href="manual.html#standard-marking-scheme" target="_blank" style="font-size: 0.8rem; text-decoration: underline; color: var(--text-secondary);">Format Guide</a>
                         </div>
-                        <div class="upload-zone" id="scheme-zone" style="width: 100%;">
-                            <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag & drop marking scheme here</p>
-                            <p style="font-size: 0.85rem;">or</p>
-                            <label class="btn btn-secondary mt-1">
-                                Browse Files
-                                <input type="file" id="scheme-file" accept=".txt" style="display: none;">
-                            </label>
-                            <p id="scheme-filename" class="mt-1" style="font-size: 0.8rem; font-weight: bold; color: var(--success-color);"></p>
+
+                        <div id="raw-scheme-container" style="display: block; width: 100%;">
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste raw text below or upload a .txt to let the pre-processor standardize it.</p>
+                            <textarea id="raw-scheme-text" class="form-control" style="height: 150px; resize: vertical; margin-bottom: var(--spacing-sm);" placeholder="Paste raw unstructured marking scheme here..."></textarea>
+
+                            <div class="flex justify-between items-center">
+                                <label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                                    Upload .txt
+                                    <input type="file" id="scheme-file" accept=".txt" style="display: none;">
+                                </label>
+                                <button type="button" id="optimize-scheme-btn" class="btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Auto-Format Scheme</button>
+                            </div>
                         </div>
-                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: var(--spacing-sm); padding: var(--spacing-sm); background: #f9f9f9; border-left: 3px solid var(--accent-color); width: 100%;">
-                            <strong>Quick Rules for 100% Deterministic Grading:</strong>
-                            <ul style="padding-left: 1rem; margin-top: 0.25rem;">
-                                <li>Use hierarchical labels (e.g., <strong>1a</strong>, <strong>1b(i)</strong>).</li>
-                                <li>Explicitly allocate points (e.g., <em>"Award [1 mark] for..."</em>).</li>
-                                <li>For diagrams/code, define exact shapes, labels, or syntax the Playbook must find.</li>
-                            </ul>
+
+                        <div id="optimized-scheme-container" style="display: none; width: 100%;">
+                            <p style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.5rem;">Review & Tweak Standardized Scheme:</p>
+                            <textarea id="optimized-scheme-text" class="form-control" style="height: 200px; resize: vertical; border-color: var(--success-color);" required></textarea>
+                            <div class="flex justify-between mt-1">
+                                <button type="button" id="reset-scheme-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Reset</button>
+                            </div>
                         </div>
                     </div>
 

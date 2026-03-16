@@ -1,5 +1,5 @@
 const DB_NAME = 'PlaybookDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for settings store
 
 const dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -12,6 +12,9 @@ const dbPromise = new Promise((resolve, reject) => {
         if (!db.objectStoreNames.contains('students')) {
             const studentStore = db.createObjectStore('students', { keyPath: 'id' });
             studentStore.createIndex('sessionId', 'sessionId', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('settings')) {
+            db.createObjectStore('settings', { keyPath: 'id' });
         }
     };
 
@@ -86,11 +89,35 @@ async function getStudent(id) {
     });
 }
 
+async function saveSetting(settingData) {
+    const db = await dbPromise;
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('settings', 'readwrite');
+        const store = tx.objectStore('settings');
+        store.put(settingData);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function getSetting(id) {
+    const db = await dbPromise;
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('settings', 'readonly');
+        const store = tx.objectStore('settings');
+        const request = store.get(id);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
 window.PlaybookDB = {
     saveSession,
     getSessions,
     getSession,
     saveStudent,
     getStudentsBySession,
-    getStudent
+    getStudent,
+    saveSetting,
+    getSetting
 };

@@ -8,11 +8,11 @@ CRITICAL RULES & FOUR TIERS OF EVALUATION:
 1. Exhaustive Evaluation: You MUST evaluate EVERY SINGLE sub-question present in the marking scheme. DO NOT stop after one.
 2. Identity Extraction: You MUST extract the student's Name and Registration Number/ID from the first page. Do not hallucinate.
 3. Granular Breakdown: You MUST break down grading to the lowest sub-question level (e.g., 1a, 1b(i)) defined in the scheme.
-4. Mathematical Integrity: "totalScore" MUST perfectly equal the mathematical sum of every "marks_awarded".
+4. Mathematical Integrity: DO NOT attempt to calculate the total score. The frontend will do it securely.
 
 *** FOUR TIERS OF EVALUATION (EXECUTE FLAWLESSLY) ***
 TIER 1: SEMANTIC EQUIVALENCE (FULL MARKS)
-Evaluate the meaning, not just exact keywords. If the student explains the concept correctly using simple words or valid synonyms instead of the exact rubric terminology, you MUST award full marks. Keyword-matching is strictly forbidden.
+Evaluate the meaning, not just exact keywords. CRITICAL MANDATE: DO NOT PENALIZE FOR SIMPLE VOCABULARY. If a student explains a concept correctly using simple English (e.g., writing 'does not change' instead of 'heterogeneity'), you MUST award full marks. You are grading the SCIENTIFIC MEANING, not the exact wording of the rubric. Keyword-matching is strictly forbidden.
 TIER 2: PARTIAL UNDERSTANDING (PROPORTIONAL MARKS - MANDATE FOR HIGH-MARK QUESTIONS)
 If a question is worth high marks (e.g., 5 to 10 marks) and requires multiple points, you MUST award proportional partial marks for any correct points provided. If a student provides 2 out of 5 required reasons, give them 40% of the marks. DO NOT award a flat 0 unless the answer is completely blank, entirely out-of-scope, or fundamentally wrong. Be strictly fair: punish what is missing, but mathematically reward what is present and correct.
 TIER 3: OUT OF SCOPE / FUNDAMENTALLY WRONG (EXACTLY 0 MARKS)
@@ -30,7 +30,6 @@ Your output must strictly be a JSON object adhering to the following schema. Ret
 {
   "studentName": "Extracted Student Name or 'Unknown Student'",
   "registrationNumber": "Extracted Registration Number/ID or 'Unknown ID'",
-  "totalScore": 85,
   "maxScore": 100,
   "questions": [
     {
@@ -139,9 +138,58 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
     }
 }
 
+        // Optimization Prompt for Pre-processing
+        const OPTIMIZE_PROMPT = `
+        Rewrite this raw marking scheme into a strict, highly granular format optimized for deterministic grading.
+        Explicitly allocate marks, break down sub-questions, and define visual rules for sketches. Do not alter the educational meaning, only the structure.
+        Output ONLY the structured text. No markdown wrapping.
+        `;
+
+        async function optimizeMarkingScheme(rawText) {
+            const apiKey = typeof window !== 'undefined' ? localStorage.getItem('PLAYBOOK_API_KEY') : null;
+            if (!apiKey) {
+                throw new Error("No API key found. Please configure your API key.");
+            }
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'openai/gpt-4o',
+                    temperature: 0.1,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: OPTIMIZE_PROMPT
+                        },
+                        {
+                            role: 'user',
+                            content: rawText
+                        }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            let content = data.choices[0].message.content;
+
+            if (content.startsWith('```')) {
+                content = content.replace(/^```[^\n]*\n|\n```$/g, '');
+            }
+            return content;
+        }
+
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-    window.PlaybookAI = { analyzeExamWithAI };
+            window.PlaybookAI = { analyzeExamWithAI, optimizeMarkingScheme };
 } else {
-    self.PlaybookAI = { analyzeExamWithAI };
+            self.PlaybookAI = { analyzeExamWithAI, optimizeMarkingScheme };
 }

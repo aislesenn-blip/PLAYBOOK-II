@@ -83,6 +83,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }
 
+        // Load custom scale for letter grading
+        let scaleData = [
+            { min: 90, max: 100, label: 'A', color: '#0a0a0a' },
+            { min: 80, max: 89.9, label: 'B', color: '#262626' },
+            { min: 70, max: 79.9, label: 'C', color: '#525252' },
+            { min: 60, max: 69.9, label: 'D', color: '#737373' },
+            { min: 0, max: 59.9, label: 'F', color: '#0a0a0a' }
+        ];
+
+        try {
+            const savedScale = await window.PlaybookDB.getSetting('grading_scale');
+            if (savedScale && Array.isArray(savedScale.value)) {
+                scaleData = savedScale.value;
+            }
+        } catch(e) {}
+
         // Render Insights
         const insightsList = document.getElementById('insights-list');
         if (lowestQ !== '-') {
@@ -125,6 +141,55 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.body.removeChild(a);
         });
 
+        // Download All Feedback
+        document.getElementById('download-all-feedback-btn').addEventListener('click', () => {
+            let allFeedbackContent = `========================================\n`;
+            allFeedbackContent += `PLAYBOOK - MASTER FEEDBACK REPORT\n`;
+            allFeedbackContent += `Session: ${session.name}\n`;
+            allFeedbackContent += `Total Students: ${students.length}\n`;
+            allFeedbackContent += `Average Score: ${session.averageScore || 0}%\n`;
+            allFeedbackContent += `========================================\n\n\n`;
+
+            students.forEach((student, index) => {
+                allFeedbackContent += `[STUDENT ${index + 1} OF ${students.length}]\n`;
+                allFeedbackContent += `Student: ${student.studentName}\n`;
+                allFeedbackContent += `Registration No: ${student.registrationNumber || 'Unknown ID'}\n`;
+
+                const score = student.grading ? student.grading.totalScore : 0;
+                const max = student.grading ? student.grading.maxScore : 100;
+                allFeedbackContent += `Total Score: ${score} / ${max}\n\n`;
+
+                if (student.grading && student.grading.questions) {
+                    student.grading.questions.forEach(q => {
+                        const qId = q.questionId !== undefined ? q.questionId : q.questionNumber;
+                        const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                        const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
+                        const justification = q.justification !== undefined ? q.justification : q.analysis;
+                        const constructiveFeedback = q.constructive_feedback || q.feedback || "No actionable feedback provided.";
+
+                        allFeedbackContent += `Question ${qId}: ${q.questionTitle}\n`;
+                        allFeedbackContent += `Score: ${marksAwarded} / ${maxMarks}\n`;
+                        allFeedbackContent += `Justification:\n${justification}\n`;
+                        allFeedbackContent += `Constructive Feedback:\n${constructiveFeedback}\n\n`;
+                    });
+                } else {
+                    allFeedbackContent += `No detailed grading data available.\n\n`;
+                }
+
+                allFeedbackContent += `--------------------------------------------------\n\n\n`;
+            });
+
+            const blob = new Blob([allFeedbackContent], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `${session.name.replace(/\s+/g, '_')}_Master_Feedback.txt`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
     } catch (e) {
         console.error(e);
         alert("Failed to load analytics data.");
@@ -137,12 +202,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             const max = st.grading ? st.grading.maxScore : 100;
             const percentage = (score / max) * 100;
 
-            let grade = 'F';
-            let gradeColor = 'var(--error-color)';
-            if (percentage >= 90) { grade = 'A'; gradeColor = 'var(--success-color)'; }
-            else if (percentage >= 80) { grade = 'B'; gradeColor = 'var(--success-color)'; }
-            else if (percentage >= 70) { grade = 'C'; gradeColor = 'var(--highlight-color)'; }
-            else if (percentage >= 60) { grade = 'D'; gradeColor = 'var(--highlight-color)'; }
+            let grade = '?';
+            let gradeColor = 'var(--text-primary)';
+
+            // Apply custom scale logic
+            for (let i = 0; i < scaleData.length; i++) {
+                if (percentage >= scaleData[i].min && percentage <= scaleData[i].max) {
+                    grade = scaleData[i].label;
+                    gradeColor = scaleData[i].color || gradeColor;
+                    break;
+                }
+            }
 
             const regNo = st.registrationNumber || 'Unknown ID';
 
