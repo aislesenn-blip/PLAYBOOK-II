@@ -67,8 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
             markingSchemeText = rawTextarea.value.trim();
         }
 
-        if (!markingSchemeText || !examsFile || !sessionName) {
-            alert('Please provide a session name, define a marking scheme, and upload an exams PDF.');
+        if (!examsFile || !sessionName) {
+            alert('Please provide a session name and upload an exams PDF.');
             return;
         }
 

@@ -311,6 +311,11 @@ a:hover {
         overflow-x: auto;
         white-space: nowrap;
         padding-bottom: 5px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+    }
+    .sidebar-nav::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
     }
 
     .sidebar-nav li {
@@ -337,35 +342,88 @@ a:hover {
     }
 }
 
-/* Mobile */
+/* Mobile (ElevenLabs Massive UI Scale) */
 @media (max-width: 768px) {
     body {
         overflow: auto !important;
+        font-size: 1.1rem; /* Base text */
     }
 
     :root {
-        --spacing-lg: 2rem;
-        --spacing-md: 1.5rem;
+        --spacing-lg: 3rem;
+        --spacing-md: 2rem;
+        --spacing-sm: 1.5rem;
+        --spacing-xs: 1rem;
     }
 
-    h1 { font-size: 2rem; }
-    h2 { font-size: 1.5rem; }
+    h1 {
+        font-size: 3rem; /* text-5xl equivalent */
+        line-height: 1.1;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    h2 { font-size: 2.2rem; margin-bottom: var(--spacing-sm); }
+    h3 { font-size: 1.5rem; margin-bottom: var(--spacing-sm); }
+
+    p {
+        font-size: 1.2rem; /* text-xl */
+        margin-bottom: var(--spacing-sm);
+        line-height: 1.6;
+    }
+
+    .btn {
+        padding: 1rem 2rem !important;
+        font-size: 1.2rem !important;
+        border-radius: var(--radius-md);
+        width: 100%;
+        text-align: center;
+    }
+
+    .form-label {
+        font-size: 1.2rem;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .form-control {
+        font-size: 1.1rem;
+        padding: 1rem;
+    }
 
     .main-content {
-        padding: var(--spacing-sm);
+        padding: var(--spacing-md) var(--spacing-sm);
     }
 
+    .sidebar-logo {
+        font-size: 2rem;
+    }
+
+    .sidebar-nav a {
+        font-size: 1.2rem;
+        padding: 0.5rem 1.5rem;
+    }
+
+    .stat-number {
+        font-size: 4rem;
+    }
+
+    .stat-label {
+        font-size: 1rem;
+    }
+
+    /* Fix Layout Collapses */
     .card.flex.justify-between,
     header.flex.justify-between {
         flex-direction: column;
         align-items: flex-start !important;
-        gap: var(--spacing-sm);
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
     }
 
     .flex.gap-1.items-center {
         flex-direction: column;
         width: 100%;
         align-items: stretch !important;
+        gap: var(--spacing-sm);
     }
 
     .form-control[style*="width: 250px"] {
@@ -376,26 +434,20 @@ a:hover {
         overflow-x: auto;
         width: 100%;
         display: block;
+        margin-bottom: var(--spacing-md);
     }
 
     /* Target inline grid gaps and alignments on cards */
     .grid.gap-2 {
-        gap: var(--spacing-sm) !important;
+        gap: var(--spacing-lg) !important;
         grid-template-columns: 1fr !important;
+        margin-bottom: var(--spacing-lg) !important;
     }
 
     #raw-scheme-container .flex.justify-between,
     #optimized-scheme-container .flex.justify-between {
         flex-direction: column !important;
-        gap: var(--spacing-xs);
-    }
-
-    .sidebar-nav {
-        gap: var(--spacing-xs);
-    }
-
-    .sidebar-nav a {
-        font-size: 0.85rem;
+        gap: var(--spacing-sm);
     }
 }
 

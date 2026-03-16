@@ -3,13 +3,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
 
-    if (!sessionId) {
-        alert("No session provided.");
-        window.location.href = 'index.html';
-        return;
-    }
-
     let session, students;
+
+    if (!sessionId) {
+        // Fallback: If no session ID is provided in URL, try to load the most recent session
+        try {
+            const allSessions = await window.PlaybookDB.getAllSessions();
+            if (allSessions && allSessions.length > 0) {
+                // Sort by ID (timestamp) descending to get the newest
+                allSessions.sort((a, b) => Number(b.id) - Number(a.id));
+                const mostRecentSession = allSessions[0];
+                window.location.href = `analytics.html?session=${mostRecentSession.id}`;
+                return;
+            } else {
+                alert("No sessions available to analyze. Please upload and grade exams first.");
+                window.location.href = 'index.html';
+                return;
+            }
+        } catch (e) {
+            alert("No session provided and failed to load recent sessions.");
+            window.location.href = 'index.html';
+            return;
+        }
+    }
 
     try {
         session = await window.PlaybookDB.getSession(sessionId);
