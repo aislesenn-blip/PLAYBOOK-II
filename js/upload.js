@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     id: `${sessionId}-${i}`,
                     sessionId: sessionId,
                     studentName: gradingResult.studentName || `Student ${i+1}`,
+                    registrationNumber: gradingResult.registrationNumber || 'Unknown ID',
                     pages: studentExams[i], // Store images for review
                     grading: gradingResult
                 };

@@ -80,7 +80,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const student = students[index];
 
         document.getElementById('current-student-idx').textContent = index + 1;
-        document.getElementById('student-name').textContent = student.studentName;
+        document.getElementById('student-name').textContent = student.studentName || 'Unknown Student';
+
+        const regNumElem = document.getElementById('student-reg-num');
+        if (regNumElem) {
+            regNumElem.textContent = student.registrationNumber || 'No ID';
+        }
 
         prevBtn.disabled = index === 0;
         nextBtn.disabled = index === students.length - 1;
@@ -118,10 +123,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             const questionId = q.questionId !== undefined ? q.questionId : q.questionNumber;
             const justification = q.justification !== undefined ? q.justification : q.analysis;
             const constructiveFeedback = q.constructive_feedback !== undefined ? q.constructive_feedback : q.feedback;
+            const answerStatus = q.answer_status || "Answered"; // Default to Answered for legacy data
+
+            // Apply conditional styling for Skipped vs Answered
+            const statusBadgeColor = answerStatus.toLowerCase() === "skipped" ? "background-color: var(--danger-color, #e74c3c); color: white;" : "background-color: #eee; color: #333;";
 
             itemDiv.innerHTML = `
                 <div class="grading-header">
-                    <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question ${questionId}: ${q.questionTitle}</h4>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question ${questionId}: ${q.questionTitle}</h4>
+                        <span style="font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; ${statusBadgeColor}">${answerStatus}</span>
+                    </div>
                     <div class="flex items-center gap-1">
                         <div class="score-display"><span class="score-badge">${marksAwarded}</span> / ${maxMarks}</div>
                         <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-qindex="${qIndex}">Override</button>
