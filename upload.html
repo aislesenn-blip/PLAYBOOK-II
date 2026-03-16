@@ -27,38 +27,44 @@
                 <p>Upload your scanned student exams and the corresponding marking scheme. Playbook's AI will automatically grade all responses—essays, formulas, and short answers.</p>
             </header>
 
-            <form>
+            <form id="upload-form">
                 <div class="form-group">
                     <label class="form-label">Session Name (e.g. HIST 202 - Midterm)</label>
-                    <input type="text" class="form-control" placeholder="Enter session name...">
+                    <input type="text" id="session-name" class="form-control" placeholder="Enter session name..." required>
                 </div>
 
                 <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
                     <!-- Upload Marking Scheme -->
                     <div class="card flex-col items-center">
-                        <h3 class="mb-1">Marking Scheme</h3>
-                        <div class="upload-zone" style="width: 100%;">
+                        <h3 class="mb-1">Marking Scheme (.txt)</h3>
+                        <div class="upload-zone" id="scheme-zone" style="width: 100%;">
                             <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag & drop marking scheme here</p>
                             <p style="font-size: 0.85rem;">or</p>
-                            <button type="button" class="btn btn-secondary mt-1">Browse Files</button>
-                            <p class="mt-1" style="font-size: 0.8rem;">Supports PDF, DOCX, TXT</p>
+                            <label class="btn btn-secondary mt-1">
+                                Browse Files
+                                <input type="file" id="scheme-file" accept=".txt" style="display: none;">
+                            </label>
+                            <p id="scheme-filename" class="mt-1" style="font-size: 0.8rem; font-weight: bold; color: var(--success-color);"></p>
                         </div>
                     </div>
 
                     <!-- Upload Scanned Exams -->
                     <div class="card flex-col items-center">
-                        <h3 class="mb-1">Student Exams</h3>
-                        <div class="upload-zone" style="width: 100%;">
-                            <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag & drop scanned exams here</p>
+                        <h3 class="mb-1">Bulk Scanned Exams (.pdf)</h3>
+                        <div class="upload-zone" id="exams-zone" style="width: 100%;">
+                            <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag & drop scanned bulk PDF here</p>
                             <p style="font-size: 0.85rem;">or</p>
-                            <button type="button" class="btn btn-secondary mt-1">Browse Files</button>
-                            <p class="mt-1" style="font-size: 0.8rem;">Supports PDF, JPG, PNG (Bulk Upload)</p>
+                            <label class="btn btn-secondary mt-1">
+                                Browse Files
+                                <input type="file" id="exams-file" accept=".pdf" style="display: none;">
+                            </label>
+                            <p id="exams-filename" class="mt-1" style="font-size: 0.8rem; font-weight: bold; color: var(--success-color);"></p>
                         </div>
                     </div>
                 </div>
 
                 <div class="text-center mt-2">
-                    <button type="button" id="start-grading-btn" class="btn" style="padding: 1rem 3rem; font-size: 1.1rem;">Start AI Grading</button>
+                    <button type="submit" id="start-grading-btn" class="btn" style="padding: 1rem 3rem; font-size: 1.1rem;">Start AI Grading</button>
                 </div>
             </form>
         </main>
@@ -67,10 +73,16 @@
     <!-- Loading Overlay -->
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <h2 style="margin-top: 1rem;">Analyzing Exams...</h2>
-        <p>Playbook AI is evaluating student responses against your marking scheme.</p>
+        <h2 style="margin-top: 1rem;" id="loading-status">Analyzing Exams...</h2>
+        <p id="loading-detail">Playbook AI is evaluating student responses against your marking scheme.</p>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+    <script src="js/db.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/upload.js"></script>
 </body>
 </html>

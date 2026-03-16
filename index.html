@@ -30,18 +30,30 @@
                 <a href="upload.html" class="btn">New Grading Session</a>
             </header>
 
+            <!-- Configuration Section -->
+            <section class="card flex justify-between items-center mb-2" style="background-color: var(--surface-color);">
+                <div>
+                    <h3 class="mb-1" style="font-size: 1.1rem;">API Configuration</h3>
+                    <p style="font-size: 0.9rem;">Configure your OpenRouter API Key to enable the AI Grading Engine.</p>
+                </div>
+                <div class="flex gap-1 items-center">
+                    <input type="password" id="api-key-input" class="form-control" placeholder="sk-or-v1-..." style="width: 250px;">
+                    <button id="save-key-btn" class="btn btn-secondary">Save Key</button>
+                </div>
+            </section>
+
             <!-- Stats Grid -->
             <section class="grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
                 <div class="card stat-card">
-                    <div class="stat-number">1,248</div>
+                    <div class="stat-number" id="stat-total-graded">0</div>
                     <div class="stat-label">Exams Graded</div>
                 </div>
                 <div class="card stat-card">
-                    <div class="stat-number">12</div>
+                    <div class="stat-number" id="stat-pending">0</div>
                     <div class="stat-label">Pending Reviews</div>
                 </div>
                 <div class="card stat-card">
-                    <div class="stat-number">84%</div>
+                    <div class="stat-number" id="stat-avg">0%</div>
                     <div class="stat-label">Avg. Class Score</div>
                 </div>
             </section>
@@ -52,35 +64,15 @@
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Class</th>
-                            <th>Exam Type</th>
+                            <th>Session Name</th>
+                            <th>Total Students</th>
                             <th>Date</th>
                             <th>Status</th>
                             <th>Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>ECON 101</td>
-                            <td>Midterm</td>
-                            <td>Oct 24, 2023</td>
-                            <td><span class="score-badge" style="color: var(--success-color);">Completed</span></td>
-                            <td><a href="analytics.html">View Analytics</a></td>
-                        </tr>
-                        <tr>
-                            <td>HIST 202</td>
-                            <td>Essay Draft 1</td>
-                            <td>Oct 26, 2023</td>
-                            <td><span class="score-badge" style="color: var(--highlight-color);">Pending Review</span></td>
-                            <td><a href="review.html">Review</a></td>
-                        </tr>
-                        <tr>
-                            <td>CS 300</td>
-                            <td>Algorithms Quiz</td>
-                            <td>Oct 27, 2023</td>
-                            <td><span class="score-badge" style="color: var(--text-secondary);">Uploading...</span></td>
-                            <td>-</td>
-                        </tr>
+                    <tbody id="sessions-table-body">
+                        <!-- Populated by JS -->
                     </tbody>
                 </table>
             </section>
@@ -88,5 +80,7 @@
         </main>
     </div>
     <script src="js/app.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/dashboard.js"></script>
 </body>
 </html>

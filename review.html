@@ -57,13 +57,13 @@
         <div class="flex items-center gap-2">
             <a href="index.html" style="font-family: var(--font-serif); font-size: 1.5rem; font-weight: 600; text-transform: uppercase;">Playbook</a>
             <span style="color: var(--text-secondary);">|</span>
-            <span style="font-weight: 500;">HIST 202 - Midterm</span>
+            <span style="font-weight: 500;" id="session-title">Loading Session...</span>
         </div>
 
         <div class="flex items-center gap-1">
-            <span style="font-size: 0.9rem; color: var(--text-secondary);">Student 1 of 42: <strong style="color: var(--text-primary);">Emily Chen</strong></span>
-            <button class="btn btn-secondary" style="padding: 0.5rem 1rem;">&larr; Prev</button>
-            <button class="btn btn-secondary" style="padding: 0.5rem 1rem;">Next &rarr;</button>
+            <span style="font-size: 0.9rem; color: var(--text-secondary);">Student <span id="current-student-idx">0</span> of <span id="total-student-count">0</span>: <strong style="color: var(--text-primary);" id="student-name">...</strong></span>
+            <button class="btn btn-secondary" id="prev-btn" style="padding: 0.5rem 1rem;" disabled>&larr; Prev</button>
+            <button class="btn btn-secondary" id="next-btn" style="padding: 0.5rem 1rem;">Next &rarr;</button>
         </div>
 
         <div>
@@ -76,18 +76,9 @@
         <div class="split-layout">
 
             <!-- Left: Document Preview -->
-            <div class="document-preview card" style="margin: 0;">
-                <!-- Placeholder for actual document rendering (PDF/Image) -->
-                <div class="flex-col items-center" style="color: var(--text-secondary); opacity: 0.5;">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                    <p class="mt-1">Document viewer initialized.</p>
-                    <p style="font-size: 0.8rem;">(Imagine a beautifully rendered high-res scan of a student's handwritten essay here)</p>
+            <div class="document-preview card" style="margin: 0; padding: 0;" id="document-preview-container">
+                <div class="flex-col items-center" style="color: var(--text-secondary); opacity: 0.5; width: 100%; height: 100%; justify-content: center; display: flex;">
+                    <p>Loading document...</p>
                 </div>
             </div>
 
@@ -97,56 +88,12 @@
                     <h2>AI Evaluation</h2>
                     <div style="text-align: right;">
                         <span style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary);">Total Score</span>
-                        <div style="font-family: var(--font-serif); font-size: 2rem;">88 / 100</div>
+                        <div style="font-family: var(--font-serif); font-size: 2rem;" id="total-score-display">0 / 0</div>
                     </div>
                 </div>
 
-                <!-- Q1 -->
-                <div class="grading-item">
-                    <div class="grading-header">
-                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question 1: French Revolution Causes</h4>
-                        <div class="flex items-center gap-1">
-                            <div class="score-display"><span class="score-badge">18</span> / 20</div>
-                            <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Override</button>
-                        </div>
-                    </div>
-                    <p class="mb-1" style="font-size: 0.9rem;"><strong>AI Analysis:</strong> Excellent grasp of economic factors. Missed nuanced discussion on Enlightenment philosophy impact.</p>
-                    <div class="feedback-box">
-                        <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Suggested Student Feedback:</strong>
-                        "Your analysis of the taxation system was spot on. However, to achieve full marks, ensure you weave in how Enlightenment thinkers like Rousseau provided the ideological framework for the revolt."
-                    </div>
-                </div>
-
-                <!-- Q2 -->
-                <div class="grading-item">
-                    <div class="grading-header">
-                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question 2: Industrialization in Britain</h4>
-                        <div class="flex items-center gap-1">
-                            <div class="score-display"><span class="score-badge">25</span> / 25</div>
-                            <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Override</button>
-                        </div>
-                    </div>
-                    <p class="mb-1" style="font-size: 0.9rem;"><strong>AI Analysis:</strong> Comprehensive response covering technological, geographic, and political advantages.</p>
-                    <div class="feedback-box">
-                        <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Suggested Student Feedback:</strong>
-                        "Exceptional work. Your synthesis of geographic advantages (coal/iron deposits) with political stability perfectly answers the prompt."
-                    </div>
-                </div>
-
-                <!-- Q3 -->
-                <div class="grading-item">
-                    <div class="grading-header">
-                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question 3: Essay - The Cold War</h4>
-                        <div class="flex items-center gap-1">
-                            <div class="score-display"><span class="score-badge">45</span> / 55</div>
-                            <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Override</button>
-                        </div>
-                    </div>
-                    <p class="mb-1" style="font-size: 0.9rem;"><strong>AI Analysis:</strong> Strong thesis, but the argument weakens in the third paragraph regarding proxy wars. Grammar and structure are solid.</p>
-                    <div class="feedback-box">
-                        <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Suggested Student Feedback:</strong>
-                        "A very solid essay overall. Your introduction sets up a clear thesis. The section on the Cuban Missile Crisis is strong, but your paragraph on the Vietnam War lacks specific historical detail. Review Chapter 14 for key dates and figures."
-                    </div>
+                <div id="grading-items-container">
+                    <!-- Populated by JS -->
                 </div>
 
             </div>
@@ -154,5 +101,7 @@
     </div>
 
     <script src="js/app.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/review.js"></script>
 </body>
 </html>
