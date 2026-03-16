@@ -107,11 +107,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // CSV Download
         document.getElementById('download-csv-btn').addEventListener('click', () => {
-            let csv = 'Student ID,Name,Score,Max Score\n';
+            let csv = 'Registration No.,Name,Score,Max Score\n';
             students.forEach(st => {
                 const score = st.grading ? st.grading.totalScore : 0;
                 const max = st.grading ? st.grading.maxScore : 100;
-                csv += `${st.id},"${st.studentName}",${score},${max}\n`;
+                const regNo = st.registrationNumber || 'Unknown ID';
+                csv += `"${regNo}","${st.studentName}",${score},${max}\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
@@ -143,9 +144,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             else if (percentage >= 70) { grade = 'C'; gradeColor = 'var(--highlight-color)'; }
             else if (percentage >= 60) { grade = 'D'; gradeColor = 'var(--highlight-color)'; }
 
+            const regNo = st.registrationNumber || 'Unknown ID';
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>#${idx + 1000}</td>
+                <td>${regNo}</td>
                 <td>${st.studentName}</td>
                 <td>${score} / ${max}</td>
                 <td><span class="score-badge" style="color: ${gradeColor};">${grade}</span></td>
@@ -174,6 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         content += `========================================\n\n`;
         content += `Session: ${session.name}\n`;
         content += `Student: ${student.studentName}\n`;
+        content += `Registration No: ${student.registrationNumber || 'Unknown ID'}\n`;
 
         const score = student.grading ? student.grading.totalScore : 0;
         const max = student.grading ? student.grading.maxScore : 100;

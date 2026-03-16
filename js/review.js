@@ -59,7 +59,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         for(let st of students) {
             let sTotal = 0;
             if(st.grading && st.grading.questions) {
-                st.grading.questions.forEach(q => sTotal += parseFloat(q.marks_awarded));
+                st.grading.questions.forEach(q => {
+                    // Safe parse, handle old db schemas
+                    const val = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                    const parsed = parseFloat(val);
+                    if (!isNaN(parsed)) {
+                        sTotal += parsed;
+                    }
+                });
             }
             st.grading.totalScore = sTotal;
             await window.PlaybookDB.saveStudent(st);
@@ -165,7 +172,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     // Recalculate total score instantly
                     let newTotal = 0;
-                    student.grading.questions.forEach(q => newTotal += parseFloat(q.marks_awarded !== undefined ? q.marks_awarded : q.score));
+                    student.grading.questions.forEach(q => {
+                        const val = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                        const parsed = parseFloat(val);
+                        if (!isNaN(parsed)) newTotal += parsed;
+                    });
                     student.grading.totalScore = newTotal;
                     document.getElementById('total-score-display').textContent = `${newTotal} / ${student.grading.maxScore}`;
 
