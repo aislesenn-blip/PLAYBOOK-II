@@ -4,15 +4,24 @@ const SYSTEM_PROMPT = `
 You are an extremely strict, highly experienced University Professor grading a student's exam to NECTA-level international examination board standards.
 You have been provided with a marking scheme and an image of the student's exam response.
 
-CRITICAL RULES - ZERO TOLERANCE FOR HALLUCINATION:
-1. Exhaustive Evaluation: You MUST identify, read, and evaluate EVERY SINGLE sub-question present in the provided marking scheme against the student's exam. DO NOT stop after one question. Your JSON "questions" array MUST contain an object for EVERY question defined in the marking scheme.
-2. Identity Extraction: You MUST explicitly search the first page of the student's exam for their Name and Registration Number/ID. If not found, use "Unknown Student" and "Unknown ID". Do not hallucinate names.
-3. Deterministic Grading: You must evaluate the answers logically and mechanically. Do not guess. Do not give free marks. Do not deduct unfairly.
-4. ZERO "Participation Points": You must ONLY award marks for explicitly stated, factually correct elements found in the marking scheme. Do not give marks for irrelevant vocabulary, guessing, or trying hard.
-5. MISSING OR SKIPPED ANSWERS: If a student skips a question, leaves it blank, or writes an irrelevant non-answer, the score MUST BE 0. You must explicitly classify the answer_status as "Skipped".
-6. Granular Breakdown: You MUST break down the grading to the lowest possible sub-question level (e.g., 1a, 1b(i), 1b(ii), etc.) as defined in the marking scheme. Do not group or generalize feedback for multi-part questions.
-7. Strict Justification: For every sub-question, you must provide a strict, clinical explanation of exactly why the specific mark was given and why it did not get full marks (explicitly referencing the marking scheme).
-8. Mathematical Integrity: The root "totalScore" MUST equal the exact mathematical sum of every "marks_awarded" in your "questions" array.
+CRITICAL RULES & FOUR TIERS OF EVALUATION:
+1. Exhaustive Evaluation: You MUST evaluate EVERY SINGLE sub-question present in the marking scheme. DO NOT stop after one.
+2. Identity Extraction: You MUST extract the student's Name and Registration Number/ID from the first page. Do not hallucinate.
+3. Granular Breakdown: You MUST break down grading to the lowest sub-question level (e.g., 1a, 1b(i)) defined in the scheme.
+4. Mathematical Integrity: "totalScore" MUST perfectly equal the mathematical sum of every "marks_awarded".
+
+*** FOUR TIERS OF EVALUATION (EXECUTE FLAWLESSLY) ***
+TIER 1: SEMANTIC EQUIVALENCE (FULL MARKS)
+Evaluate the meaning, not just exact keywords. If the student provides scientifically/academically valid synonyms (e.g. 'conditions that do not change' instead of 'absence of heterogeneity'), award FULL MARKS. Keyword-matching is strictly forbidden.
+TIER 2: PARTIAL UNDERSTANDING (PROPORTIONAL MARKS)
+If the core concept is right but a key technical detail is missing, award fair, proportional partial credit. Never give a harsh 0 or a full score for partial understanding.
+TIER 3: OUT OF SCOPE / FUNDAMENTALLY WRONG (EXACTLY 0 MARKS)
+If the student answers with fundamentally incorrect concepts (e.g. writing 'Seed' instead of 'Technology'), the score MUST BE 0. No effort marks. No participation points. Be ruthless.
+TIER 4: MISSING / SKIPPED (EXACTLY 0 MARKS)
+If there is no text, or the question is skipped, score is 0. Explicitly set "answer_status" to "Skipped".
+
+CLINICAL JUSTIFICATION & CONSTRUCTIVE FEEDBACK:
+For every question, "justification" must explicitly state what was awarded and why, using clinical language (e.g., "Awarded 0.5/1 because the student mentioned X, but failed to mention Y as required by the marking scheme"). "constructive_feedback" MUST NOT BE EMPTY; provide actionable advice based on the gap in knowledge.
 
 Your output must strictly be a JSON object adhering to the following schema. Return ONLY valid JSON without markdown wrapping. The "questions" array below is an EXAMPLE; you must return ALL questions.
 
@@ -35,7 +44,8 @@ Your output must strictly be a JSON object adhering to the following schema. Ret
 }
 `;
 
-async function analyzeExamWithAI(imageDataUrls, markingSchemeText) {
+// Pass the API key explicitly to allow Web Worker usage
+async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
     try {
         const userContent = [
             {
@@ -52,10 +62,12 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText) {
             });
         });
 
-        const apiKey = localStorage.getItem('PLAYBOOK_API_KEY');
-
         if (!apiKey) {
-            throw new Error("No API key found. Please configure your API key in the Dashboard.");
+            // Fallback for main thread testing if needed, though mostly passed by worker
+            apiKey = typeof window !== 'undefined' ? localStorage.getItem('PLAYBOOK_API_KEY') : null;
+            if (!apiKey) {
+                throw new Error("No API key found. Please configure your API key.");
+            }
         }
 
         const response = await fetch(API_URL, {
@@ -125,6 +137,9 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText) {
     }
 }
 
-window.PlaybookAI = {
-    analyzeExamWithAI
-};
+// Export for both main thread and Web Worker environments
+if (typeof window !== 'undefined') {
+    window.PlaybookAI = { analyzeExamWithAI };
+} else {
+    self.PlaybookAI = { analyzeExamWithAI };
+}

@@ -87,6 +87,16 @@
         <div class="spinner"></div>
         <h2 style="margin-top: 1rem;" id="loading-status">Analyzing Exams...</h2>
         <p id="loading-detail">Playbook AI is evaluating student responses against your marking scheme.</p>
+
+        <!-- Real-time grading progress log -->
+        <div id="realtime-log-container" style="display: none; width: 80%; max-width: 600px; margin-top: 2rem; text-align: left; background: #fff; padding: 1rem; border-radius: 4px; box-shadow: var(--shadow); max-height: 200px; overflow-y: auto;">
+            <h4 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-primary);">Live Processing Log</h4>
+            <ul id="realtime-log" style="list-style-type: none; padding-left: 0; margin-bottom: 0; font-size: 0.85rem; color: var(--text-secondary);">
+                <!-- Populated dynamically -->
+            </ul>
+        </div>
+
+        <button id="cancel-grading-btn" class="btn btn-secondary mt-2" style="display: none;">Stop / Cancel Grading</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>

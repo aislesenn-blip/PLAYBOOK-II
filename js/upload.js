@@ -91,48 +91,130 @@ document.addEventListener('DOMContentLoaded', () => {
                 date: new Date().toLocaleDateString(),
                 status: 'Grading...',
                 totalStudents: studentExams.length,
-                gradedCount: 0
+                gradedCount: 0,
+                accumulatedTotalScore: 0,
+                highestScore: 0
             };
             await window.PlaybookDB.saveSession(sessionData);
 
-            // Grade Each Student
-            let totalScore = 0;
-            let highestScore = 0;
+            // Setup Real-time UI Elements
+            const realtimeLogContainer = document.getElementById('realtime-log-container');
+            const realtimeLog = document.getElementById('realtime-log');
+            const cancelBtn = document.getElementById('cancel-grading-btn');
 
-            for (let i = 0; i < studentExams.length; i++) {
-                statusEl.textContent = `AI Grading Student ${i + 1} of ${studentExams.length}...`;
-                detailEl.textContent = 'Evaluating responses and generating feedback.';
+            realtimeLogContainer.style.display = 'block';
+            cancelBtn.style.display = 'inline-block';
+            realtimeLog.innerHTML = '';
 
-                // Send all pages of the student's exam to the API
-                const pages = studentExams[i];
+            // Retrieve API key for worker
+            const apiKey = localStorage.getItem('PLAYBOOK_API_KEY');
 
-                const gradingResult = await window.PlaybookAI.analyzeExamWithAI(pages, markingSchemeText);
+            // Initialize Web Worker
+            let worker = new Worker('js/worker.js');
 
-                const studentData = {
-                    id: `${sessionId}-${i}`,
-                    sessionId: sessionId,
-                    studentName: gradingResult.studentName || `Student ${i+1}`,
-                    registrationNumber: gradingResult.registrationNumber || 'Unknown ID',
-                    pages: studentExams[i], // Store images for review
-                    grading: gradingResult
-                };
+            cancelBtn.onclick = async () => {
+                if (worker) {
+                    worker.terminate();
+                    worker = null;
 
-                await window.PlaybookDB.saveStudent(studentData);
+                    // Update session status to Partial
+                    sessionData.status = 'Pending Review (Partial)';
+                    if (sessionData.gradedCount > 0) {
+                        sessionData.averageScore = Math.round(sessionData.accumulatedTotalScore / sessionData.gradedCount);
+                    }
+                    await window.PlaybookDB.saveSession(sessionData);
 
-                // Update Session Stats
-                sessionData.gradedCount++;
-                totalScore += gradingResult.totalScore;
-                if(gradingResult.totalScore > highestScore) highestScore = gradingResult.totalScore;
-                await window.PlaybookDB.saveSession(sessionData);
-            }
+                    alert('Grading cancelled. You can review the students graded so far.');
+                    window.location.href = `review.html?session=${sessionId}`;
+                }
+            };
 
-            // Finalize Session
-            sessionData.status = 'Pending Review';
-            sessionData.averageScore = Math.round(totalScore / studentExams.length);
-            sessionData.highestScore = highestScore;
-            await window.PlaybookDB.saveSession(sessionData);
+            worker.onmessage = async (msg) => {
+                const { type, payload } = msg.data;
 
-            window.location.href = `review.html?session=${sessionId}`;
+                if (type === 'PROGRESS_UPDATE') {
+                    statusEl.textContent = `AI Grading Student ${payload.studentIndex + 1} of ${payload.totalStudents}...`;
+                    detailEl.textContent = 'Evaluating responses and generating feedback in the background.';
+                }
+                else if (type === 'STUDENT_GRADED') {
+                    const { studentData, studentIndex, totalStudents } = payload;
+
+                    // Re-verify the single source of truth for total score
+                    let calcTotalScore = 0;
+                    if (studentData.grading && studentData.grading.questions && Array.isArray(studentData.grading.questions)) {
+                        studentData.grading.questions.forEach(q => {
+                            const marks = parseFloat(q.marks_awarded);
+                            if (!isNaN(marks)) calcTotalScore += marks;
+                        });
+                    }
+
+                    // Override any hallucinated totals with our programmatic calculation
+                    studentData.grading.totalScore = calcTotalScore;
+
+                    // Save individual student to IndexedDB instantly
+                    await window.PlaybookDB.saveStudent(studentData);
+
+                    // Update running totals in session immediately
+                    sessionData.gradedCount++;
+                    sessionData.accumulatedTotalScore += calcTotalScore;
+                    if (calcTotalScore > sessionData.highestScore) {
+                        sessionData.highestScore = calcTotalScore;
+                    }
+                    await window.PlaybookDB.saveSession(sessionData);
+
+                    // Update UI Log
+                    const li = document.createElement('li');
+                    li.style.padding = '0.3rem 0';
+                    li.style.borderBottom = '1px solid #eee';
+                    li.innerHTML = `<strong>[Student ${studentIndex + 1}/${totalStudents}]</strong> Graded ${studentData.studentName} - Score: ${calcTotalScore}`;
+                    realtimeLog.appendChild(li);
+
+                    // Scroll to bottom of log
+                    realtimeLogContainer.scrollTop = realtimeLogContainer.scrollHeight;
+                }
+                else if (type === 'ALL_DONE') {
+                    worker.terminate();
+                    worker = null;
+
+                    // Finalize Session
+                    sessionData.status = 'Pending Review';
+                    if (sessionData.gradedCount > 0) {
+                        sessionData.averageScore = Math.round(sessionData.accumulatedTotalScore / sessionData.gradedCount);
+                    }
+                    await window.PlaybookDB.saveSession(sessionData);
+
+                    statusEl.textContent = 'Grading Complete!';
+                    detailEl.textContent = 'Redirecting to review...';
+
+                    setTimeout(() => {
+                        window.location.href = `review.html?session=${sessionId}`;
+                    }, 500);
+                }
+                else if (type === 'ERROR') {
+                    console.error("Worker error:", payload.message);
+                    alert(`An error occurred during background grading: ${payload.message}`);
+                    worker.terminate();
+                    overlay.classList.remove('active');
+                }
+            };
+
+            worker.onerror = (err) => {
+                console.error("Worker failed:", err);
+                alert("Fatal error in grading worker.");
+                worker.terminate();
+                overlay.classList.remove('active');
+            };
+
+            // Start the Worker
+            worker.postMessage({
+                type: 'START_GRADING',
+                payload: {
+                    studentExams,
+                    markingSchemeText,
+                    sessionId,
+                    apiKey
+                }
+            });
 
         } catch (error) {
             console.error(error);
