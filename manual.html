@@ -89,6 +89,54 @@
                     </div>
                 </section>
 
+                <section class="manual-section" id="standard-marking-scheme">
+                    <h2>The Playbook Standard Marking Scheme Format</h2>
+                    <p>To guarantee 100% deterministic grading across thousands of exams (including diagrams, codes, and complex calculations), you <strong>must</strong> format your Marking Scheme text file according to the strict rules below. Do not explain the AI to the system; simply provide explicit, mechanical instructions.</p>
+
+                    <h3>1. Hierarchical Question Separation</h3>
+                    <p>Clearly separate questions and their sub-parts using a consistent alphanumeric hierarchy. Always define the maximum score for the specific sub-part.</p>
+                    <ul>
+                        <li>Use standard formats like <strong>Question 1</strong>, <strong>1a</strong>, <strong>1b(i)</strong>.</li>
+                        <li>Do not group answers. Each sub-part must have its own dedicated grading criteria.</li>
+                    </ul>
+
+                    <h3>2. Explicit Point Allocation</h3>
+                    <p>State exactly how many marks are awarded for each specific keyword, step, or concept. Leave zero ambiguity for the AI.</p>
+                    <ul>
+                        <li>Use phrases like: <em>"Award [1 mark] for mentioning 'Chlorophyll'."</em></li>
+                        <li>For math/code: <em>"Award [1 mark] for the correct formula. Award [1 mark] for the correct final answer (42)."</em></li>
+                    </ul>
+
+                    <h3>3. Strict Rules for Visuals, Diagrams & Code</h3>
+                    <p>When asking students to draw, sketch, or code, you must define the exact structural elements the AI should look for to prevent hallucination or cheating.</p>
+                    <ul>
+                        <li><strong>Diagrams:</strong> Define the required shapes and explicit labels. Example: <em>"Award [1 mark] if a circle representing the nucleus is drawn. Award [1 mark] if the line pointing to the circle is explicitly labeled 'Nucleus'."</em></li>
+                        <li><strong>Code:</strong> Specify required syntax or logic. Example: <em>"Award [2 marks] if a 'for' loop is used. Deduct [1 mark] if a semicolon is missing at the end of line 3."</em></li>
+                    </ul>
+
+                    <h3>4. Before & After Example</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); margin-top: var(--spacing-sm);">
+                        <div style="background: #fffafa; border: 1px solid var(--error-color); padding: var(--spacing-sm);">
+                            <h4 style="color: var(--error-color); margin-bottom: 0.5rem;">❌ Bad Format (Ambiguous)</h4>
+                            <pre style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary); white-space: pre-wrap;">Question 1 (5 marks)
+The student should explain photosynthesis. They need to mention the sun, water, and chlorophyll. If they draw a good diagram, give them full marks. Otherwise give them partial credit.</pre>
+                        </div>
+                        <div style="background: #f4fbf4; border: 1px solid var(--success-color); padding: var(--spacing-sm);">
+                            <h4 style="color: var(--success-color); margin-bottom: 0.5rem;">✅ Playbook Standard Format</h4>
+                            <pre style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary); white-space: pre-wrap;">Question 1: Photosynthesis (Total: 5 marks)
+
+1a: Definition (Max: 3 marks)
+- Award [1 mark] for stating "conversion of light energy to chemical energy".
+- Award [1 mark] for explicitly writing the word "Chlorophyll".
+- Award [1 mark] for mentioning "Water" or "H2O".
+
+1b: Diagram (Max: 2 marks)
+- Award [1 mark] if a leaf shape is drawn.
+- Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is explicitly labeled "Sunlight".</pre>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="manual-section">
                     <h2>Step-by-Step Workflow (How to Use It)</h2>
                     <ol>

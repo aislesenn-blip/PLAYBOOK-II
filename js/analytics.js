@@ -43,11 +43,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (st.grading && st.grading.questions) {
                 st.grading.questions.forEach(q => {
-                    if (!questionScores[q.questionNumber]) {
-                        questionScores[q.questionNumber] = { total: 0, count: 0, title: q.questionTitle };
+                    const qId = q.questionId !== undefined ? q.questionId : q.questionNumber;
+                    const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                    const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
+
+                    if (!questionScores[qId]) {
+                        questionScores[qId] = { total: 0, count: 0, title: q.questionTitle };
                     }
-                    questionScores[q.questionNumber].total += (parseFloat(q.score) / parseFloat(q.maxScore));
-                    questionScores[q.questionNumber].count++;
+                    questionScores[qId].total += (parseFloat(marksAwarded) / parseFloat(maxMarks));
+                    questionScores[qId].count++;
                 });
             }
         });
@@ -178,10 +182,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (student.grading && student.grading.questions) {
             student.grading.questions.forEach(q => {
-                content += `Question ${q.questionNumber}: ${q.questionTitle}\n`;
-                content += `Score: ${q.score} / ${q.maxScore}\n\n`;
-                content += `AI Analysis:\n${q.analysis}\n\n`;
-                content += `Feedback:\n${q.feedback}\n\n`;
+                const qId = q.questionId !== undefined ? q.questionId : q.questionNumber;
+                const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
+                const justification = q.justification !== undefined ? q.justification : q.analysis;
+                const constructiveFeedback = q.constructive_feedback !== undefined ? q.constructive_feedback : q.feedback;
+
+                content += `Question ${qId}: ${q.questionTitle}\n`;
+                content += `Score: ${marksAwarded} / ${maxMarks}\n\n`;
+                content += `AI Justification:\n${justification}\n\n`;
+                content += `Constructive Feedback:\n${constructiveFeedback}\n\n`;
                 content += `----------------------------------------\n\n`;
             });
         } else {

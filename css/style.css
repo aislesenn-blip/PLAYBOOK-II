@@ -248,7 +248,7 @@ a:hover {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--spacing-lg);
-    height: calc(100vh - 4rem - 2px);
+    overflow: hidden; /* Added to contain inner scrolling */
 }
 
 .document-preview {
@@ -272,6 +272,8 @@ a:hover {
     gap: var(--spacing-md);
     overflow-y: auto;
     padding-right: var(--spacing-sm);
+    height: 100%; /* Force it to take the height of its grid cell */
+    padding-bottom: var(--spacing-lg); /* Add bottom padding so content isn't cut off */
 }
 
 .score-badge {

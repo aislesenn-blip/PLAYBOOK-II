@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         for(let st of students) {
             let sTotal = 0;
             if(st.grading && st.grading.questions) {
-                st.grading.questions.forEach(q => sTotal += parseFloat(q.score));
+                st.grading.questions.forEach(q => sTotal += parseFloat(q.marks_awarded));
             }
             st.grading.totalScore = sTotal;
             await window.PlaybookDB.saveStudent(st);
@@ -112,18 +112,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'grading-item';
 
+            // Support backward compatibility if previous db schema elements exist
+            const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+            const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
+            const questionId = q.questionId !== undefined ? q.questionId : q.questionNumber;
+            const justification = q.justification !== undefined ? q.justification : q.analysis;
+            const constructiveFeedback = q.constructive_feedback !== undefined ? q.constructive_feedback : q.feedback;
+
             itemDiv.innerHTML = `
                 <div class="grading-header">
-                    <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question ${q.questionNumber}: ${q.questionTitle}</h4>
+                    <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question ${questionId}: ${q.questionTitle}</h4>
                     <div class="flex items-center gap-1">
-                        <div class="score-display"><span class="score-badge">${q.score}</span> / ${q.maxScore}</div>
+                        <div class="score-display"><span class="score-badge">${marksAwarded}</span> / ${maxMarks}</div>
                         <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-qindex="${qIndex}">Override</button>
                     </div>
                 </div>
-                <p class="mb-1" style="font-size: 0.9rem;"><strong>AI Analysis:</strong> ${q.analysis}</p>
+                <p class="mb-1" style="font-size: 0.9rem;"><strong>AI Justification:</strong> ${justification}</p>
                 <div class="feedback-box">
-                    <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Suggested Student Feedback:</strong>
-                    <textarea class="feedback-edit" style="width:100%; height:60px; border:1px solid transparent; background:transparent; font-family:inherit; font-size:inherit; color:inherit; resize:none;" readonly>${q.feedback}</textarea>
+                    <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Constructive Feedback:</strong>
+                    <textarea class="feedback-edit" style="width:100%; height:60px; border:1px solid transparent; background:transparent; font-family:inherit; font-size:inherit; color:inherit; resize:none;" readonly>${constructiveFeedback}</textarea>
                 </div>
             `;
             gradingContainer.appendChild(itemDiv);
@@ -141,19 +148,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const input = itemDiv.querySelector('.override-input');
                     const newScore = parseFloat(input.value) || 0;
 
-                    student.grading.questions[qIndex].score = newScore;
-                    student.grading.questions[qIndex].feedback = feedbackArea.value;
+                    student.grading.questions[qIndex].marks_awarded = newScore;
+                    student.grading.questions[qIndex].constructive_feedback = feedbackArea.value;
 
                     // Recalculate total score instantly
                     let newTotal = 0;
-                    student.grading.questions.forEach(q => newTotal += parseFloat(q.score));
+                    student.grading.questions.forEach(q => newTotal += parseFloat(q.marks_awarded !== undefined ? q.marks_awarded : q.score));
                     student.grading.totalScore = newTotal;
                     document.getElementById('total-score-display').textContent = `${newTotal} / ${student.grading.maxScore}`;
 
                     // Persist to DB
                     await window.PlaybookDB.saveStudent(student);
 
-                    scoreDisplay.innerHTML = `<span class="score-badge">${newScore}</span> / ${q.maxScore}`;
+                    scoreDisplay.innerHTML = `<span class="score-badge">${newScore}</span> / ${maxMarks}`;
                     overrideBtn.textContent = 'Override';
                     itemDiv.classList.remove('editing');
                     feedbackArea.readOnly = true;
@@ -162,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 } else {
                     // Edit
-                    scoreDisplay.innerHTML = `<input type="number" class="override-input" value="${q.score}" max="${q.maxScore}" min="0"> / ${q.maxScore}`;
+                    scoreDisplay.innerHTML = `<input type="number" class="override-input" value="${marksAwarded}" max="${maxMarks}" min="0"> / ${maxMarks}`;
                     overrideBtn.textContent = 'Save';
                     itemDiv.classList.add('editing');
                     feedbackArea.readOnly = false;

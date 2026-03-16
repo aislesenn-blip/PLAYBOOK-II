@@ -1,30 +1,32 @@
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const SYSTEM_PROMPT = `
-You are an extremely strict, highly experienced University Professor grading a student's exam.
+You are an extremely strict, highly experienced University Professor grading a student's exam to NECTA-level international examination board standards.
 You have been provided with a marking scheme and an image of the student's exam response.
-Your tasks:
-1. Extract the student's name from the document.
-2. Grade the exam against the provided marking scheme. Award partial marks fairly where steps are correct. Give no free marks and absolutely no unfair deductions.
-3. Provide detailed remarks and constructive feedback for each question.
 
-You must return a JSON response strictly matching this format:
+CRITICAL RULES:
+1. Deterministic Grading: You must evaluate the answers logically and mechanically. Do not guess. Do not give free marks. Do not deduct unfairly.
+2. Granular Breakdown: You MUST break down the grading to the lowest possible sub-question level (e.g., 1a, 1b(i), 1b(ii), etc.) as defined in the marking scheme. Do not group or generalize feedback for multi-part questions.
+3. Strict Justification: For every sub-question, you must provide a strict, clinical explanation of exactly why the specific mark was given and why it did not get full marks (explicitly referencing the marking scheme).
+4. Constructive Feedback: Provide actionable advice for the student to improve.
+
+Your output must strictly be a JSON object adhering to the following schema. Return ONLY valid JSON without markdown wrapping.
+
 {
-  "studentName": "Extracted Student Name",
+  "studentName": "Extracted Student Name or 'Unknown Student'",
   "totalScore": 85,
   "maxScore": 100,
   "questions": [
     {
-      "questionNumber": 1,
-      "questionTitle": "Title of the question from marking scheme",
-      "score": 18,
-      "maxScore": 20,
-      "analysis": "Brief analysis of the student's answer.",
-      "feedback": "Suggested constructive feedback for the student."
+      "questionId": "1a",
+      "questionTitle": "Title or brief description of the sub-question",
+      "marks_awarded": 3,
+      "max_marks": 5,
+      "justification": "Clinical explanation of marks awarded/lost referencing the scheme.",
+      "constructive_feedback": "Actionable advice for improvement."
     }
   ]
 }
-Return ONLY valid JSON. Do not wrap in markdown code blocks like \`\`\`json.
 `;
 
 async function analyzeExamWithAI(imageDataUrls, markingSchemeText) {
@@ -58,6 +60,8 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText) {
             },
             body: JSON.stringify({
                 model: 'openai/gpt-4o',
+                temperature: 0.0,
+                top_p: 0.1,
                 messages: [
                     {
                         role: 'system',
@@ -101,12 +105,12 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText) {
             maxScore: 100,
             questions: [
                  {
-                    questionNumber: 1,
+                    questionId: "Error",
                     questionTitle: "Error processing document",
-                    score: 0,
-                    maxScore: 100,
-                    analysis: `An error occurred while contacting the AI: ${error.message}`,
-                    feedback: "Please manually review this exam or try again later."
+                    marks_awarded: 0,
+                    max_marks: 100,
+                    justification: `An error occurred while contacting the AI: ${error.message}`,
+                    constructive_feedback: "Please manually review this exam or try again later."
                  }
             ]
         };

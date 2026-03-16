@@ -37,7 +37,10 @@
                 <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
                     <!-- Upload Marking Scheme -->
                     <div class="card flex-col items-center">
-                        <h3 class="mb-1">Marking Scheme (.txt)</h3>
+                        <div class="flex justify-between items-center" style="width: 100%;">
+                            <h3 class="mb-1">Marking Scheme (.txt)</h3>
+                            <a href="manual.html#standard-marking-scheme" target="_blank" style="font-size: 0.8rem; text-decoration: underline; color: var(--text-secondary); margin-bottom: var(--spacing-sm);">View Format Guide</a>
+                        </div>
                         <div class="upload-zone" id="scheme-zone" style="width: 100%;">
                             <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag & drop marking scheme here</p>
                             <p style="font-size: 0.85rem;">or</p>
@@ -46,6 +49,14 @@
                                 <input type="file" id="scheme-file" accept=".txt" style="display: none;">
                             </label>
                             <p id="scheme-filename" class="mt-1" style="font-size: 0.8rem; font-weight: bold; color: var(--success-color);"></p>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: var(--spacing-sm); padding: var(--spacing-sm); background: #f9f9f9; border-left: 3px solid var(--accent-color); width: 100%;">
+                            <strong>Quick Rules for 100% Deterministic Grading:</strong>
+                            <ul style="padding-left: 1rem; margin-top: 0.25rem;">
+                                <li>Use hierarchical labels (e.g., <strong>1a</strong>, <strong>1b(i)</strong>).</li>
+                                <li>Explicitly allocate points (e.g., <em>"Award [1 mark] for..."</em>).</li>
+                                <li>For diagrams/code, define exact shapes, labels, or syntax the AI must find.</li>
+                            </ul>
                         </div>
                     </div>
 
