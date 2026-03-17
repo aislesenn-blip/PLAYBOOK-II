@@ -1,17 +1,17 @@
 // js/db.js
 // Supabase Client Initialization and Data Access Layer
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
 
 const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export const PlaybookDB = {
+const PlaybookDB = {
     // 1. INSTITUTIONS
     async getInstitution(id) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('institutions')
             .select('*')
             .eq('id', id)
@@ -21,7 +21,7 @@ export const PlaybookDB = {
     },
 
     async saveInstitution(institution) {
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('institutions')
             .upsert(institution);
         if (error) throw error;
@@ -29,7 +29,7 @@ export const PlaybookDB = {
 
     // 2. USERS
     async getUserById(id) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('users')
             .select('*')
             .eq('id', id)
@@ -39,7 +39,7 @@ export const PlaybookDB = {
     },
 
     async getUsersByInstitution(institutionId) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('users')
             .select('*')
             .eq('institution_id', institutionId);
@@ -49,7 +49,7 @@ export const PlaybookDB = {
 
     // 3. SESSIONS (EXAMS)
     async getSessions() {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('sessions')
             .select('*')
             .order('created_at', { ascending: false });
@@ -58,7 +58,7 @@ export const PlaybookDB = {
     },
 
     async getSession(id) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('sessions')
             .select('*')
             .eq('id', id)
@@ -68,7 +68,7 @@ export const PlaybookDB = {
     },
 
     async saveSession(session) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('sessions')
             .upsert(session)
             .select()
@@ -79,7 +79,7 @@ export const PlaybookDB = {
 
     // 4. EXAM SUBMISSIONS (STUDENTS)
     async getSubmissionsBySession(sessionId) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('exam_submissions')
             .select('*')
             .eq('session_id', sessionId);
@@ -98,7 +98,7 @@ export const PlaybookDB = {
     },
 
     async getSubmission(id) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('exam_submissions')
             .select('*')
             .eq('id', id)
@@ -108,7 +108,7 @@ export const PlaybookDB = {
     },
 
     async saveSubmission(submission) {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('exam_submissions')
             .upsert(submission)
             .select()
@@ -129,3 +129,4 @@ export const PlaybookDB = {
 };
 
 window.PlaybookDB = PlaybookDB;
+window.supabaseClient = supabaseClient;

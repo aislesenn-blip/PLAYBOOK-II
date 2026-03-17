@@ -1,7 +1,7 @@
 // js/auth.js
 // Supabase Authentication Flow
 
-import { supabase, PlaybookDB } from './db.js';
+
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             try {
                 // 1. Authenticate with Supabase
-                const { data, error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await window.supabaseClient.auth.signInWithPassword({
                     email: emailInput,
                     password: passwordInput,
                 });
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 // 2. Fetch User Profile & Role from database
-                const profile = await PlaybookDB.getUserById(data.user.id);
+                const profile = await window.PlaybookDB.getUserById(data.user.id);
 
                 if (profile) {
                     // Set secure session in localStorage for fast synchronous frontend checks
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 } else {
                     alert("Profile not found. Please contact your administrator.");
-                    await supabase.auth.signOut();
+                    await window.supabaseClient.auth.signOut();
                     localStorage.removeItem('playbook_session');
                 }
             } catch (error) {
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Global Auth Guard Function (Synchronous check against local cache)
-export function requireAuth(allowedRoles = ['professor', 'admin']) {
+function requireAuth(allowedRoles = ['professor', 'admin']) {
     const sessionStr = localStorage.getItem('playbook_session');
 
     if (!sessionStr) {

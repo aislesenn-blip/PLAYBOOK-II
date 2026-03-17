@@ -1,8 +1,8 @@
 // js/upload.js
 // Supabase Edge Function Integration for Background Grading
 
-import { PlaybookDB, supabase } from './db.js';
-import { requireAuth } from './auth.js';
+
+
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Fetch API Key Validation (Optional on frontend, required on backend Edge Function)
     let apiKey = null;
     try {
-        const institution = await PlaybookDB.getInstitution(sessionUser.institution_id);
+        const institution = await window.PlaybookDB.getInstitution(sessionUser.institution_id);
         if (institution && institution.openrouter_api_key) {
             apiKey = institution.openrouter_api_key;
         }
@@ -119,20 +119,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 total_students: 0 // Will update once backend splits PDF
             };
 
-            const savedSession = await PlaybookDB.saveSession(newSession);
+            const savedSession = await window.PlaybookDB.saveSession(newSession);
 
             // 2. Upload PDF to Supabase Storage Bucket ('exams_bucket')
             statusEl.textContent = 'Uploading Bulk PDF...';
             detailEl.textContent = 'Securely transferring file to backend for asynchronous processing.';
 
             const filePath = `sessions/${savedSession.id}/${Date.now()}_${examsFile.name}`;
-            const { data, error } = await supabase.storage
+            const { data, error } = await window.supabaseClient.storage
                 .from('exams_bucket')
                 .upload(filePath, examsFile);
 
             if (error) {
                 // Rollback session
-                await supabase.from('sessions').delete().eq('id', savedSession.id);
+                await window.supabaseClient.from('sessions').delete().eq('id', savedSession.id);
                 throw error;
             }
 
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Here, we update the session to "processing" and save the storage path.
             // In a real Supabase setup, a DB trigger on this table update would fire an Edge Function
             // to split the PDF into individual students and grade them asynchronously.
-            await supabase.from('sessions').update({
+            await window.supabaseClient.from('sessions').update({
                 status: 'processing',
                 pdf_storage_path: data.path
             }).eq('id', savedSession.id);

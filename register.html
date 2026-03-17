@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playbook - Register</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: var(--bg-color);
+            padding: var(--spacing-sm);
+        }
+        .register-card {
+            background: var(--surface-color);
+            padding: var(--spacing-lg) var(--spacing-md);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            width: 100%;
+            max-width: 500px;
+        }
+        .register-logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--accent-color);
+            margin-bottom: var(--spacing-sm);
+            letter-spacing: -0.02em;
+            text-align: center;
+        }
+        .auth-nav {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: var(--spacing-md);
+            border-bottom: 2px solid var(--border-color);
+        }
+        .auth-tab {
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .auth-tab.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="register-card">
+        <div class="register-logo">Playbook Enterprise</div>
+        <p class="mb-2 text-center" style="color: var(--text-secondary);">Start scaling your grading engine today.</p>
+
+        <div class="auth-nav" id="auth-tabs">
+            <div class="auth-tab active" data-target="admin-signup">Register Institution</div>
+            <div class="auth-tab" data-target="prof-signup">Join as Professor</div>
+        </div>
+
+        <!-- Admin / Institution Registration -->
+        <form id="admin-signup-form" class="auth-form active">
+            <div class="form-group">
+                <label class="form-label">Institution Name</label>
+                <input type="text" id="inst-name" class="form-control" placeholder="e.g. Stanford University" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email Domain (for SSO)</label>
+                <input type="text" id="inst-domain" class="form-control" placeholder="e.g. stanford.edu" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Admin Full Name</label>
+                <input type="text" id="admin-name" class="form-control" placeholder="Jane Doe" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Admin Email Address</label>
+                <input type="email" id="admin-email" class="form-control" placeholder="admin@university.edu" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" id="admin-password" class="form-control" placeholder="••••••••" required minlength="6">
+            </div>
+            <button type="submit" class="btn mt-1" style="width: 100%;">Create Enterprise Account</button>
+        </form>
+
+        <!-- Professor Registration -->
+        <form id="prof-signup-form" class="auth-form" style="display: none;">
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="prof-name" class="form-control" placeholder="John Smith" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">University Email Address</label>
+                <input type="email" id="prof-email" class="form-control" placeholder="jsmith@university.edu" required>
+                <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Must match a registered institution domain.</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" id="prof-password" class="form-control" placeholder="••••••••" required minlength="6">
+            </div>
+            <button type="submit" class="btn mt-1" style="width: 100%;">Join Institution</button>
+        </form>
+
+        <div class="text-center mt-2 pt-1" style="border-top: 1px solid var(--border-color); font-size: 0.9rem;">
+            Already have an account? <a href="login.html" style="font-weight: 600;">Sign in here</a>.
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/db.js"></script>
+    <script src="js/register.js"></script>
+</body>
+</html>

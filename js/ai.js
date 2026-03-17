@@ -142,9 +142,25 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
 
         // Optimization Prompt for Pre-processing
         const OPTIMIZE_PROMPT = `
-        Rewrite this raw marking scheme into a strict, highly granular format optimized for deterministic grading.
-        Explicitly allocate marks, break down sub-questions, and define visual rules for sketches. Do not alter the educational meaning, only the structure.
-        Output ONLY the structured text. No markdown wrapping.
+        You are an elite educational engineer. Your task is to rewrite this raw, unstructured marking scheme into the strict, highly granular "Playbook Standard Format" optimized for deterministic AI grading.
+
+        CRITICAL MANDATES:
+        1. NO DATA LOSS: You must not alter the educational meaning, drop any alternative acceptable answers, or lose any marks.
+        2. EXPLICIT ALLOCATION: You must explicitly state the exact marks awarded for every single point.
+        3. STRICT PLAYBOOK FORMAT: You must adhere exactly to the hierarchical formatting below. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+
+        === PLAYBOOK STANDARD FORMAT EXAMPLE ===
+        Question 1: Title (Total: 5 marks)
+
+        1a: Definition (Max: 3 marks)
+        - Award [1 mark] for stating "conversion of light energy to chemical energy" or equivalent meaning.
+        - Award [1 mark] for explicitly writing the word "Chlorophyll".
+        - Award [1 mark] for mentioning "Water" or "H2O".
+
+        1b: Diagram (Max: 2 marks)
+        - Award [1 mark] if a leaf shape is clearly drawn.
+        - Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is explicitly labeled "Sunlight".
+        =========================================
         `;
 
         async function optimizeMarkingScheme(rawText) {

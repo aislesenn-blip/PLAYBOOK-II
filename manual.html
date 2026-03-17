@@ -85,11 +85,11 @@
                     <div class="warning-box">
                         <p class="mb-1 flex items-center gap-1">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                            <strong>Data Syncing & Cloud Storage:</strong> All data lives exclusively in your browser's local IndexedDB. <strong>We do not currently have a cloud backend.</strong> If you clear your browser's site data, use incognito mode, or switch to a different computer, your sessions, configurations, and grading data will be permanently lost.
+                            <strong>Enterprise Cloud Storage:</strong> Playbook Enterprise utilizes a secure, distributed cloud backend via Supabase. All sessions, student exams, and overrides are securely stored in your institution's dedicated cloud database.
                         </p>
                         <p class="mb-1 flex items-center gap-1">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                            <strong>API Key Management:</strong> Playbook does not provide API access out of the box. You must provide your own valid OpenRouter API Key (with vision-capable models enabled and funded) for the grading engine to function.
+                            <strong>API Key Management:</strong> Your University IT Admin configures the global OpenRouter API Key. As a professor, you never have to worry about managing keys or paying for API usage out of pocket.
                         </p>
                         <p class="mb-1 flex items-center gap-1">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -153,21 +153,20 @@ The student should explain photosynthesis. They need to mention the sun, water, 
                 </section>
 
                 <section class="manual-section">
-                    <h2>Step-by-Step Workflow (How to Use It)</h2>
+                    <h2>Step-by-Step Enterprise Workflow</h2>
                     <ol>
-                        <li><strong>Step 1: Setting up the API Key.</strong> Navigate to the Dashboard. In the "API Configuration" section, paste your OpenRouter API Key and click "Save Key".</li>
+                        <li><strong>Step 1: Sign In via SSO.</strong> Log into Playbook using your university email address. You will automatically be linked to your institution's license.</li>
                         <li><strong>Step 2: Preparing Physical Exams.</strong> Collect all student exams. <strong>Crucially:</strong> Insert exactly one blank sheet of paper between Student A's exam and Student B's exam. Scan the entire stack into a single, high-quality PDF file.</li>
-                        <li><strong>Step 3: Uploading & Initiating.</strong> Go to the "Upload Exams" tab. Drag and drop your marking scheme (as a .txt file) and your bulk PDF. Enter a Session Name and click "Start Playbook Grading". Wait while the system processes the images and queries the Playbook.</li>
-                        <li><strong>Step 4: Reviewing & Overriding.</strong> You will be redirected to the Review interface. Navigate through each student's exam. Read the Playbook's analysis and suggested feedback. If adjustments are needed, click "Override", change the score/text, and click "Save".</li>
-                        <li><strong>Step 5: Finalizing & Exporting.</strong> Once all students are reviewed, click "Finalize Scores". In the Analytics dashboard, you can view class trends, print reports, download a CSV of all grades, and download detailed individual feedback text files for your students.</li>
+                        <li><strong>Step 3: Uploading to Edge Network.</strong> Go to the "Upload Exams" tab. You can paste a raw scheme and let Playbook format it, or leave it blank. Upload your bulk PDF and click "Start Playbook Grading". The file is sent securely to Supabase Edge Functions for asynchronous processing. You can safely close your laptop at this point.</li>
+                        <li><strong>Step 4: Reviewing in the Studio.</strong> Once notified that grading is complete, click "Review" from your Dashboard. Read Playbook's pedagogical analysis. If adjustments are needed, click "Override", change the score/text, and click "Save". Every override is logged for institutional fine-tuning.</li>
+                        <li><strong>Step 5: Analytics & Bulk Export.</strong> Navigate to the Analytics dashboard. Here you can view class performance mapped against your custom grading scale, download CSV score reports for your LMS, and instantly generate a master `.txt` file containing every student's micro-tutoring feedback.</li>
                     </ol>
                 </section>
 
                 <section class="manual-section">
-                    <h2>Troubleshooting & Data Safety</h2>
-                    <p><strong>Playbook Fails to Grade a Page:</strong> If you receive an API error or a timeout during the upload phase, check your OpenRouter API balance and ensure your internet connection is stable. If a specific student's exam fails, the system will generate a fallback score of 0 with an error message in the feedback box. You can manually grade this student using the Override feature.</p>
-                    <p><strong>Separation Errors:</strong> If the system fails to separate students correctly, ensure that the blank pages you scanned are completely free of stray marks, lines, or significant scanner dust, as the heuristic relies on pixel brightness.</p>
-                    <p><strong>Data Safety:</strong> Because data is stored locally, always download your CSV results and feedback sheets immediately after finalizing a session. Do not rely on the browser to store historical records long-term.</p>
+                    <h2>Troubleshooting</h2>
+                    <p><strong>Edge Function Timeouts:</strong> Playbook uses parallel Edge Functions. If an exam is extremely large or OpenRouter experiences latency, a specific student's grading may timeout. The system will flag this in your dashboard, allowing you to manually review that single exam without losing the rest of the batch.</p>
+                    <p><strong>Separation Errors:</strong> If the system fails to separate students correctly during the initial upload phase, ensure that the blank pages you scanned are completely free of stray marks, lines, or significant scanner dust.</p>
                 </section>
 
             </div>
