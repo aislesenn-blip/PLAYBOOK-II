@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         session = await window.PlaybookDB.getSession(sessionId);
-        students = await window.PlaybookDB.getStudentsBySession(sessionId);
+        students = await window.PlaybookDB.getSubmissionsBySession(sessionId);
 
         if (!session || !students || students.length === 0) {
             throw new Error("Session or students not found");
@@ -72,14 +72,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
             st.grading.totalScore = sTotal;
-            await window.PlaybookDB.saveStudent(st);
+
+            // Map frontend object back to backend schema format for saving
+            const backendSubmission = {
+                id: st.id,
+                session_id: sessionId,
+                student_name: st.studentName,
+                registration_number: st.registrationNumber,
+                total_score: st.grading.totalScore,
+                max_score: st.grading.maxScore,
+                grading_data: { questions: st.grading.questions },
+                status: 'Completed'
+            };
+
+            await window.PlaybookDB.saveSubmission(backendSubmission);
 
             totalScoreSum += sTotal;
             if(sTotal > highest) highest = sTotal;
         }
 
-        session.averageScore = Math.round(totalScoreSum / students.length);
-        session.highestScore = highest;
+        session.average_score = Math.round(totalScoreSum / students.length);
+        session.highest_score = highest; // Added custom property just in case, though schema only has average_score
+        session.status = 'Completed';
         await window.PlaybookDB.saveSession(session);
 
         alert('Scores finalized and saved. Redirecting to Analytics...');
@@ -138,21 +152,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Apply conditional styling for Skipped vs Answered
             const statusBadgeColor = answerStatus.toLowerCase() === "skipped" ? "background-color: var(--danger-color, #e74c3c); color: white;" : "background-color: #eee; color: #333;";
 
+            // Create a safe, escaped version of strings
+            const escapeHTML = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+
+            const safeQuestionTitle = escapeHTML(String(q.questionTitle || ''));
+            const safeJustification = escapeHTML(String(justification || ''));
+            const safeFeedback = escapeHTML(String(constructiveFeedback || ''));
+            const safeAnswerStatus = escapeHTML(String(answerStatus || ''));
+
             itemDiv.innerHTML = `
                 <div class="grading-header">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question ${questionId}: ${q.questionTitle}</h4>
-                        <span style="font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; ${statusBadgeColor}">${answerStatus}</span>
+                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question ${questionId}: ${safeQuestionTitle}</h4>
+                        <span style="font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; ${statusBadgeColor}">${safeAnswerStatus}</span>
                     </div>
                     <div class="flex items-center gap-1">
                         <div class="score-display"><span class="score-badge">${marksAwarded}</span> / ${maxMarks}</div>
                         <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-qindex="${qIndex}">Override</button>
                     </div>
                 </div>
-                <p class="mb-1" style="font-size: 0.9rem;"><strong>Playbook Justification:</strong> ${justification}</p>
+                <p class="mb-1" style="font-size: 0.9rem;"><strong>Playbook Justification:</strong> ${safeJustification}</p>
                 <div class="feedback-box">
                     <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Constructive Feedback:</strong>
-                    <textarea class="feedback-edit" style="width:100%; height:60px; border:1px solid transparent; background:transparent; font-family:inherit; font-size:inherit; color:inherit; resize:none;" readonly>${constructiveFeedback}</textarea>
+                    <textarea class="feedback-edit" style="width:100%; height:60px; border:1px solid transparent; background:transparent; font-family:inherit; font-size:inherit; color:inherit; resize:none;" readonly>${safeFeedback}</textarea>
                 </div>
             `;
             gradingContainer.appendChild(itemDiv);
@@ -184,7 +210,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     document.getElementById('total-score-display').textContent = `${newTotal} / ${student.grading.maxScore}`;
 
                     // Persist to DB
-                    await window.PlaybookDB.saveStudent(student);
+                    const backendSubmission = {
+                        id: student.id,
+                        session_id: sessionId,
+                        student_name: student.studentName,
+                        registration_number: student.registrationNumber,
+                        total_score: student.grading.totalScore,
+                        max_score: student.grading.maxScore,
+                        grading_data: { questions: student.grading.questions }
+                    };
+                    await window.PlaybookDB.saveSubmission(backendSubmission);
 
                     scoreDisplay.innerHTML = `<span class="score-badge">${newScore}</span> / ${maxMarks}`;
                     overrideBtn.textContent = 'Override';

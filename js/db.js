@@ -27,6 +27,31 @@ const PlaybookDB = {
         if (error) throw error;
     },
 
+    // 1.5 SECURE INSTITUTION SECRETS (API KEYS)
+    async getInstitutionSecret(institutionId) {
+        // Only admins can query this table directly due to RLS.
+        const { data, error } = await supabaseClient
+            .from('institution_secrets')
+            .select('openrouter_api_key')
+            .eq('institution_id', institutionId)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') { // no rows returned
+                return null;
+            }
+            throw error;
+        }
+        return data;
+    },
+
+    async saveInstitutionSecret(institutionId, apiKey) {
+        const { error } = await supabaseClient
+            .from('institution_secrets')
+            .upsert({ institution_id: institutionId, openrouter_api_key: apiKey });
+        if (error) throw error;
+    },
+
     // 2. USERS
     async getUserById(id) {
         const { data, error } = await supabaseClient

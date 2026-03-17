@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         session = await window.PlaybookDB.getSession(sessionId);
-        students = await window.PlaybookDB.getStudentsBySession(sessionId);
+        students = await window.PlaybookDB.getSubmissionsBySession(sessionId);
 
         if (!session || !students || students.length === 0) {
             throw new Error("Session or students not found");
@@ -40,8 +40,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         document.getElementById('analytics-title').textContent = `Analytics: ${session.name}`;
         document.getElementById('stat-total').textContent = students.length;
-        document.getElementById('stat-avg').textContent = `${session.averageScore || 0}%`;
-        document.getElementById('stat-high').textContent = `${session.highestScore || 0}%`;
+        document.getElementById('stat-avg').textContent = `${session.average_score || 0}%`;
+        document.getElementById('stat-high').textContent = `${session.highest_score || 0}%`; // Note: highest_score might need to be computed or added to schema
 
         // Calculate distribution and question performance
         const distribution = {
@@ -243,12 +243,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${regNo}</td>
-                <td>${st.studentName}</td>
+                <td class="reg-no-cell"></td>
+                <td class="student-name-cell"></td>
                 <td>${score} / ${max}</td>
                 <td><span class="score-badge ${badgeClass}" style="color: ${gradeColor};">${grade}</span></td>
                 <td><a href="#" class="download-feedback-link" data-studentid="${st.id}">Download Feedback</a></td>
             `;
+            tr.querySelector('.reg-no-cell').textContent = regNo;
+            tr.querySelector('.student-name-cell').textContent = st.studentName;
             tbody.appendChild(tr);
         });
 

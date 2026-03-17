@@ -25,8 +25,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiInput = document.getElementById('admin-api-key');
     const statusDiv = document.getElementById('api-status');
 
-    if (institution.openrouter_api_key && institution.openrouter_api_key !== '') {
-        apiInput.value = institution.openrouter_api_key;
+    let institutionSecret = null;
+    try {
+        institutionSecret = await window.PlaybookDB.getInstitutionSecret(institution.id);
+    } catch (e) {
+        console.error("Error fetching institution secrets:", e);
+    }
+
+    if (institutionSecret && institutionSecret.openrouter_api_key && institutionSecret.openrouter_api_key !== '') {
+        apiInput.value = institutionSecret.openrouter_api_key;
         statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
         statusDiv.style.color = 'var(--success-color)';
     } else {
@@ -42,9 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (newKey) {
             try {
-                // Update institution record
-                institution.openrouter_api_key = newKey;
-                await window.PlaybookDB.saveInstitution(institution);
+                // Update institution secret record securely
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey);
 
                 statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
                 statusDiv.style.color = 'var(--success-color)';
@@ -53,10 +59,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // so the Web Worker can use it directly just like the old version
                 localStorage.setItem('PLAYBOOK_API_KEY', newKey);
 
-                alert("Global Institution Key saved securely.");
+                alert("Global Institution Key saved securely to the encrypted vault.");
             } catch (err) {
                 console.error("Error saving key:", err);
-                alert("Failed to save the global API key to the database.");
+                alert("Failed to save the global API key to the secure database vault.");
             }
         }
     });
@@ -67,13 +73,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tbody = document.getElementById('professors-list');
         tbody.innerHTML = '';
 
+        // Create a safe, escaped version of strings
+        const escapeHTML = (str) => {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+
         users.forEach(user => {
             if (user.role === 'professor') {
                 const tr = document.createElement('tr');
+                const safeName = escapeHTML(String(user.full_name || ''));
+                const safeEmail = escapeHTML(String(user.email || ''));
+                const safeRole = escapeHTML(String(user.role || ''));
+
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${user.full_name}</td>
-                    <td>${user.email}</td>
-                    <td><span class="score-badge neutral" style="color: var(--text-primary);">${user.role}</span></td>
+                    <td style="font-weight: 600;">${safeName}</td>
+                    <td>${safeEmail}</td>
+                    <td><span class="score-badge neutral" style="color: var(--text-primary);">${safeRole}</span></td>
                     <td><span class="score-badge" style="color: var(--success-color);">Active</span></td>
                     <td><button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">Revoke Access</button></td>
                 `;

@@ -43,14 +43,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             sessions.sort((a, b) => Number(b.id) - Number(a.id)); // Sort newest first
 
             sessions.forEach(session => {
-                totalGraded += session.totalStudents;
+                const totalStudents = session.total_students || 0;
+                totalGraded += totalStudents;
 
-                if (session.status === 'Pending Review' || (session.status && session.status.includes('Partial'))) {
+                const currentStatus = session.status || 'pending';
+
+                if (currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     pendingCount++;
                 }
 
-                if (session.averageScore !== undefined) {
-                    totalScoreSum += session.averageScore;
+                if (session.average_score !== undefined && session.average_score !== null) {
+                    totalScoreSum += Number(session.average_score);
                     sessionsWithScore++;
                 }
 
@@ -59,26 +62,45 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let badgeClass = 'neutral';
                 let statusBadgeColor = 'var(--neutral-text)';
 
-                if (session.status === 'Completed') {
+                if (currentStatus.toLowerCase() === 'completed') {
                     badgeClass = '';
                     statusBadgeColor = 'var(--success-text)';
-                } else if (session.status === 'Pending Review' || (session.status && session.status.includes('Partial'))) {
+                } else if (currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     badgeClass = 'partial';
                     statusBadgeColor = 'var(--partial-text)';
                 }
 
+                // Create a safe, escaped version of strings
+                const escapeHTML = (str) => {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                };
+
                 let actionLink = '-';
-                if (session.status === 'Completed') {
+                if (currentStatus.toLowerCase() === 'completed') {
                     actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
-                } else if (session.status === 'Pending Review' || (session.status && session.status.includes('Partial'))) {
+                } else if (currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
                 }
 
+                const safeSessionName = escapeHTML(String(session.name || ''));
+
+                // Supabase returns created_at as an ISO string
+                const dateObj = session.created_at ? new Date(session.created_at) : new Date();
+                const formattedDate = dateObj.toLocaleDateString();
+                const safeSessionDate = escapeHTML(formattedDate);
+
+                // Capitalize first letter of status for UI
+                let displayStatus = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
+                if(displayStatus === 'Pending') displayStatus = 'Pending Review';
+                const safeSessionStatus = escapeHTML(String(displayStatus || ''));
+
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${session.name}</td>
-                    <td>${session.totalStudents}</td>
-                    <td>${session.date}</td>
-                    <td><span class="score-badge ${badgeClass}" style="color: ${statusBadgeColor};">${session.status}</span></td>
+                    <td style="font-weight: 600;">${safeSessionName}</td>
+                    <td>${totalStudents}</td>
+                    <td>${safeSessionDate}</td>
+                    <td><span class="score-badge ${badgeClass}" style="color: ${statusBadgeColor};">${safeSessionStatus}</span></td>
                     <td>${actionLink}</td>
                 `;
                 tbody.appendChild(tr);

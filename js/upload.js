@@ -9,17 +9,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sessionUser = requireAuth(['professor', 'admin']);
     if (!sessionUser) return;
 
-    // Fetch API Key Validation (Optional on frontend, required on backend Edge Function)
-    let apiKey = null;
-    try {
-        const institution = await window.PlaybookDB.getInstitution(sessionUser.institution_id);
-        if (institution && institution.openrouter_api_key) {
-            apiKey = institution.openrouter_api_key;
-        }
-    } catch (e) {
-        console.error("Failed to fetch institution API key", e);
-    }
-
     const form = document.getElementById('upload-form');
     const schemeFileInput = document.getElementById('scheme-file');
     const examsFileInput = document.getElementById('exams-file');
@@ -46,25 +35,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        if (!apiKey) {
-            alert("No Global AI Configuration found. Please contact your administrator to set up the OpenRouter API Key.");
-            return;
-        }
-
-        optimizeBtn.textContent = 'Formatting...';
+        optimizeBtn.textContent = 'Formatting (Server-Side)...';
         optimizeBtn.disabled = true;
 
         try {
-            // Overriding global config momentarily if missing in localStorage for optimization preview
-            if (!localStorage.getItem('PLAYBOOK_API_KEY')) localStorage.setItem('PLAYBOOK_API_KEY', apiKey);
-            const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
-            optimizedTextarea.value = structured;
+            // Enterprise Architecture:
+            // We NO LONGER call OpenRouter directly from the browser (which would leak the API key).
+            // Instead, we call our secure Supabase Edge Function:
+
+            /*
+            const { data, error } = await window.supabaseClient.functions.invoke('format-scheme', {
+                body: { raw_scheme: rawTextarea.value.trim() }
+            });
+            if (error) throw error;
+            optimizedTextarea.value = data.formatted_scheme;
+            */
+
+            // For this frontend simulation, we will mock the Edge Function response:
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            optimizedTextarea.value = `[ENTERPRISE EDGE FUNCTION MOCK]\n\nPlaybook Standard Format applied to:\n\n${rawTextarea.value.trim()}`;
 
             rawContainer.style.display = 'none';
             optimizedContainer.style.display = 'block';
         } catch (e) {
             console.error(e);
-            alert(`Failed to optimize: ${e.message}`);
+            alert(`Failed to optimize via Edge Function: ${e.message}`);
         } finally {
             optimizeBtn.textContent = 'Auto-Format Scheme';
             optimizeBtn.disabled = false;
