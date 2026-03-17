@@ -100,12 +100,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Load custom scale for letter grading
+        // Update default colors to use semantic CSS variable names
         let scaleData = [
-            { min: 90, max: 100, label: 'A', color: '#0a0a0a' },
-            { min: 80, max: 89.9, label: 'B', color: '#262626' },
-            { min: 70, max: 79.9, label: 'C', color: '#525252' },
-            { min: 60, max: 69.9, label: 'D', color: '#737373' },
-            { min: 0, max: 59.9, label: 'F', color: '#0a0a0a' }
+            { min: 90, max: 100, label: 'A', color: 'var(--success-text)' },
+            { min: 80, max: 89.9, label: 'B', color: 'var(--success-text)' },
+            { min: 70, max: 79.9, label: 'C', color: 'var(--partial-text)' },
+            { min: 60, max: 69.9, label: 'D', color: 'var(--neutral-text)' },
+            { min: 0, max: 59.9, label: 'F', color: 'var(--neutral-text)' }
         ];
 
         try {
@@ -220,12 +221,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             let grade = '?';
             let gradeColor = 'var(--text-primary)';
+            let badgeClass = 'neutral';
 
             // Apply custom scale logic
             for (let i = 0; i < scaleData.length; i++) {
                 if (percentage >= scaleData[i].min && percentage <= scaleData[i].max) {
                     grade = scaleData[i].label;
                     gradeColor = scaleData[i].color || gradeColor;
+
+                    if (percentage >= 80) badgeClass = ''; // uses default success styling
+                    else if (percentage >= 70) badgeClass = 'partial';
+
                     break;
                 }
             }
@@ -237,7 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td>${regNo}</td>
                 <td>${st.studentName}</td>
                 <td>${score} / ${max}</td>
-                <td><span class="score-badge" style="color: ${gradeColor};">${grade}</span></td>
+                <td><span class="score-badge ${badgeClass}" style="color: ${gradeColor};">${grade}</span></td>
                 <td><a href="#" class="download-feedback-link" data-studentid="${st.id}">Download Feedback</a></td>
             `;
             tbody.appendChild(tr);
