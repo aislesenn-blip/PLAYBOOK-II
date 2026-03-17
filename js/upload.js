@@ -1,4 +1,24 @@
-document.addEventListener('DOMContentLoaded', () => {
+// js/upload.js
+// Supabase Edge Function Integration for Background Grading
+
+import { PlaybookDB, supabase } from './db.js';
+import { requireAuth } from './auth.js';
+
+document.addEventListener('DOMContentLoaded', async () => {
+
+    const sessionUser = requireAuth(['professor', 'admin']);
+    if (!sessionUser) return;
+
+    // Fetch API Key Validation (Optional on frontend, required on backend Edge Function)
+    let apiKey = null;
+    try {
+        const institution = await PlaybookDB.getInstitution(sessionUser.institution_id);
+        if (institution && institution.openrouter_api_key) {
+            apiKey = institution.openrouter_api_key;
+        }
+    } catch (e) {
+        console.error("Failed to fetch institution API key", e);
+    }
 
     const form = document.getElementById('upload-form');
     const schemeFileInput = document.getElementById('scheme-file');
@@ -26,10 +46,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (!apiKey) {
+            alert("No Global AI Configuration found. Please contact your administrator to set up the OpenRouter API Key.");
+            return;
+        }
+
         optimizeBtn.textContent = 'Formatting...';
         optimizeBtn.disabled = true;
 
         try {
+            // Overriding global config momentarily if missing in localStorage for optimization preview
+            if (!localStorage.getItem('PLAYBOOK_API_KEY')) localStorage.setItem('PLAYBOOK_API_KEY', apiKey);
             const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
             optimizedTextarea.value = structured;
 
@@ -49,6 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
         rawContainer.style.display = 'block';
         optimizedTextarea.value = '';
     });
+
+    // File name display
     examsFileInput.addEventListener('change', (e) => {
         if(e.target.files[0]) {
             document.getElementById('exams-filename').textContent = e.target.files[0].name;
@@ -78,203 +107,57 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.add('active');
 
         try {
-            statusEl.textContent = 'Processing PDF...';
-            detailEl.textContent = 'Extracting pages and detecting separators.';
+            statusEl.textContent = 'Preparing Upload...';
+            detailEl.textContent = 'Connecting to Playbook Edge Network.';
 
-            // Read PDF
-            const arrayBuffer = await examsFile.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-
-            const studentExams = []; // Array of arrays of data URLs
-            let currentStudentPages = [];
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                detailEl.textContent = `Analyzing page ${i} of ${pdf.numPages}...`;
-
-                const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 });
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d', { willReadFrequently: true });
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-
-                await page.render({ canvasContext: context, viewport: viewport }).promise;
-
-                // Detect Blank Page (Separator)
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const isBlank = checkIsBlank(imageData.data);
-
-                // If it's blank and we have current pages, it's a separator
-                if (isBlank && currentStudentPages.length > 0) {
-                    studentExams.push(currentStudentPages);
-                    currentStudentPages = [];
-                } else if (!isBlank) {
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                    currentStudentPages.push(dataUrl);
-                }
-            }
-
-            // Push last student if no trailing blank page
-            if (currentStudentPages.length > 0) {
-                studentExams.push(currentStudentPages);
-            }
-
-            if (studentExams.length === 0) {
-                throw new Error("No non-blank pages found in PDF.");
-            }
-
-            statusEl.textContent = 'Initializing Database...';
-            const sessionId = Date.now().toString();
-
-            const sessionData = {
-                id: sessionId,
+            // 1. Create a "Pending" Session in Supabase
+            const newSession = {
+                professor_id: sessionUser.user_id,
                 name: sessionName,
-                date: new Date().toLocaleDateString(),
-                status: 'Grading...',
-                totalStudents: studentExams.length,
-                gradedCount: 0,
-                accumulatedTotalScore: 0,
-                highestScore: 0
-            };
-            await window.PlaybookDB.saveSession(sessionData);
-
-            // Setup Real-time UI Elements
-            const realtimeLogContainer = document.getElementById('realtime-log-container');
-            const realtimeLog = document.getElementById('realtime-log');
-            const cancelBtn = document.getElementById('cancel-grading-btn');
-
-            realtimeLogContainer.style.display = 'block';
-            cancelBtn.style.display = 'inline-block';
-            realtimeLog.innerHTML = '';
-
-            // Retrieve API key for worker
-            const apiKey = localStorage.getItem('PLAYBOOK_API_KEY');
-
-            // Initialize Web Worker
-            let worker = new Worker('js/worker.js');
-
-            cancelBtn.onclick = async () => {
-                if (worker) {
-                    worker.terminate();
-                    worker = null;
-
-                    // Update session status to Partial
-                    sessionData.status = 'Pending Review (Partial)';
-                    if (sessionData.gradedCount > 0) {
-                        sessionData.averageScore = Math.round(sessionData.accumulatedTotalScore / sessionData.gradedCount);
-                    }
-                    await window.PlaybookDB.saveSession(sessionData);
-
-                    alert('Grading cancelled. You can review the students graded so far.');
-                    window.location.href = `review.html?session=${sessionId}`;
-                }
+                marking_scheme: markingSchemeText,
+                status: 'pending',
+                total_students: 0 // Will update once backend splits PDF
             };
 
-            worker.onmessage = async (msg) => {
-                const { type, payload } = msg.data;
+            const savedSession = await PlaybookDB.saveSession(newSession);
 
-                if (type === 'PROGRESS_UPDATE') {
-                    statusEl.textContent = `Playbook Grading Student ${payload.studentIndex + 1} of ${payload.totalStudents}...`;
-                    detailEl.textContent = 'Evaluating responses and generating feedback in the background.';
-                }
-                else if (type === 'STUDENT_GRADED') {
-                    const { studentData, studentIndex, totalStudents } = payload;
+            // 2. Upload PDF to Supabase Storage Bucket ('exams_bucket')
+            statusEl.textContent = 'Uploading Bulk PDF...';
+            detailEl.textContent = 'Securely transferring file to backend for asynchronous processing.';
 
-                    // Re-verify the single source of truth for total score
-                    let calcTotalScore = 0;
-                    if (studentData.grading && studentData.grading.questions && Array.isArray(studentData.grading.questions)) {
-                        studentData.grading.questions.forEach(q => {
-                            const marks = parseFloat(q.marks_awarded);
-                            if (!isNaN(marks)) calcTotalScore += marks;
-                        });
-                    }
+            const filePath = `sessions/${savedSession.id}/${Date.now()}_${examsFile.name}`;
+            const { data, error } = await supabase.storage
+                .from('exams_bucket')
+                .upload(filePath, examsFile);
 
-                    // Override any hallucinated totals with our programmatic calculation
-                    studentData.grading.totalScore = calcTotalScore;
+            if (error) {
+                // Rollback session
+                await supabase.from('sessions').delete().eq('id', savedSession.id);
+                throw error;
+            }
 
-                    // Save individual student to IndexedDB instantly
-                    await window.PlaybookDB.saveStudent(studentData);
+            // 3. Trigger Edge Function (or rely on DB Webhook)
+            // Here, we update the session to "processing" and save the storage path.
+            // In a real Supabase setup, a DB trigger on this table update would fire an Edge Function
+            // to split the PDF into individual students and grade them asynchronously.
+            await supabase.from('sessions').update({
+                status: 'processing',
+                pdf_storage_path: data.path
+            }).eq('id', savedSession.id);
 
-                    // Update running totals in session immediately
-                    sessionData.gradedCount++;
-                    sessionData.accumulatedTotalScore += calcTotalScore;
-                    if (calcTotalScore > sessionData.highestScore) {
-                        sessionData.highestScore = calcTotalScore;
-                    }
-                    await window.PlaybookDB.saveSession(sessionData);
+            statusEl.textContent = 'Upload Complete!';
+            detailEl.textContent = 'Your exams have been queued. You can safely close this page. You will be notified when grading is finished.';
 
-                    // Update UI Log
-                    const li = document.createElement('li');
-                    li.style.padding = '0.3rem 0';
-                    li.style.borderBottom = '1px solid #eee';
-                    li.innerHTML = `<strong>[Student ${studentIndex + 1}/${totalStudents}]</strong> Graded ${studentData.studentName} - Score: ${calcTotalScore}`;
-                    realtimeLog.appendChild(li);
-
-                    // Scroll to bottom of log
-                    realtimeLogContainer.scrollTop = realtimeLogContainer.scrollHeight;
-                }
-                else if (type === 'ALL_DONE') {
-                    worker.terminate();
-                    worker = null;
-
-                    // Finalize Session
-                    sessionData.status = 'Pending Review';
-                    if (sessionData.gradedCount > 0) {
-                        sessionData.averageScore = Math.round(sessionData.accumulatedTotalScore / sessionData.gradedCount);
-                    }
-                    await window.PlaybookDB.saveSession(sessionData);
-
-                    statusEl.textContent = 'Grading Complete!';
-                    detailEl.textContent = 'Redirecting to review...';
-
-                    setTimeout(() => {
-                        window.location.href = `review.html?session=${sessionId}`;
-                    }, 500);
-                }
-                else if (type === 'ERROR') {
-                    console.error("Worker error:", payload.message);
-                    alert(`An error occurred during background grading: ${payload.message}`);
-                    worker.terminate();
-                    overlay.classList.remove('active');
-                }
-            };
-
-            worker.onerror = (err) => {
-                console.error("Worker failed:", err);
-                alert("Fatal error in grading worker.");
-                worker.terminate();
-                overlay.classList.remove('active');
-            };
-
-            // Start the Worker
-            worker.postMessage({
-                type: 'START_GRADING',
-                payload: {
-                    studentExams,
-                    markingSchemeText,
-                    sessionId,
-                    apiKey
-                }
-            });
+            // Redirect to dashboard after short delay
+            setTimeout(() => {
+                window.location.href = `index.html`;
+            }, 3000);
 
         } catch (error) {
             console.error(error);
-            alert(`An error occurred: ${error.message}`);
+            alert(`Upload failed: ${error.message}`);
             overlay.classList.remove('active');
         }
     });
 
-    function checkIsBlank(pixels) {
-        // Simple heuristic: if 99% of pixels are white (or very light gray), it's blank
-        let whiteCount = 0;
-        const threshold = 240; // R, G, B > 240 is considered white
-        const totalPixels = pixels.length / 4;
-
-        for (let i = 0; i < pixels.length; i += 4) {
-            if (pixels[i] > threshold && pixels[i+1] > threshold && pixels[i+2] > threshold) {
-                whiteCount++;
-            }
-        }
-        return (whiteCount / totalPixels) > 0.99;
-    }
 });

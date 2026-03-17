@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
+    const sessionUser = requireAuth(['professor', 'admin']);
+    if (!sessionUser) return;
+
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
 

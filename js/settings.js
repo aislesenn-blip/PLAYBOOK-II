@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
+
+    const sessionUser = requireAuth(['professor', 'admin']);
+    if (!sessionUser) return;
+
     console.log("Settings Initialization Started");
 
     const scaleContainer = document.getElementById('scale-container');

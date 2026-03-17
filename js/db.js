@@ -1,123 +1,131 @@
-const DB_NAME = 'PlaybookDB';
-const DB_VERSION = 2; // Incremented for settings store
+// js/db.js
+// Supabase Client Initialization and Data Access Layer
 
-const dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('sessions')) {
-            db.createObjectStore('sessions', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('students')) {
-            const studentStore = db.createObjectStore('students', { keyPath: 'id' });
-            studentStore.createIndex('sessionId', 'sessionId', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('settings')) {
-            db.createObjectStore('settings', { keyPath: 'id' });
-        }
-    };
+const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
-    request.onsuccess = (e) => resolve(e.target.result);
-    request.onerror = (e) => reject(e.target.error);
-});
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-async function saveSession(session) {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('sessions', 'readwrite');
-        const store = tx.objectStore('sessions');
-        store.put(session);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
-}
+export const PlaybookDB = {
+    // 1. INSTITUTIONS
+    async getInstitution(id) {
+        const { data, error } = await supabase
+            .from('institutions')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return data;
+    },
 
-async function getSessions() {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('sessions', 'readonly');
-        const store = tx.objectStore('sessions');
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
+    async saveInstitution(institution) {
+        const { error } = await supabase
+            .from('institutions')
+            .upsert(institution);
+        if (error) throw error;
+    },
 
-async function getSession(id) {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('sessions', 'readonly');
-        const store = tx.objectStore('sessions');
-        const request = store.get(id);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
+    // 2. USERS
+    async getUserById(id) {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return data;
+    },
 
-async function saveStudent(student) {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('students', 'readwrite');
-        const store = tx.objectStore('students');
-        store.put(student);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
-}
+    async getUsersByInstitution(institutionId) {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('institution_id', institutionId);
+        if (error) throw error;
+        return data;
+    },
 
-async function getStudentsBySession(sessionId) {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('students', 'readonly');
-        const store = tx.objectStore('students');
-        const index = store.index('sessionId');
-        const request = index.getAll(sessionId);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
+    // 3. SESSIONS (EXAMS)
+    async getSessions() {
+        const { data, error } = await supabase
+            .from('sessions')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
 
-async function getStudent(id) {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('students', 'readonly');
-        const store = tx.objectStore('students');
-        const request = store.get(id);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
+    async getSession(id) {
+        const { data, error } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return data;
+    },
 
-async function saveSetting(settingData) {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('settings', 'readwrite');
-        const store = tx.objectStore('settings');
-        store.put(settingData);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
-}
+    async saveSession(session) {
+        const { data, error } = await supabase
+            .from('sessions')
+            .upsert(session)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
 
-async function getSetting(id) {
-    const db = await dbPromise;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('settings', 'readonly');
-        const store = tx.objectStore('settings');
-        const request = store.get(id);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
+    // 4. EXAM SUBMISSIONS (STUDENTS)
+    async getSubmissionsBySession(sessionId) {
+        const { data, error } = await supabase
+            .from('exam_submissions')
+            .select('*')
+            .eq('session_id', sessionId);
+        if (error) throw error;
+        // Map backend schema to frontend expectation
+        return data.map(sub => ({
+            id: sub.id,
+            studentName: sub.student_name,
+            registrationNumber: sub.registration_number,
+            grading: sub.grading_data ? {
+                totalScore: sub.total_score,
+                maxScore: sub.max_score,
+                questions: sub.grading_data.questions
+            } : null
+        }));
+    },
 
-window.PlaybookDB = {
-    saveSession,
-    getSessions,
-    getSession,
-    saveStudent,
-    getStudentsBySession,
-    getStudent,
-    saveSetting,
-    getSetting
+    async getSubmission(id) {
+        const { data, error } = await supabase
+            .from('exam_submissions')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    async saveSubmission(submission) {
+        const { data, error } = await supabase
+            .from('exam_submissions')
+            .upsert(submission)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    // 5. SETTINGS (using localStorage temporarily for user specific non-relational settings like scale)
+    async getSetting(key) {
+        const val = localStorage.getItem(`playbook_setting_${key}`);
+        return val ? JSON.parse(val) : null;
+    },
+
+    async saveSetting(settingData) {
+        localStorage.setItem(`playbook_setting_${settingData.id}`, JSON.stringify(settingData));
+    }
 };
+
+window.PlaybookDB = PlaybookDB;

@@ -1,5 +1,23 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
+    const sessionUser = requireAuth(['professor', 'admin']);
+    if (!sessionUser) return;
+
+    // Display Name
+    const nameDisplay = document.getElementById('prof-name-display');
+    if (nameDisplay) {
+        nameDisplay.textContent = sessionUser.full_name;
+    }
+
+    // Handle Logout
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('playbook_session');
+            window.location.href = 'login.html';
+        });
+    }
+
     try {
         const sessions = await window.PlaybookDB.getSessions();
 
@@ -76,26 +94,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch(err) {
         console.error("Error loading dashboard", err);
     }
-
-    // Handle API Key Form
-    const keyInput = document.getElementById('api-key-input');
-    const saveBtn = document.getElementById('save-key-btn');
-
-    // Load existing key
-    const existingKey = localStorage.getItem('PLAYBOOK_API_KEY');
-    if (existingKey) {
-        keyInput.value = existingKey;
-    }
-
-    saveBtn.addEventListener('click', () => {
-        const val = keyInput.value.trim();
-        if (val) {
-            localStorage.setItem('PLAYBOOK_API_KEY', val);
-            alert('API Key saved successfully.');
-        } else {
-            localStorage.removeItem('PLAYBOOK_API_KEY');
-            alert('API Key removed.');
-        }
-    });
 
 });
