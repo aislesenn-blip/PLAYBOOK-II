@@ -157,3 +157,25 @@ CREATE POLICY "Professors manage submissions" ON public.exam_submissions FOR ALL
 
 -- OVERRIDES
 CREATE POLICY "Professors log overrides" ON public.grade_overrides FOR ALL USING (changed_by = auth.uid());
+
+-- ==========================================
+-- 5. STORAGE BUCKETS (FOR EXAM PDFS)
+-- ==========================================
+
+-- Insert the bucket into the storage.buckets table
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('exams_bucket', 'exams_bucket', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS Policies
+-- Allow authenticated users (professors) to upload exams
+CREATE POLICY "Authenticated users can upload exams"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'exams_bucket');
+
+-- Allow users to read files they uploaded
+CREATE POLICY "Users can view their own exams"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'exams_bucket' AND auth.uid() = owner);
