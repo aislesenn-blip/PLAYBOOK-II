@@ -41,25 +41,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             // Enterprise Architecture:
             // We NO LONGER call OpenRouter directly from the browser (which would leak the API key).
-            // Instead, we call our secure Supabase Edge Function:
+            // Instead, we call our secure Supabase Edge Function.
 
-            /*
+            // Note: Currently invoking 'format-scheme' which the user will need to deploy alongside 'grade-exams'
             const { data, error } = await window.supabaseClient.functions.invoke('format-scheme', {
                 body: { raw_scheme: rawTextarea.value.trim() }
             });
-            if (error) throw error;
-            optimizedTextarea.value = data.formatted_scheme;
-            */
 
-            // For this frontend simulation, we will mock the Edge Function response:
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            optimizedTextarea.value = `[ENTERPRISE EDGE FUNCTION MOCK]\n\nPlaybook Standard Format applied to:\n\n${rawTextarea.value.trim()}`;
+            if (error) throw error;
+
+            optimizedTextarea.value = data.formatted_scheme || data;
 
             rawContainer.style.display = 'none';
             optimizedContainer.style.display = 'block';
         } catch (e) {
             console.error(e);
-            alert(`Failed to optimize via Edge Function: ${e.message}`);
+            alert(`Failed to optimize via Edge Function. Ensure 'format-scheme' function is deployed to your Supabase project. Error: ${e.message}`);
         } finally {
             optimizeBtn.textContent = 'Auto-Format Scheme';
             optimizeBtn.disabled = false;
@@ -131,22 +128,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw error;
             }
 
-            // 3. Trigger Edge Function (or rely on DB Webhook)
-            // Here, we update the session to "processing" and save the storage path.
-            // In a real Supabase setup, a DB trigger on this table update would fire an Edge Function
-            // to split the PDF into individual students and grade them asynchronously.
+            // 3. Update Session to Processing
             await window.supabaseClient.from('sessions').update({
                 status: 'processing',
                 pdf_storage_path: data.path
             }).eq('id', savedSession.id);
 
-            statusEl.textContent = 'Upload Complete!';
-            detailEl.textContent = 'Your exams have been queued. You can safely close this page. You will be notified when grading is finished.';
+            // 4. Trigger the Serverless Grading Worker (Edge Function)
+            // We invoke it asynchronously (fire-and-forget) so the browser doesn't hang.
+            // The Edge Function will update the DB status to 'Pending Review' when done.
+            statusEl.textContent = 'Upload Complete! Grading Started.';
+            detailEl.textContent = 'The Playbook Serverless Engine is now marking the exams in the background. You can safely close this page.';
+
+            // Fire and forget
+            window.supabaseClient.functions.invoke('grade-exams', {
+                body: { session_id: savedSession.id }
+            }).catch(err => {
+                console.error("Failed to invoke Edge Function 'grade-exams'", err);
+            });
 
             // Redirect to dashboard after short delay
             setTimeout(() => {
                 window.location.href = `index.html`;
-            }, 3000);
+            }, 4000);
 
         } catch (error) {
             console.error(error);

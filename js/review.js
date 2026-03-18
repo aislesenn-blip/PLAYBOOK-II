@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const finalizeBtn = document.getElementById('finalize-btn');
 
     finalizeBtn.addEventListener('click', async () => {
-        session.status = 'Completed';
+        session.status = 'completed';
 
         // Recalculate averages based on any overrides
         let totalScoreSum = 0;
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 total_score: st.grading.totalScore,
                 max_score: st.grading.maxScore,
                 grading_data: { questions: st.grading.questions },
-                status: 'Completed'
+                status: 'completed'
             };
 
             await window.PlaybookDB.saveSubmission(backendSubmission);
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         session.average_score = Math.round(totalScoreSum / students.length);
         session.highest_score = highest; // Added custom property just in case, though schema only has average_score
-        session.status = 'Completed';
+        session.status = 'completed';
         await window.PlaybookDB.saveSession(session);
 
         alert('Scores finalized and saved. Redirecting to Analytics...');

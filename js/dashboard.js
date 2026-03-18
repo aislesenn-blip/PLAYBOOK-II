@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const currentStatus = session.status || 'pending';
 
-                if (currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     pendingCount++;
                 }
 
@@ -62,10 +62,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let badgeClass = 'neutral';
                 let statusBadgeColor = 'var(--neutral-text)';
 
-                if (currentStatus.toLowerCase() === 'completed') {
+                if (currentStatus === 'completed') {
                     badgeClass = '';
                     statusBadgeColor = 'var(--success-text)';
-                } else if (currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     badgeClass = 'partial';
                     statusBadgeColor = 'var(--partial-text)';
                 }
@@ -78,9 +78,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 };
 
                 let actionLink = '-';
-                if (currentStatus.toLowerCase() === 'completed') {
+                if (currentStatus === 'completed') {
                     actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
-                } else if (currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
                 }
 
@@ -91,9 +91,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const formattedDate = dateObj.toLocaleDateString();
                 const safeSessionDate = escapeHTML(formattedDate);
 
-                // Capitalize first letter of status for UI
-                let displayStatus = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
-                if(displayStatus === 'Pending') displayStatus = 'Pending Review';
+                // Format display status for UI cleanly
+                let displayStatus = currentStatus;
+                if (displayStatus === 'needs_review' || displayStatus.toLowerCase() === 'pending review' || displayStatus.toLowerCase() === 'pending') {
+                    displayStatus = 'Pending Review';
+                } else {
+                    displayStatus = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
+                }
                 const safeSessionStatus = escapeHTML(String(displayStatus || ''));
 
                 tr.innerHTML = `
