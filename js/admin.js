@@ -105,6 +105,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching users:", e);
     }
 
+    // Invite Professor
+    const inviteBtn = document.getElementById('invite-prof-btn');
+    if (inviteBtn) {
+        inviteBtn.addEventListener('click', () => {
+            const inviteUrl = window.location.origin + '/register.html';
+            navigator.clipboard.writeText(inviteUrl).then(() => {
+                alert(`Invite Link Copied: ${inviteUrl}\n\nSend this to your professors. They must sign up using their @${institution.domain} email address to automatically join your institution.`);
+            }).catch(err => {
+                console.error("Failed to copy:", err);
+                alert(`Please ask your professors to visit:\n${inviteUrl}\nand register using their @${institution.domain} email address.`);
+            });
+        });
+    }
+
     // Logout
     document.getElementById('logout-btn').addEventListener('click', () => {
         localStorage.removeItem('playbook_session');
