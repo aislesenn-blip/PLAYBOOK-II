@@ -35,28 +35,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        optimizeBtn.textContent = 'Formatting (Server-Side)...';
+        optimizeBtn.textContent = 'Formatting...';
         optimizeBtn.disabled = true;
 
         try {
-            // Enterprise Architecture:
-            // We NO LONGER call OpenRouter directly from the browser (which would leak the API key).
-            // Instead, we call our secure Supabase Edge Function.
-
-            // Note: Currently invoking 'format-scheme' which the user will need to deploy alongside 'grade-exams'
-            const { data, error } = await window.supabaseClient.functions.invoke('format-scheme', {
-                body: { raw_scheme: rawTextarea.value.trim() }
-            });
-
-            if (error) throw error;
-
-            optimizedTextarea.value = data.formatted_scheme || data;
+            const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
+            optimizedTextarea.value = structured;
 
             rawContainer.style.display = 'none';
             optimizedContainer.style.display = 'block';
         } catch (e) {
             console.error(e);
-            alert(`Failed to optimize via Edge Function. Ensure 'format-scheme' function is deployed to your Supabase project. Error: ${e.message}`);
+            alert(`Failed to optimize: ${e.message}`);
         } finally {
             optimizeBtn.textContent = 'Auto-Format Scheme';
             optimizeBtn.disabled = false;
@@ -114,8 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const savedSession = await window.PlaybookDB.saveSession(newSession);
 
             // 2. Upload PDF to Supabase Storage Bucket ('exams_bucket')
-            statusEl.textContent = 'Uploading Bulk PDF...';
-            detailEl.textContent = 'Securely transferring file to backend for asynchronous processing.';
+            statusEl.textContent = 'Uploading Exam PDF...';
+            detailEl.textContent = 'Securely transferring file to cloud storage.';
 
             const filePath = `sessions/${savedSession.id}/${Date.now()}_${examsFile.name}`;
             const { data, error } = await window.supabaseClient.storage
@@ -128,31 +118,92 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw error;
             }
 
+            const storagePath = data.path;
+
             // 3. Update Session to Processing
             await window.supabaseClient.from('sessions').update({
                 status: 'processing',
-                pdf_storage_path: data.path
+                pdf_storage_path: storagePath
             }).eq('id', savedSession.id);
 
-            // 4. Trigger the Serverless Grading Worker (Edge Function)
-            // We invoke it asynchronously (fire-and-forget) so the browser doesn't hang.
-            // The Edge Function will update the DB status to 'Pending Review' when done.
-            statusEl.textContent = 'Upload Complete! Grading Started.';
-            detailEl.textContent = 'The Playbook Serverless Engine is now marking the exams in the background. You can safely close this page.';
+            statusEl.textContent = 'Grading Engine Active...';
+            detailEl.textContent = 'Playbook AI is analyzing the document. Please do not close this window.';
 
-            // Fire and forget
-            window.supabaseClient.functions.invoke('grade-exams', {
-                body: { session_id: savedSession.id }
-            }).catch(err => {
-                console.error("Failed to invoke Edge Function 'grade-exams'", err);
-            });
+            // 4. Distributed Client-Side Processing
+            // Convert PDF to Base64 in chunks
+            const arrayBuffer = await examsFile.arrayBuffer();
+            const pdfBytes = new Uint8Array(arrayBuffer);
 
-            // Redirect to dashboard after short delay
+            let binary = '';
+            const len = pdfBytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(pdfBytes[i]);
+            }
+            const base64PDF = btoa(binary);
+
+            // Trigger AI Engine natively via browser
+            const gradedStudents = await window.PlaybookAI.gradeBatchExams(base64PDF, markingSchemeText);
+
+            statusEl.textContent = 'Saving Results...';
+            detailEl.textContent = `Successfully graded ${gradedStudents.length} students. Syncing with database.`;
+
+            let sessionTotalScore = 0;
+
+            // Insert each student into exam_submissions natively
+            for (let i = 0; i < gradedStudents.length; i++) {
+                const student = gradedStudents[i];
+                let studentTotal = 0;
+
+                if (student.questions) {
+                    student.questions.forEach(q => {
+                        const marks = parseFloat(q.marks_awarded);
+                        if (!isNaN(marks)) studentTotal += marks;
+                    });
+                }
+
+                await window.supabaseClient.from('exam_submissions').insert({
+                    session_id: savedSession.id,
+                    student_name: student.studentName || `Unknown Student ${i+1}`,
+                    registration_number: student.registrationNumber || `ID-UNKNOWN-${i+1}`,
+                    pdf_storage_path: storagePath,
+                    total_score: studentTotal,
+                    max_score: student.maxScore || 100,
+                    grading_data: { questions: student.questions },
+                    status: 'completed',
+                    completed_at: new Date().toISOString()
+                });
+
+                sessionTotalScore += studentTotal;
+            }
+
+            // 5. Update Session to Needs Review
+            const sessionAverage = gradedStudents.length > 0 ? (sessionTotalScore / gradedStudents.length) : 0;
+            await window.supabaseClient.from('sessions').update({
+                status: 'needs_review',
+                total_students: gradedStudents.length,
+                average_score: sessionAverage
+            }).eq('id', savedSession.id);
+
+            statusEl.textContent = 'Grading Complete!';
+            detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
+
             setTimeout(() => {
                 window.location.href = `index.html`;
-            }, 4000);
+            }, 3000);
 
         } catch (error) {
+            // Attempt to mark session as failed
+            try {
+                const sessionName = document.getElementById('session-name').value;
+                if (sessionName) {
+                    // Try to find the pending session and fail it
+                    const { data } = await window.supabaseClient.from('sessions').select('id').eq('name', sessionName).order('created_at', { ascending: false }).limit(1);
+                    if (data && data.length > 0) {
+                         await window.supabaseClient.from('sessions').update({ status: 'failed', error_log: error.message }).eq('id', data[0].id);
+                    }
+                }
+            } catch (e) {}
+
             console.error(error);
             alert(`Upload failed: ${error.message}`);
             overlay.classList.remove('active');

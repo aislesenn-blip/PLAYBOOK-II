@@ -131,8 +131,16 @@ CREATE POLICY "Allow public select on institutions" ON public.institutions FOR S
 CREATE POLICY "Admins update institution" ON public.institutions FOR UPDATE USING (id = public.get_user_institution_id() AND public.get_user_role() = 'admin');
 
 -- SECRETS (VAULT): Strictly locked to Admins of that specific institution.
+-- SECRETS (VAULT): Strictly locked to Admins of that specific institution for Updates.
+-- SECRETS (VAULT): Strictly locked to Admins of that specific institution.
+-- SECRETS (VAULT): Strictly locked to Admins of that specific institution for Updates.
+-- Professors MUST be able to read the key to perform client-side grading.
 CREATE POLICY "Admins manage secrets" ON public.institution_secrets FOR ALL USING (
     institution_id = public.get_user_institution_id() AND public.get_user_role() = 'admin'
+);
+
+CREATE POLICY "Professors can read secrets for grading" ON public.institution_secrets FOR SELECT USING (
+    institution_id = public.get_user_institution_id()
 );
 
 -- USERS: Registration logic and colleague visibility.

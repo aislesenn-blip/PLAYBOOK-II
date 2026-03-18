@@ -1,8 +1,16 @@
+// js/ai.js
+// Playbook Central Intelligence Engine (Client-Side Distributed Processing)
+
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const SYSTEM_PROMPT = `
-You are an extremely strict, highly experienced University Professor grading a student's exam to NECTA-level international examination board standards.
-You have been provided with a marking scheme and an image of the student's exam response.
+You are an extremely strict, highly experienced University Professor grading a batch of student exams to NECTA-level international examination board standards.
+You have been provided with a marking scheme and a single PDF document containing MULTIPLE student exams.
+
+CRITICAL MANDATE FOR BATCH GRADING:
+The document contains several consecutive exams from different students.
+You MUST analyze the ENTIRE document. Identify where one student's exam ends and the next begins (usually indicated by a new title page with a Name and Registration Number).
+You MUST grade EVERY SINGLE STUDENT found in the document individually and output them as an array.
 
 CRITICAL RULES & FOUR TIERS OF EVALUATION:
 1. Exhaustive Evaluation: You MUST evaluate EVERY SINGLE sub-question present in the marking scheme. DO NOT stop after one.
@@ -27,51 +35,51 @@ FEEDBACK PERSONA & TONE (EXECUTE FLAWLESSLY):
    - PERFECT EXAMPLE: 'Beneficial nutrients (like Silicon or Cobalt) stimulate growth but are not strictly essential for survival. Next time, state this distinction and include one of these examples for full marks.'
 3. THE SANDWICH METHOD (FOR PARTIAL MARKS): When awarding partial marks, always start with what they got right, then state exactly what was missing. (e.g., 'Your definition was perfect, but you lost marks because the diagram lacked labels.'). Do not sound like a database auditor. Sound like an elite educator.
 
-Your output must strictly be a JSON object adhering to the following schema. Return ONLY valid JSON without markdown wrapping. The "questions" array below is an EXAMPLE; you must return ALL questions. DO NOT output a totalScore key. Ensure EVERY question object has a populated "constructive_feedback" string.
+Your output must strictly be a JSON object adhering to the following schema. Return ONLY valid JSON without markdown wrapping. The output MUST have a root key "students" containing an array of objects.
 
 {
-  "studentName": "Extracted Student Name or 'Unknown Student'",
-  "registrationNumber": "Extracted Registration Number/ID or 'Unknown ID'",
-  "maxScore": 100,
-  "questions": [
+  "students": [
     {
-      "questionId": "1a",
-      "questionTitle": "Title or brief description of the sub-question",
-      "answer_status": "Answered | Skipped",
-      "marks_awarded": 3,
-      "max_marks": 5,
-      "justification": "Clinical explanation of marks awarded/lost referencing the scheme.",
-      "constructive_feedback": "Actionable advice for improvement."
+      "studentName": "Extracted Student Name or 'Unknown Student'",
+      "registrationNumber": "Extracted Registration Number/ID or 'Unknown ID'",
+      "maxScore": 100,
+      "questions": [
+        {
+          "questionId": "1a",
+          "questionTitle": "Title or brief description of the sub-question",
+          "answer_status": "Answered | Skipped",
+          "marks_awarded": 3,
+          "max_marks": 5,
+          "justification": "Clinical explanation of marks awarded/lost referencing the scheme.",
+          "constructive_feedback": "Actionable advice for improvement."
+        }
+      ]
     }
   ]
 }
 `;
 
-// Pass the API key explicitly to allow Web Worker usage
-async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
+async function getSecureKey() {
     try {
-        const userContent = [
-            {
-                type: "text",
-                text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the pages of the student's exam in order:`
-            }
-        ];
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (!session) throw new Error("No active session.");
 
-        // Append all pages of the exam
-        imageDataUrls.forEach(url => {
-            userContent.push({
-                type: "image_url",
-                image_url: { url: url }
-            });
-        });
+        const userProfile = await window.PlaybookDB.getUserById(session.user.id);
+        const secret = await window.PlaybookDB.getInstitutionSecret(userProfile.institution_id);
 
-        if (!apiKey) {
-            // Fallback for main thread testing if needed, though mostly passed by worker
-            apiKey = typeof window !== 'undefined' ? localStorage.getItem('PLAYBOOK_API_KEY') : null;
-            if (!apiKey) {
-                throw new Error("No API key found. Please configure your API key.");
-            }
+        if (!secret || !secret.openrouter_api_key) {
+            throw new Error("No OpenRouter API key found in the secure vault. Ask an Admin to configure it.");
         }
+        return secret.openrouter_api_key;
+    } catch (e) {
+        throw new Error(`Authorization failed: ${e.message}`);
+    }
+}
+
+// Client-Side Distributed Grading Engine
+async function gradeBatchExams(base64PDF, markingSchemeText) {
+    try {
+        const apiKey = await getSecureKey();
 
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -80,17 +88,16 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'openai/gpt-4o',
+                model: 'google/gemini-1.5-pro', // Required model: Massive context window native PDF handling
                 temperature: 0.0,
-                top_p: 0.1,
                 messages: [
-                    {
-                        role: 'system',
-                        content: SYSTEM_PROMPT
-                    },
+                    { role: 'system', content: SYSTEM_PROMPT },
                     {
                         role: 'user',
-                        content: userContent
+                        content: [
+                            { type: "text", text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is the bulk exam document containing multiple students:` },
+                            { type: "image_url", image_url: { url: `data:application/pdf;base64,${base64PDF}` } }
+                        ]
                     }
                 ],
                 response_format: { type: "json_object" }
@@ -103,40 +110,22 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
         }
 
         const data = await response.json();
-
         let content = data.choices[0].message.content;
 
-        // Ensure valid JSON by stripping markdown formatting if present
-        if (content.startsWith('```json')) {
-            content = content.replace(/^```json\n|\n```$/g, '');
-        } else if (content.startsWith('```')) {
-            content = content.replace(/^```\n|\n```$/g, '');
+        if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
+        else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
+
+        const parsedData = JSON.parse(content);
+
+        if (!parsedData.students || !Array.isArray(parsedData.students)) {
+            throw new Error("AI did not return a valid 'students' array.");
         }
 
-        const parsedContent = JSON.parse(content);
-        return parsedContent;
+        return parsedData.students;
 
     } catch (error) {
-        console.error("Error in Playbook grading:", error);
-
-        // Fallback mock data in case API fails or hits rate limits
-        return {
-            studentName: "Unknown Student (API Error)",
-            registrationNumber: "Unknown ID (API Error)",
-            totalScore: 0,
-            maxScore: 100,
-            questions: [
-                 {
-                    questionId: "Error",
-                    questionTitle: "Error processing document",
-                    marks_awarded: 0,
-                    max_marks: 100,
-                    answer_status: "Skipped",
-                    justification: `An error occurred while contacting the AI: ${error.message}`,
-                    constructive_feedback: "Please manually review this exam or try again later."
-                 }
-            ]
-        };
+        console.error("Error in Playbook grading engine:", error);
+        throw error;
     }
 }
 
@@ -164,10 +153,7 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
         `;
 
         async function optimizeMarkingScheme(rawText) {
-            const apiKey = typeof window !== 'undefined' ? localStorage.getItem('PLAYBOOK_API_KEY') : null;
-            if (!apiKey) {
-                throw new Error("No API key found. Please configure your API key.");
-            }
+            const apiKey = await getSecureKey();
 
             const response = await fetch(API_URL, {
                 method: 'POST',
@@ -207,7 +193,7 @@ async function analyzeExamWithAI(imageDataUrls, markingSchemeText, apiKey) {
 
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-            window.PlaybookAI = { analyzeExamWithAI, optimizeMarkingScheme };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme };
 } else {
-            self.PlaybookAI = { analyzeExamWithAI, optimizeMarkingScheme };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme };
 }
