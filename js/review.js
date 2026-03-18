@@ -54,50 +54,68 @@ document.addEventListener('DOMContentLoaded', async () => {
     const finalizeBtn = document.getElementById('finalize-btn');
 
     finalizeBtn.addEventListener('click', async () => {
-        session.status = 'completed';
 
-        // Recalculate averages based on any overrides
-        let totalScoreSum = 0;
-        let highest = 0;
-        for(let st of students) {
-            let sTotal = 0;
-            if(st.grading && st.grading.questions) {
-                st.grading.questions.forEach(q => {
-                    // Safe parse, handle old db schemas
-                    const val = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
-                    const parsed = parseFloat(val);
-                    if (!isNaN(parsed)) {
-                        sTotal += parsed;
-                    }
-                });
+        // Add UI loading state to the button
+        const originalText = finalizeBtn.textContent;
+        finalizeBtn.textContent = 'Saving...';
+        finalizeBtn.disabled = true;
+
+        try {
+            session.status = 'completed';
+
+            // Recalculate averages based on any overrides
+            let totalScoreSum = 0;
+            let highest = 0;
+            for(let st of students) {
+                let sTotal = 0;
+
+                // Ensure grading object exists to prevent TypeError
+                if (!st.grading) {
+                    st.grading = { totalScore: 0, maxScore: 100, questions: [] };
+                }
+
+                if(st.grading.questions) {
+                    st.grading.questions.forEach(q => {
+                        // Safe parse, handle old db schemas
+                        const val = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                        const parsed = parseFloat(val);
+                        if (!isNaN(parsed)) {
+                            sTotal += parsed;
+                        }
+                    });
+                }
+                st.grading.totalScore = sTotal;
+
+                // Map frontend object back to backend schema format for saving
+                const backendSubmission = {
+                    id: st.id,
+                    session_id: sessionId,
+                    student_name: st.studentName,
+                    registration_number: st.registrationNumber,
+                    total_score: st.grading.totalScore,
+                    max_score: st.grading.maxScore || 100,
+                    grading_data: { questions: st.grading.questions },
+                    status: 'completed'
+                };
+
+                await window.PlaybookDB.saveSubmission(backendSubmission);
+
+                totalScoreSum += sTotal;
+                if(sTotal > highest) highest = sTotal;
             }
-            st.grading.totalScore = sTotal;
 
-            // Map frontend object back to backend schema format for saving
-            const backendSubmission = {
-                id: st.id,
-                session_id: sessionId,
-                student_name: st.studentName,
-                registration_number: st.registrationNumber,
-                total_score: st.grading.totalScore,
-                max_score: st.grading.maxScore,
-                grading_data: { questions: st.grading.questions },
-                status: 'completed'
-            };
+            session.average_score = Math.round(totalScoreSum / students.length);
+            session.status = 'completed';
+            await window.PlaybookDB.saveSession(session);
 
-            await window.PlaybookDB.saveSubmission(backendSubmission);
-
-            totalScoreSum += sTotal;
-            if(sTotal > highest) highest = sTotal;
+            alert('Scores finalized and saved. Redirecting to Analytics...');
+            window.location.href = `analytics.html?session=${sessionId}`;
+        } catch (error) {
+            console.error("Error finalizing scores:", error);
+            alert(`Failed to finalize scores: ${error.message}`);
+            finalizeBtn.textContent = originalText;
+            finalizeBtn.disabled = false;
         }
-
-        session.average_score = Math.round(totalScoreSum / students.length);
-        session.highest_score = highest; // Added custom property just in case, though schema only has average_score
-        session.status = 'completed';
-        await window.PlaybookDB.saveSession(session);
-
-        alert('Scores finalized and saved. Redirecting to Analytics...');
-        window.location.href = `analytics.html?session=${sessionId}`;
     });
 
     function loadStudent(index) {
