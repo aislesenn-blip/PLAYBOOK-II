@@ -150,7 +150,7 @@ serve(async (req) => {
     let sessionTotalScore = 0;
     let successfulStudentsCount = 0;
 
-    // 5. Grade the ENTIRE batch PDF via Gemini 1.5 Pro natively
+    // 5. Grade the ENTIRE batch PDF via Gemini 2.0 Flash natively
     const openRouterReq = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
@@ -158,7 +158,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'google/gemini-1.5-pro', // Required model: Massive context window native PDF handling
+            model: 'google/gemini-2.0-flash-001', // Required model: Massive context window native PDF handling
             temperature: 0.0,
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },

@@ -130,19 +130,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             detailEl.textContent = 'Playbook AI is analyzing the document. Please do not close this window.';
 
             // 4. Distributed Client-Side Processing
-            // Convert PDF to Base64 in chunks
+            // Convert PDF to Base64 Images natively using pdf.js to guarantee model compatibility (e.g. GPT-4o)
             const arrayBuffer = await examsFile.arrayBuffer();
-            const pdfBytes = new Uint8Array(arrayBuffer);
 
-            let binary = '';
-            const len = pdfBytes.byteLength;
-            for (let i = 0; i < len; i++) {
-                binary += String.fromCharCode(pdfBytes[i]);
+            // Initialize pdf.js
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+            const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const numPages = pdfDoc.numPages;
+            const imageDataUrls = [];
+
+            // Convert each page to an image Data URL
+            for (let i = 1; i <= numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                // Lower scale (1.5) to keep payload sizes manageable for 128k context windows
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                // Compress image as JPEG
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                imageDataUrls.push(dataUrl);
             }
-            const base64PDF = btoa(binary);
 
-            // Trigger AI Engine natively via browser
-            const gradedStudents = await window.PlaybookAI.gradeBatchExams(base64PDF, markingSchemeText);
+            statusEl.textContent = 'Grading Engine Active...';
+            detailEl.textContent = `Analyzing ${numPages} pages via secure Playbook API proxy. Do not close.`;
+
+            // Trigger AI Engine natively via browser (pass the array of image Data URLs)
+            const gradedStudents = await window.PlaybookAI.gradeBatchExams(imageDataUrls, markingSchemeText);
 
             statusEl.textContent = 'Saving Results...';
             detailEl.textContent = `Successfully graded ${gradedStudents.length} students. Syncing with database.`;

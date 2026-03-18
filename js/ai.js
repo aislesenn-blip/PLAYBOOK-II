@@ -81,6 +81,24 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
     try {
         const apiKey = await getSecureKey();
 
+        // Ensure backwards compatibility and dynamic context building
+        // We now accept an array of image data URLs directly from the browser's PDF parser
+        // This is 100% compatible with GPT-4o's vision capabilities and completely avoids PDF parsing errors.
+        const userContent = [
+            {
+                type: "text",
+                text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the scanned pages of the bulk exam document containing multiple students:`
+            }
+        ];
+
+        // Ensure base64PDF is treated as an array of image URLs (handled by upload.js)
+        base64PDF.forEach(imageUrl => {
+            userContent.push({
+                type: "image_url",
+                image_url: { url: imageUrl }
+            });
+        });
+
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
@@ -88,17 +106,11 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'google/gemini-pro-1.5', // Required model: Massive context window native PDF handling
+                model: 'google/gemini-2.0-flash-001', // Required model: Guaranteed massive context window support on OpenRouter
                 temperature: 0.0,
                 messages: [
                     { role: 'system', content: SYSTEM_PROMPT },
-                    {
-                        role: 'user',
-                        content: [
-                            { type: "text", text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is the bulk exam document containing multiple students:` },
-                            { type: "image_url", image_url: { url: `data:application/pdf;base64,${base64PDF}` } }
-                        ]
-                    }
+                    { role: 'user', content: userContent }
                 ],
                 response_format: { type: "json_object" }
             })
@@ -162,7 +174,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'openai/gpt-4o',
+                    model: 'google/gemini-2.0-flash-001',
                     temperature: 0.1,
                     messages: [
                         {
