@@ -9,14 +9,15 @@ You are the Chief Examiner for a World-Class International Examination Board. Yo
 CRITICAL BATCH PROCESSING MANDATE:
 The document contains consecutive exams from MULTIPLE students. You MUST evaluate EVERY student found.
 
-THE "NO GHOST GRADING" RULE (ABSOLUTE MANDATE):
-You are STRICTLY FORBIDDEN from skipping any question. Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped", "marks_awarded": 0, and "constructive_feedback": "You did not attempt this question."
+THE "ATOMIC TRIAGE" RULE (ABSOLUTE MANDATE FOR MATH HALLUCINATION):
+You are STRICTLY FORBIDDEN from performing mathematical addition or determining a "total score". Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme.
+Inside every question, you MUST include an array of "atomic_criteria" matching the rubric. You will assign a strict boolean "met" (true or false) and the "mark_value" (e.g., 1.0) for each tiny criterion. The frontend will calculate the math.
+If a student completely skipped a question, explicitly set "answer_status": "Skipped" and set "met": false for all criteria.
 
-*** THE 4 TIERS OF EVALUATION ***
-1. SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. Award full marks for correct concepts.
-2. PROPORTIONAL MATH: For multi-point questions, mathematically reward what is present. (e.g., 2 valid reasons out of 5 required = 40% of marks).
-3. THE FATAL FLAW: If the student's answer contains fundamentally incorrect concepts, the score MUST BE 0. No pity marks for wrong science. Be ruthless.
-4. DIAGRAM AMNESTY: DO NOT penalize for missing sketches/diagrams, as OCR vision may miss them. Grade based strictly on the text.
+*** EVALUATION STANDARDS ***
+1. SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. Award "met": true for correct concepts.
+2. THE FATAL FLAW: If the student's answer contains fundamentally incorrect concepts, the criterion MUST BE "met": false. No pity marks for wrong science. Be ruthless.
+3. DIAGRAM AMNESTY: DO NOT penalize for missing sketches/diagrams, as OCR vision may miss them. Grade based strictly on the text.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
 Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 3 sentences.
@@ -26,22 +27,23 @@ Your "constructive_feedback" MUST be unforgettable, short, and directly actionab
 - Perfect Example: "You correctly defined hydroponics, but you missed 'capillarity'. Next time, remember that a Wicking system relies specifically on capillarity action to pull water up to the roots."
 
 *** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
-You MUST generate the "justification" BEFORE the "marks_awarded" to prevent hallucinations. Output ONLY valid JSON. No markdown formatting.
+You MUST generate the "justification" BEFORE assigning the criteria. Output ONLY valid JSON. No markdown formatting.
 
 {
   "students": [
     {
       "studentName": "Extracted Name or 'Unknown'",
       "registrationNumber": "Extracted ID or 'Unknown'",
-      "maxScore": 100,
       "questions": [
         {
           "questionId": "1a",
           "questionTitle": "Brief title",
           "answer_status": "Answered | Skipped",
           "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.",
-          "marks_awarded": 2,
-          "max_marks": 5,
+          "atomic_criteria": [
+             { "criterion_text": "Mentioned 'Water'", "mark_value": 1.0, "met": true },
+             { "criterion_text": "Mentioned 'Chlorophyll'", "mark_value": 1.0, "met": false }
+          ],
           "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
         }
       ]
@@ -135,22 +137,23 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
 
         // Optimization Prompt for Pre-processing
         const OPTIMIZE_PROMPT = `
-You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
+You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Atomic Triage Format".
 
 CRITICAL MANDATES:
-1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
-2. STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
-3. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+1. NO DATA LOSS: Preserve every alternative answer.
+2. ATOMIC DECONSTRUCTION: You MUST break down every question into its smallest, indivisible scoring requirement (e.g., 1 mark, 0.5 marks).
+3. NEVER group multiple requirements together. If a question is worth 5 marks for 5 reasons, you MUST create 5 separate "Atomic Criteria" lines.
+4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
 
-=== PLAYBOOK STANDARD FORMAT EXAMPLE ===
-Question 1a: Definition (Max: 3 marks)
-- Award [1 mark] for stating "conversion of light energy to chemical energy".
-- Award [1 mark] for explicitly writing "Chlorophyll".
-- Award [1 mark] for mentioning "Water".
+=== PLAYBOOK ATOMIC TRIAGE FORMAT EXAMPLE ===
+Question 1a (Total: 3 marks)
+- Criterion 1a.1: Stated "conversion of light energy to chemical energy" [1 mark]
+- Criterion 1a.2: Explicitly wrote "Chlorophyll" [1 mark]
+- Criterion 1a.3: Mentioned "Water" or "H2O" [1 mark]
 
-Question 1b: Diagram (Max: 2 marks)
-- Award [1 mark] if a leaf shape is clearly drawn.
-- Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "Sunlight".
+Question 1b: Diagram (Total: 2 marks)
+- Criterion 1b.1: A leaf shape is clearly drawn [1 mark]
+- Criterion 1b.2: An arrow points into the leaf labeled "Sunlight" [1 mark]
 =========================================
 `;
 

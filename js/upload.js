@@ -173,27 +173,62 @@ document.addEventListener('DOMContentLoaded', async () => {
             for (let i = 0; i < gradedStudents.length; i++) {
                 const student = gradedStudents[i];
                 let studentTotal = 0;
+                let maxTotal = 0;
 
-                if (student.questions) {
-                    student.questions.forEach(q => {
-                        const marks = parseFloat(q.marks_awarded);
-                        if (!isNaN(marks)) studentTotal += marks;
+                // Defensive Mapping: Catch common LLM schema deviations
+                const parsedQuestions = student.questions || student.evaluations || student.results || [];
+
+                // Calculate Atomic Triage Score
+                if (parsedQuestions && Array.isArray(parsedQuestions)) {
+                    parsedQuestions.forEach(q => {
+                        let qScore = 0;
+                        let qMax = 0;
+
+                        // Parse atomic criteria booleans and sum them mathematically in JavaScript
+                        if (q.atomic_criteria && Array.isArray(q.atomic_criteria)) {
+                            q.atomic_criteria.forEach(crit => {
+                                const val = parseFloat(crit.mark_value) || 0;
+                                qMax += val;
+                                if (crit.met === true || crit.met === "true" || crit.met === 1) {
+                                    qScore += val;
+                                }
+                            });
+                        } else {
+                            // Fallback if the AI hallucinated the old marks_awarded structure
+                            qScore = parseFloat(q.marks_awarded) || 0;
+                            qMax = parseFloat(q.max_marks) || 0;
+                        }
+
+                        // Mutate the question object explicitly with the JS-verified math
+                        // so review.js doesn't have to recalculate the atomic arrays if it doesn't want to.
+                        q.marks_awarded = qScore;
+                        q.max_marks = qMax;
+
+                        studentTotal += qScore;
+                        maxTotal += qMax;
                     });
                 }
 
-                await window.supabaseClient.from('exam_submissions').insert({
-                    session_id: savedSession.id,
-                    student_name: student.studentName || `Unknown Student ${i+1}`,
-                    registration_number: student.registrationNumber || `ID-UNKNOWN-${i+1}`,
-                    pdf_storage_path: storagePath,
-                    total_score: studentTotal,
-                    max_score: student.maxScore || 100,
-                    grading_data: { questions: student.questions },
-                    status: 'completed',
-                    completed_at: new Date().toISOString()
-                });
+                // Ensure max Score isn't 0
+                maxTotal = maxTotal > 0 ? maxTotal : (student.maxScore || 100);
 
-                sessionTotalScore += studentTotal;
+                try {
+                    await window.supabaseClient.from('exam_submissions').insert({
+                        session_id: savedSession.id,
+                        student_name: student.studentName || `Unknown Student ${i+1}`,
+                        registration_number: student.registrationNumber || `ID-UNKNOWN-${i+1}`,
+                        pdf_storage_path: storagePath,
+                        total_score: studentTotal,
+                        max_score: maxTotal,
+                        grading_data: { questions: parsedQuestions },
+                        status: 'completed',
+                        completed_at: new Date().toISOString()
+                    });
+
+                    sessionTotalScore += studentTotal;
+                } catch (dbErr) {
+                    console.error("Failed to insert student:", student, dbErr);
+                }
             }
 
             // 5. Update Session to Needs Review
