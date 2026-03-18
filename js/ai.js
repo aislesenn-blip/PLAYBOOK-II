@@ -88,7 +88,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'google/gemini-1.5-pro', // Required model: Massive context window native PDF handling
+                model: 'google/gemini-pro-1.5', // Required model: Massive context window native PDF handling
                 temperature: 0.0,
                 messages: [
                     { role: 'system', content: SYSTEM_PROMPT },
