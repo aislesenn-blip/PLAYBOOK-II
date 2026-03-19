@@ -50,53 +50,101 @@
         }
     </style>
 </head>
-<body style="overflow: hidden;"> <!-- Prevent body scroll for split layout -->
+<body style="overflow: hidden; background-color: var(--bg-color);"> <!-- Prevent body scroll for split layout -->
 
-    <!-- Top Nav -->
-    <header class="nav-header">
-        <div class="flex items-center gap-2">
-            <a href="index.html" style="font-family: var(--font-serif); font-size: 1.5rem; font-weight: 600; text-transform: uppercase;">Playbook</a>
-            <span style="color: var(--text-secondary);">|</span>
-            <span style="font-weight: 500;" id="session-title">Loading Session...</span>
-        </div>
-
-        <div class="flex items-center gap-1">
-            <span style="font-size: 0.9rem; color: var(--text-secondary);">Student <span id="current-student-idx">0</span> of <span id="total-student-count">0</span>: <strong style="color: var(--text-primary);" id="student-name">...</strong> (<span id="student-reg-num">...</span>)</span>
-            <button class="btn btn-secondary" id="prev-btn" style="padding: 0.5rem 1rem;" disabled>&larr; Prev</button>
-            <button class="btn btn-secondary" id="next-btn" style="padding: 0.5rem 1rem;">Next &rarr;</button>
-        </div>
-
-        <div>
-            <button id="finalize-btn" class="btn">Finalize Scores</button>
-        </div>
-    </header>
-
-    <div class="app-container" style="display: block; padding: var(--spacing-lg); height: calc(100vh - 4rem - 2px); box-sizing: border-box;">
-
-        <div class="split-layout" style="height: 100%;">
-
-            <!-- Left: Document Preview -->
-            <div class="document-preview card" style="margin: 0; padding: 0;" id="document-preview-container">
-                <div class="flex-col items-center" style="color: var(--text-secondary); opacity: 0.5; width: 100%; height: 100%; justify-content: center; display: flex;">
-                    <p>Loading document...</p>
+    <div class="app-container" style="display: flex; flex-direction: column; height: 100vh;">
+        <!-- Minimalist Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
+                <div class="flex items-center gap-2">
+                    <div class="nav-logo">Playbook</div>
+                    <ul class="nav-links flex gap-1 items-center">
+                        <li><a href="index.html">Dashboard</a></li>
+                        <li><a href="upload.html">Upload Exams</a></li>
+                        <li><a href="review.html" class="active">Review & Override</a></li>
+                        <li><a href="analytics.html">Analytics</a></li>
+                    </ul>
+                </div>
+                <div class="flex items-center gap-1 nav-actions">
+                    <a href="manual.html" class="nav-icon-link">User Manual</a>
+                    <a href="settings.html" class="nav-icon-link">Settings</a>
+                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
                 </div>
             </div>
+        </nav>
 
-            <!-- Right: Grading Panel -->
-            <div class="grading-panel">
-                <div class="flex justify-between items-center mb-1">
-                    <h2>Playbook Evaluation</h2>
-                    <div style="text-align: right;">
-                        <span style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary);">Total Score</span>
-                        <div style="font-family: var(--font-serif); font-size: 2rem;" id="total-score-display">0 / 0</div>
+        <!-- Secondary Review Header -->
+        <header class="flex justify-between items-center mb-2 px-4 py-2" style="background-color: var(--surface-color); border-bottom: 1px solid var(--border-color);">
+            <div class="flex items-center gap-2">
+                <span class="font-semibold" style="color: var(--text-primary);" id="session-title">Loading Session...</span>
+            </div>
+
+            <div class="flex items-center gap-1">
+                <span style="font-size: 0.9rem; color: var(--text-secondary);" class="text-xs font-semibold uppercase tracking-wider">Student <span id="current-student-idx">0</span> of <span id="total-student-count">0</span>: <strong style="color: var(--text-primary);" id="student-name">...</strong> (<span id="student-reg-num">...</span>)</span>
+                <button class="btn btn-secondary" id="prev-btn" style="padding: 0.25rem 0.75rem;" disabled>&larr; Prev</button>
+                <button class="btn btn-secondary" id="next-btn" style="padding: 0.25rem 0.75rem;">Next &rarr;</button>
+            </div>
+
+            <div>
+                <button id="finalize-btn" class="btn btn-sm">Finalize Scores</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content flex-grow flex" style="padding: 0 1rem 1rem 1rem; overflow: hidden; height: 100%;">
+
+            <div class="split-layout" style="height: 100%; width: 100%; gap: 1rem;">
+
+                <!-- Left: Document Preview -->
+                <div class="document-preview card flex-1" style="margin: 0; padding: 0; overflow: hidden;" id="document-preview-container">
+                    <div class="flex-col items-center" style="color: var(--text-secondary); opacity: 0.5; width: 100%; height: 100%; justify-content: center; display: flex;">
+                        <p>Loading document...</p>
                     </div>
                 </div>
 
-                <div id="grading-items-container">
-                    <!-- Populated by JS -->
-                </div>
+                <!-- Right: Grading Panel -->
+                <div class="grading-panel card flex-1" style="margin: 0; overflow-y: auto; height: 100%; padding: 1.5rem;">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-slate-900" style="font-size: 1.5rem; font-weight: 600;">Playbook Evaluation</h2>
+                        <div style="text-align: right;">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Score</span>
+                            <div style="font-size: 2rem; font-weight: 600; color: var(--text-primary);" id="total-score-display">0 / 0</div>
+                        </div>
+                    </div>
 
+                    <div id="grading-items-container">
+                        <!-- Populated by JS -->
+                    </div>
+
+                </div>
             </div>
+        </main>
+    </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay">
+            <!-- SVG Line Drawing Animation for PLAYBOOK -->
+            <svg class="playbook-loader" viewBox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
+                <!-- P -->
+                <path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- L -->
+                <path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- A -->
+                <path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Y -->
+                <path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- B -->
+                <path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- O -->
+                <path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- O -->
+                <path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- K -->
+                <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+
+            <h2 style="margin-top: 1.5rem;" id="loading-status">Loading...</h2>
+            <p id="loading-detail">Please wait while we fetch your data.</p>
         </div>
     </div>
 
