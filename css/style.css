@@ -392,6 +392,26 @@ a:hover {
         overflow: auto !important;
     }
 
+    /* Fix header overlapping and make responsive headers wrap cleanly */
+    header.flex.justify-between {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+    }
+    header.flex.justify-between .flex.gap-1 {
+        flex-wrap: wrap;
+    }
+
+    /* Form control adjustments on tablet */
+    .form-control[style*="width: 250px"] {
+        width: 100% !important;
+        flex-grow: 1;
+    }
+
+    /* Stat grid fix for tablet */
+    section[style*="grid-template-columns: repeat(4, 1fr);"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
     /* Legacy Responsive Sidebar Styles */
     .sidebar {
         width: 100%;
@@ -433,7 +453,46 @@ a:hover {
     }
 
     .nav-links {
-        display: none; /* Hidden on mobile for now, or add a hamburger menu */
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+        margin: var(--spacing-sm) 0;
+        justify-content: center;
+        width: 100%;
+        flex-direction: row; /* Ensure they stay inline if there's space */
+        align-items: center;
+    }
+
+    .nav-links li {
+        margin-bottom: 0;
+        height: auto;
+    }
+
+    .nav-links a {
+        padding: 0.5rem 1rem;
+        text-align: center;
+        height: auto;
+        display: inline-flex;
+        align-items: center;
+        font-size: 1.1rem; /* Base text for mobile is 1.1rem */
+        border-bottom: none;
+        background: var(--neutral-bg);
+        border-radius: var(--radius-sm);
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+        border-bottom: none;
+        background: var(--border-color);
+    }
+
+    .nav-content .flex.items-center.gap-2 {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .nav-content {
+        height: auto;
+        padding: var(--spacing-sm) 0;
     }
 
     .main-content {
@@ -467,10 +526,10 @@ a:hover {
     }
 
     :root {
-        --spacing-lg: 3rem;
-        --spacing-md: 2rem;
-        --spacing-sm: 1.5rem;
-        --spacing-xs: 1rem;
+        --spacing-lg: 2rem;
+        --spacing-md: 1.5rem;
+        --spacing-sm: 1rem;
+        --spacing-xs: 0.5rem;
     }
 
     h1 {
@@ -520,7 +579,7 @@ a:hover {
     }
 
     .stat-number {
-        font-size: 4rem;
+        font-size: 3rem;
     }
 
     .stat-label {
@@ -534,6 +593,18 @@ a:hover {
         align-items: flex-start !important;
         gap: var(--spacing-md);
         margin-bottom: var(--spacing-lg);
+        width: 100%;
+    }
+
+    /* Prevent buttons from overlapping by wrapping them properly and letting them fill space if needed */
+    .flex.gap-1,
+    .flex.gap-2 {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    header.flex.justify-between .flex.gap-1 button {
+        flex: 1 1 100%;
     }
 
     .flex.gap-1.items-center {
@@ -555,16 +626,39 @@ a:hover {
     }
 
     /* Target inline grid gaps and alignments on cards */
-    .grid.gap-2 {
-        gap: var(--spacing-lg) !important;
+    .grid.gap-2,
+    section[style*="grid-template-columns"],
+    div[style*="grid-template-columns"] {
+        gap: var(--spacing-md) !important;
         grid-template-columns: 1fr !important;
-        margin-bottom: var(--spacing-lg) !important;
+        margin-bottom: var(--spacing-md) !important;
     }
 
     #raw-scheme-container .flex.justify-between,
     #optimized-scheme-container .flex.justify-between {
         flex-direction: column !important;
         gap: var(--spacing-sm);
+    }
+
+    /* Top Nav specific adjustments for mobile */
+    .top-nav {
+        padding: 0 var(--spacing-xs);
+    }
+    .nav-content {
+        height: auto;
+        padding: var(--spacing-sm) 0;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    .nav-actions {
+        width: 100%;
+        justify-content: center;
+        gap: var(--spacing-sm) !important;
+        flex-wrap: wrap;
+    }
+    .nav-logo {
+        margin-right: 0;
+        margin-bottom: var(--spacing-xs);
     }
 }
 
