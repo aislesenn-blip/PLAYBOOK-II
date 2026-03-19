@@ -70,6 +70,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const sessionName = document.getElementById('session-name').value;
+        const totalExamMarksInput = document.getElementById('total-exam-marks');
+        const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
 
         // Decide which scheme text to use
@@ -245,15 +247,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (parsedQuestions && Array.isArray(parsedQuestions)) {
                         parsedQuestions.forEach(q => {
                             const qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
-                            const qMax = parseFloat(q.max) || parseFloat(q.max_marks) || 0;
 
                             studentTotal += qScore;
-                            maxTotal += qMax;
                         });
                     }
 
-                    // Ensure max Score isn't 0
-                    maxTotal = maxTotal > 0 ? maxTotal : (student.max || student.maxScore || 100);
+                    // Always use the explicitly defined Total Exam Marks from the UI
+                    maxTotal = explicitMaxMarks;
 
                     try {
                         await window.supabaseClient.from('exam_submissions').insert({

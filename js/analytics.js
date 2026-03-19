@@ -30,6 +30,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Load custom scale for letter grading (Moved outside try block for scope access by renderTable)
+    // Update default colors to use semantic CSS variable names
+    let scaleData = [
+        { min: 90, max: 100, label: 'A', color: 'var(--success-text)' },
+        { min: 80, max: 89.9, label: 'B', color: 'var(--success-text)' },
+        { min: 70, max: 79.9, label: 'C', color: 'var(--partial-text)' },
+        { min: 60, max: 69.9, label: 'D', color: 'var(--neutral-text)' },
+        { min: 0, max: 59.9, label: 'F', color: 'var(--neutral-text)' }
+    ];
+
     try {
         session = await window.PlaybookDB.getSession(sessionId);
         students = await window.PlaybookDB.getSubmissionsBySession(sessionId);
@@ -106,16 +116,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
             `;
         }
-
-        // Load custom scale for letter grading
-        // Update default colors to use semantic CSS variable names
-        let scaleData = [
-            { min: 90, max: 100, label: 'A', color: 'var(--success-text)' },
-            { min: 80, max: 89.9, label: 'B', color: 'var(--success-text)' },
-            { min: 70, max: 79.9, label: 'C', color: 'var(--partial-text)' },
-            { min: 60, max: 69.9, label: 'D', color: 'var(--neutral-text)' },
-            { min: 0, max: 59.9, label: 'F', color: 'var(--neutral-text)' }
-        ];
 
         try {
             const savedScale = await window.PlaybookDB.getSetting('grading_scale');
