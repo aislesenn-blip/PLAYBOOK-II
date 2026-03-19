@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c" width="100" height="100"></canvas>
+<script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    // Fill white
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Test entirely white canvas
+    const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+    let nonWhitePixels = 0;
+    for (let i = 0; i < pixelBuffer.length; i += 10) {
+        if ((pixelBuffer[i] & 0x00FFFFFF) !== 0x00FFFFFF) {
+            nonWhitePixels++;
+        }
+    }
+    const inkCoverage = nonWhitePixels / (pixelBuffer.length / 10);
+    console.log("Ink coverage on white canvas:", inkCoverage);
+
+    // Fill transparent black
+    ctx.clearRect(0,0,100,100);
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const pixelBuffer2 = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+    nonWhitePixels = 0;
+    for (let i = 0; i < pixelBuffer2.length; i += 10) {
+        if ((pixelBuffer2[i] & 0x00FFFFFF) !== 0x00FFFFFF) {
+            nonWhitePixels++;
+        }
+    }
+    const inkCoverage2 = nonWhitePixels / (pixelBuffer2.length / 10);
+    console.log("Ink coverage on transparent canvas:", inkCoverage2);
+</script>
+</body>
+</html>

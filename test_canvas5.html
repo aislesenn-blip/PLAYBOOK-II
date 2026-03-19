@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c" width="100" height="100"></canvas>
+<script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    // Fill white
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw an image from PDF. PDF.js will draw onto the canvas.
+    // If PDF.js draws something with slight anti-aliasing (e.g., #FDFDFD), it's not strictly 0xFFFFFFFF.
+    // Let's check how many pixels are not exactly white.
+    ctx.fillStyle = '#FEFEFE'; // very slightly off-white
+    ctx.fillRect(0, 0, 100, 100);
+
+    const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+    let nonWhitePixels = 0;
+    for (let i = 0; i < pixelBuffer.length; i += 10) {
+        if ((pixelBuffer[i] & 0x00FFFFFF) !== 0x00FFFFFF) {
+            nonWhitePixels++;
+        }
+    }
+    const inkCoverage = nonWhitePixels / (Math.floor(pixelBuffer.length / 10));
+    console.log("Ink coverage for off-white:", inkCoverage); // 1.0!
+</script>
+</body>
+</html>

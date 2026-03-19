@@ -146,13 +146,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let nonWhitePixels = 0;
                 // Sample every 10th pixel for performance
                 for (let i = 0; i < pixelBuffer.length; i += 10) {
-                    // Check if pixel is not fully white (ignoring alpha channel for standard PDF render)
-                    if ((pixelBuffer[i] & 0x00FFFFFF) !== 0x00FFFFFF) {
+                    const pixel = pixelBuffer[i];
+                    // Extract RGB components (little-endian: ABGR)
+                    const r = pixel & 0xFF;
+                    const g = (pixel >> 8) & 0xFF;
+                    const b = (pixel >> 16) & 0xFF;
+
+                    // Consider pixels darker than #EBEBEB to be actual ink,
+                    // avoiding false positives from scanned paper artifacts or anti-aliasing.
+                    if (r < 235 || g < 235 || b < 235) {
                         nonWhitePixels++;
                     }
                 }
-                const inkCoverage = nonWhitePixels / (pixelBuffer.length / 10);
-                return inkCoverage < 0.005; // Less than 0.5% non-white pixels usually means blank
+                const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
+                return inkCoverage < 0.005; // Less than 0.5% dark pixels means blank
             }
 
             let sessionTotalScore = 0;

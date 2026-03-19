@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c" width="100" height="100"></canvas>
+<script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    function isCanvasBlank(canvas, ctx) {
+        const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+        let nonWhitePixels = 0;
+        // Sample every 10th pixel for performance
+        for (let i = 0; i < pixelBuffer.length; i += 10) {
+            // Check if pixel is not fully white (ignoring alpha channel for standard PDF render)
+            // wait, (pixelBuffer[i] & 0x00FFFFFF) !== 0x00FFFFFF
+            // In little endian (most architectures), Uint32 format is ABGR.
+            // 0xFF(A) FF(B) FF(G) FF(R) -> white
+            // A B G R. So 0x00FFFFFF is 00 B G R.
+            // Wait, ABGR: 0xFFFFFFFF is solid white.
+            // If the color is solid white, pixelBuffer[i] is 0xFFFFFFFF.
+            // (0xFFFFFFFF & 0x00FFFFFF) === 0x00FFFFFF
+            // But if the color is black (0xFF000000), (0xFF000000 & 0x00FFFFFF) === 0x00000000 !== 0x00FFFFFF.
+            // If the color is transparent (0x00000000), (0x00000000 & 0x00FFFFFF) === 0x00000000 !== 0x00FFFFFF.
+
+            // What if PDF renders transparent pixels?
+            if ((pixelBuffer[i] & 0x00FFFFFF) !== 0x00FFFFFF) {
+                nonWhitePixels++;
+            }
+        }
+        const inkCoverage = nonWhitePixels / (Math.floor(pixelBuffer.length / 10));
+        return inkCoverage < 0.005; // Less than 0.5% non-white pixels usually means blank
+    }
+
+    // Draw some noise
+    for(let i=0; i<100; i++) {
+        ctx.fillStyle = '#123456';
+        ctx.fillRect(Math.random()*100, Math.random()*100, 1, 1);
+    }
+    console.log("Noise Blank:", isCanvasBlank(canvas, ctx)); // Should be false or maybe true if very little
+
+    // Fill white
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    console.log("White Blank:", isCanvasBlank(canvas, ctx)); // Should be true
+
+</script>
+</body>
+</html>

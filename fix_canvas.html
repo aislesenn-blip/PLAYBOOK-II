@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c" width="100" height="100"></canvas>
+<script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    function isCanvasBlank(canvas, ctx) {
+        const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+        let nonWhitePixels = 0;
+        // Sample every 10th pixel for performance
+        for (let i = 0; i < pixelBuffer.length; i += 10) {
+            const pixel = pixelBuffer[i];
+            // Extract RGB components (little-endian: ABGR)
+            const r = pixel & 0xFF;
+            const g = (pixel >> 8) & 0xFF;
+            const b = (pixel >> 16) & 0xFF;
+
+            // Check if the pixel is dark enough to be considered ink
+            // We consider anything lighter than #EEEEEE to be background
+            if (r < 240 || g < 240 || b < 240) {
+                nonWhitePixels++;
+            }
+        }
+        const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
+        return inkCoverage < 0.005; // Less than 0.5% dark pixels means blank
+    }
+
+    ctx.fillStyle = '#FEFEFE'; // very slightly off-white, should be blank
+    ctx.fillRect(0, 0, 100, 100);
+    console.log("Blank (off-white):", isCanvasBlank(canvas, ctx)); // Should be true
+
+    // Draw thick text
+    ctx.fillStyle = '#000000';
+    ctx.font = '20px Arial';
+    ctx.fillText('Hello', 10, 50);
+    console.log("Blank (with text):", isCanvasBlank(canvas, ctx)); // Should be false
+</script>
+</body>
+</html>
