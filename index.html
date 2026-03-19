@@ -8,36 +8,40 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-logo">Playbook</div>
-            <ul class="sidebar-nav">
-                <li><a href="index.html" class="active">Dashboard</a></li>
-                <li><a href="upload.html">Upload Exams</a></li>
-                <li><a href="review.html">Review & Override</a></li>
-                <li><a href="analytics.html">Analytics</a></li>
-                <li><a href="manual.html">User Manual</a></li>
-                <li><a href="settings.html">Settings</a></li>
-            </ul>
-        </aside>
+        <!-- Minimalist Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <div class="nav-logo">Playbook</div>
+                    <ul class="nav-links flex gap-1 items-center">
+                        <li><a href="index.html" class="active">Dashboard</a></li>
+                        <li><a href="upload.html">Upload Exams</a></li>
+                        <li><a href="review.html">Review & Override</a></li>
+                        <li><a href="analytics.html">Analytics</a></li>
+                    </ul>
+                </div>
+                <div class="flex items-center gap-1 nav-actions">
+                    <a href="manual.html" class="nav-icon-link">User Manual</a>
+                    <a href="settings.html" class="nav-icon-link">Settings</a>
+                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
+                </div>
+            </div>
+        </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <header class="flex justify-between items-center mb-2">
+        <main class="main-content max-w-7xl mx-auto">
+            <header class="page-header flex justify-between items-center mb-2">
                 <div>
                     <h1>Dashboard</h1>
-                    <p>Welcome back, <span id="prof-name-display" style="font-weight: 600;">Professor</span>. Here is an overview of your grading.</p>
+                    <p class="text-secondary">Welcome back, <span id="prof-name-display" style="font-weight: 600;">Professor</span>. Here is an overview of your grading.</p>
                 </div>
                 <div class="flex gap-1 items-center">
                     <a href="upload.html" class="btn">New Grading Session</a>
-                    <button id="logout-btn" class="btn btn-secondary">Sign Out</button>
                 </div>
             </header>
 
-            <!-- Removed Local API Configuration Section for Enterprise Mode -->
-
             <!-- Stats Grid -->
-            <section class="grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
+            <section class="stats-grid grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
                 <div class="card stat-card">
                     <div class="stat-number" id="stat-total-graded">0</div>
                     <div class="stat-label">Exams Graded</div>
