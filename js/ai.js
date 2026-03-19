@@ -102,6 +102,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
                 model: 'google/gemini-2.0-flash-001', // Required model: Guaranteed massive context window support on OpenRouter
                 temperature: 0.0,
                 seed: 42,
+                max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
                 messages: [
                     { role: 'system', content: SYSTEM_PROMPT },
                     { role: 'user', content: userContent }
