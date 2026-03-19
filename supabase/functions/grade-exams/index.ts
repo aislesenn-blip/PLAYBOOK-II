@@ -4,45 +4,33 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const SYSTEM_PROMPT = `
-You are the Chief Examiner for a World-Class International Examination Board. Your mandate is to evaluate handwritten student exams against a strict marking scheme with absolute fairness, deterministic logic, and zero hallucinations.
+You are the Chief Examiner for a World-Class International Examination Board grading MULTIPLE student exams contained in a single document.
+Identify each student (usually separated by a new title page/ID) and evaluate every single question in the marking scheme.
 
-CRITICAL BATCH PROCESSING MANDATE:
-The document contains consecutive exams from MULTIPLE students. You MUST evaluate EVERY student found.
+*** THE MATH RULE (ABSOLUTE MANDATE) ***
+You MUST NOT hallucinate arbitrary decimals (e.g., 5.35). The "score" you assign MUST be an EXACT integer (e.g., 2) or a 0.5 increment (e.g., 1.5) that mathematically aligns with the points in the rubric. If a student gets 2 out of 5 valid points (worth 1 mark each), the score MUST be exactly 2.0. DO NOT output a total exam score.
 
-THE "NO GHOST GRADING" RULE (ABSOLUTE MANDATE):
-You are STRICTLY FORBIDDEN from skipping any question. Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped", "marks_awarded": 0, and "constructive_feedback": "You did not attempt this question."
+*** EVALUATION STANDARDS ***
+1. SEMANTIC EQUIVALENCE: Do not penalize for simple English or missing keywords if the SCIENTIFIC MEANING is correct.
+2. THE FATAL FLAW: If the answer contains fundamentally incorrect concepts (e.g., writing 'Seed' instead of 'Technology'), score is 0. Be ruthless.
+3. THE "MICRO-LESSON": Feedback must be short and actionable. Formula: [Acknowledge correct part] + [State EXACT missing rubric fact] + [Advice for next time]. Speak directly to the student ("You").
 
-*** THE 4 TIERS OF EVALUATION ***
-1. SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. Award full marks for correct concepts.
-2. PROPORTIONAL MATH: For multi-point questions, mathematically reward what is present. (e.g., 2 valid reasons out of 5 required = 40% of marks).
-3. THE FATAL FLAW: If the student's answer contains fundamentally incorrect concepts, the score MUST BE 0. No pity marks for wrong science. Be ruthless.
-4. DIAGRAM AMNESTY: DO NOT penalize for missing sketches/diagrams, as OCR vision may miss them. Grade based strictly on the text.
-
-*** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
-Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 3 sentences.
-- Rule 1: Speak directly to the student as an elite Professor (Use "You").
-- Rule 2: NEVER use lazy phrases like "Study more" or "Expand on this."
-- Rule 3: Use this exact formula: [Acknowledge what they got right, if anything] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson to never miss it again].
-- Perfect Example: "You correctly defined hydroponics, but you missed 'capillarity'. Next time, remember that a Wicking system relies specifically on capillarity action to pull water up to the roots."
-
-*** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
-You MUST generate the "justification" BEFORE the "marks_awarded" to prevent hallucinations. Output ONLY valid JSON. No markdown formatting.
+Output ONLY valid JSON. Keep keys extremely short to save tokens. No markdown formatting.
 
 {
   "students": [
     {
-      "studentName": "Extracted Name or 'Unknown'",
-      "registrationNumber": "Extracted ID or 'Unknown'",
-      "maxScore": 100,
+      "name": "Name or Unknown",
+      "id": "ID or Unknown",
+      "max": 100,
       "questions": [
         {
-          "questionId": "1a",
-          "questionTitle": "Brief title",
-          "answer_status": "Answered | Skipped",
-          "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.",
-          "marks_awarded": 2,
-          "max_marks": 5,
-          "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
+          "qId": "1a",
+          "title": "Brief title",
+          "status": "Answered | Skipped",
+          "score": 1.5,
+          "max": 5.0,
+          "feedback": "Your Micro-Lesson."
         }
       ]
     }
@@ -191,7 +179,7 @@ serve(async (req) => {
         let student_total_score = 0;
         if (student.questions) {
             student.questions.forEach((q: any) => {
-                const marks = parseFloat(q.marks_awarded);
+                const marks = parseFloat(q.score !== undefined ? q.score : q.marks_awarded);
                 if (!isNaN(marks)) student_total_score += marks;
             });
         }
@@ -200,11 +188,11 @@ serve(async (req) => {
             .from('exam_submissions')
             .insert({
                 session_id: session_id,
-                student_name: student.studentName || `Unknown Student ${i+1}`,
-                registration_number: student.registrationNumber || `ID-UNKNOWN-${i+1}`,
+                student_name: student.name !== undefined ? student.name : student.studentName || `Unknown Student ${i+1}`,
+                registration_number: student.id !== undefined ? student.id : student.registrationNumber || `ID-UNKNOWN-${i+1}`,
                 pdf_storage_path: session.pdf_storage_path,
                 total_score: student_total_score,
-                max_score: student.maxScore || 100,
+                max_score: student.max !== undefined ? student.max : student.maxScore || 100,
                 grading_data: { questions: student.questions },
                 status: 'needs_review',
                 completed_at: new Date().toISOString()

@@ -141,101 +141,99 @@ document.addEventListener('DOMContentLoaded', async () => {
             const numPages = pdfDoc.numPages;
             const imageDataUrls = [];
 
-            // Convert each page to an image Data URL
-            for (let i = 1; i <= numPages; i++) {
-                const page = await pdfDoc.getPage(i);
-                // Lower scale (1.5) to keep payload sizes manageable for 128k context windows
-                const viewport = page.getViewport({ scale: 1.5 });
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-
-                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-
-                // Compress image as JPEG
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                imageDataUrls.push(dataUrl);
-            }
-
-            statusEl.textContent = 'Grading Engine Active...';
-            detailEl.textContent = `Analyzing ${numPages} pages via secure Playbook API proxy. Do not close.`;
-
-            // Trigger AI Engine natively via browser (pass the array of image Data URLs)
-            const gradedStudents = await window.PlaybookAI.gradeBatchExams(imageDataUrls, markingSchemeText);
-
-            statusEl.textContent = 'Saving Results...';
-            detailEl.textContent = `Successfully graded ${gradedStudents.length} students. Syncing with database.`;
-
             let sessionTotalScore = 0;
+            let totalStudentsGraded = 0;
+            const CHUNK_SIZE = 5; // Process 5 pages per API call to prevent OOM and token exhaustion
 
-            // Insert each student into exam_submissions natively
-            for (let i = 0; i < gradedStudents.length; i++) {
-                const student = gradedStudents[i];
-                let studentTotal = 0;
-                let maxTotal = 0;
+            for (let startIndex = 1; startIndex <= numPages; startIndex += CHUNK_SIZE) {
+                const endIndex = Math.min(startIndex + CHUNK_SIZE - 1, numPages);
+                const chunkImageDataUrls = [];
 
-                // Defensive Mapping: Catch common LLM schema deviations
-                const parsedQuestions = student.questions || student.evaluations || student.results || [];
+                statusEl.textContent = `Processing Pages ${startIndex} to ${endIndex} of ${numPages}...`;
+                detailEl.textContent = 'Extracting and rendering exam chunks...';
 
-                // Calculate Atomic Triage Score
-                if (parsedQuestions && Array.isArray(parsedQuestions)) {
-                    parsedQuestions.forEach(q => {
-                        let qScore = 0;
-                        let qMax = 0;
+                // Convert chunk of pages to image Data URLs
+                for (let i = startIndex; i <= endIndex; i++) {
+                    const page = await pdfDoc.getPage(i);
+                    // Lower scale (1.5) to keep payload sizes manageable for 128k context windows
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
 
-                        // Parse atomic criteria booleans and sum them mathematically in JavaScript
-                        if (q.atomic_criteria && Array.isArray(q.atomic_criteria)) {
-                            q.atomic_criteria.forEach(crit => {
-                                const val = parseFloat(crit.mark_value) || 0;
-                                qMax += val;
-                                if (crit.met === true || crit.met === "true" || crit.met === 1) {
-                                    qScore += val;
-                                }
-                            });
-                        } else {
-                            // Fallback if the AI hallucinated the old marks_awarded structure
-                            qScore = parseFloat(q.marks_awarded) || 0;
-                            qMax = parseFloat(q.max_marks) || 0;
-                        }
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 
-                        // Mutate the question object explicitly with the JS-verified math
-                        // so review.js doesn't have to recalculate the atomic arrays if it doesn't want to.
-                        q.marks_awarded = qScore;
-                        q.max_marks = qMax;
+                    // Compress image as JPEG
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    chunkImageDataUrls.push(dataUrl);
 
-                        studentTotal += qScore;
-                        maxTotal += qMax;
-                    });
+                    // Free memory
+                    canvas.width = 0;
+                    canvas.height = 0;
                 }
 
-                // Ensure max Score isn't 0
-                maxTotal = maxTotal > 0 ? maxTotal : (student.maxScore || 100);
+                detailEl.textContent = `Analyzing chunk via secure Playbook API proxy. Do not close.`;
 
-                try {
-                    await window.supabaseClient.from('exam_submissions').insert({
-                        session_id: savedSession.id,
-                        student_name: student.studentName || `Unknown Student ${i+1}`,
-                        registration_number: student.registrationNumber || `ID-UNKNOWN-${i+1}`,
-                        pdf_storage_path: storagePath,
-                        total_score: studentTotal,
-                        max_score: maxTotal,
-                        grading_data: { questions: parsedQuestions },
-                        status: 'completed',
-                        completed_at: new Date().toISOString()
-                    });
+                // Trigger AI Engine natively via browser for this chunk
+                const gradedStudents = await window.PlaybookAI.gradeBatchExams(chunkImageDataUrls, markingSchemeText);
 
-                    sessionTotalScore += studentTotal;
-                } catch (dbErr) {
-                    console.error("Failed to insert student:", student, dbErr);
+                // Insert each student into exam_submissions natively
+                for (let i = 0; i < gradedStudents.length; i++) {
+                    const student = gradedStudents[i];
+                    let studentTotal = 0;
+                    let maxTotal = 0;
+
+                    // Defensive Mapping: Catch common LLM schema deviations
+                    const parsedQuestions = student.questions || student.evaluations || student.results || [];
+
+                    // Calculate Triage Score from streamlined keys
+                    if (parsedQuestions && Array.isArray(parsedQuestions)) {
+                        parsedQuestions.forEach(q => {
+                            const qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            const qMax = parseFloat(q.max) || parseFloat(q.max_marks) || 0;
+
+                            studentTotal += qScore;
+                            maxTotal += qMax;
+                        });
+                    }
+
+                    // Ensure max Score isn't 0
+                    maxTotal = maxTotal > 0 ? maxTotal : (student.max || student.maxScore || 100);
+
+                    try {
+                        await window.supabaseClient.from('exam_submissions').insert({
+                            session_id: savedSession.id,
+                            student_name: student.name !== undefined ? student.name : student.studentName || `Unknown Student ${totalStudentsGraded + i + 1}`,
+                            registration_number: student.id !== undefined ? student.id : student.registrationNumber || `ID-UNKNOWN-${totalStudentsGraded + i + 1}`,
+                            pdf_storage_path: storagePath,
+                            total_score: studentTotal,
+                            max_score: maxTotal,
+                            grading_data: { questions: parsedQuestions },
+                            status: 'completed',
+                            completed_at: new Date().toISOString()
+                        });
+
+                        sessionTotalScore += studentTotal;
+                    } catch (dbErr) {
+                        console.error("Failed to insert student:", student, dbErr);
+                    }
                 }
+
+                totalStudentsGraded += gradedStudents.length;
+
+                // Explicitly clear memory of current chunk images to prevent OOM
+                chunkImageDataUrls.length = 0;
             }
+
+            statusEl.textContent = 'Finalizing Results...';
+            detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
 
             // 5. Update Session to Needs Review
-            const sessionAverage = gradedStudents.length > 0 ? (sessionTotalScore / gradedStudents.length) : 0;
+            const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
             await window.supabaseClient.from('sessions').update({
                 status: 'needs_review',
-                total_students: gradedStudents.length,
+                total_students: totalStudentsGraded,
                 average_score: sessionAverage
             }).eq('id', savedSession.id);
 

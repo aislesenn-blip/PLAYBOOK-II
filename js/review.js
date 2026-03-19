@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if(st.grading.questions) {
                     st.grading.questions.forEach(q => {
                         // Safe parse, handle old db schemas
-                        const val = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                        const val = q.score !== undefined ? q.score : q.marks_awarded;
                         const parsed = parseFloat(val);
                         if (!isNaN(parsed)) {
                             sTotal += parsed;
@@ -159,13 +159,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'grading-item';
 
-            // Support backward compatibility if previous db schema elements exist
-            const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
-            const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
-            const questionId = q.questionId !== undefined ? q.questionId : q.questionNumber;
-            const justification = q.justification !== undefined ? q.justification : q.analysis;
-            const constructiveFeedback = q.constructive_feedback || q.feedback || "No actionable feedback provided by Playbook.";
-            const answerStatus = q.answer_status || "Answered"; // Default to Answered for legacy data
+            // Support backward compatibility with streamlined keys
+            const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
+            const maxMarks = q.max !== undefined ? q.max : q.max_marks;
+            const questionId = q.qId !== undefined ? q.qId : q.questionId;
+            const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+            const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided by Playbook.";
+            const answerStatus = q.status !== undefined ? q.status : q.answer_status || "Answered"; // Default to Answered for legacy data
 
             // Apply conditional styling for Skipped vs Answered
             const statusBadgeColor = answerStatus.toLowerCase() === "skipped" ? "background-color: var(--danger-color, #e74c3c); color: white;" : "background-color: #eee; color: #333;";
@@ -177,8 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return div.innerHTML;
             };
 
-            const safeQuestionTitle = escapeHTML(String(q.questionTitle || ''));
-            const safeJustification = escapeHTML(String(justification || ''));
+            const safeQuestionTitle = escapeHTML(String(questionTitle || ''));
             const safeFeedback = escapeHTML(String(constructiveFeedback || ''));
             const safeAnswerStatus = escapeHTML(String(answerStatus || ''));
 
@@ -193,7 +192,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-qindex="${qIndex}">Override</button>
                     </div>
                 </div>
-                <p class="mb-1" style="font-size: 0.9rem;"><strong>Playbook Justification:</strong> ${safeJustification}</p>
                 <div class="feedback-box">
                     <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Constructive Feedback:</strong>
                     <textarea class="feedback-edit" style="width:100%; height:60px; border:1px solid transparent; background:transparent; font-family:inherit; font-size:inherit; color:inherit; resize:none;" readonly>${safeFeedback}</textarea>
@@ -214,13 +212,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const input = itemDiv.querySelector('.override-input');
                     const newScore = parseFloat(input.value) || 0;
 
-                    student.grading.questions[qIndex].marks_awarded = newScore;
-                    student.grading.questions[qIndex].constructive_feedback = feedbackArea.value;
+                    student.grading.questions[qIndex].score = newScore;
+                    student.grading.questions[qIndex].feedback = feedbackArea.value;
 
                     // Recalculate total score instantly
                     let newTotal = 0;
                     student.grading.questions.forEach(q => {
-                        const val = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
+                        const val = q.score !== undefined ? q.score : q.marks_awarded;
                         const parsed = parseFloat(val);
                         if (!isNaN(parsed)) newTotal += parsed;
                     });

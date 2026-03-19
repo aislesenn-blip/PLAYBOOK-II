@@ -4,47 +4,33 @@
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const SYSTEM_PROMPT = `
-You are the Chief Examiner for a World-Class International Examination Board. Your mandate is to evaluate handwritten student exams against a strict marking scheme with absolute fairness, deterministic logic, and zero hallucinations.
+You are the Chief Examiner for a World-Class International Examination Board grading MULTIPLE student exams contained in a single document.
+Identify each student (usually separated by a new title page/ID) and evaluate every single question in the marking scheme.
 
-CRITICAL BATCH PROCESSING MANDATE:
-The document contains consecutive exams from MULTIPLE students. You MUST evaluate EVERY student found.
-
-THE "ATOMIC TRIAGE" RULE (ABSOLUTE MANDATE FOR MATH HALLUCINATION):
-You are STRICTLY FORBIDDEN from performing mathematical addition or determining a "total score". Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme.
-Inside every question, you MUST include an array of "atomic_criteria" matching the rubric. You will assign a strict boolean "met" (true or false) and the "mark_value" (e.g., 1.0) for each tiny criterion. The frontend will calculate the math.
-If a student completely skipped a question, explicitly set "answer_status": "Skipped" and set "met": false for all criteria.
+*** THE MATH RULE (ABSOLUTE MANDATE) ***
+You MUST NOT hallucinate arbitrary decimals (e.g., 5.35). The "score" you assign MUST be an EXACT integer (e.g., 2) or a 0.5 increment (e.g., 1.5) that mathematically aligns with the points in the rubric. If a student gets 2 out of 5 valid points (worth 1 mark each), the score MUST be exactly 2.0. DO NOT output a total exam score.
 
 *** EVALUATION STANDARDS ***
-1. SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. Award "met": true for correct concepts.
-2. THE FATAL FLAW: If the student's answer contains fundamentally incorrect concepts, the criterion MUST BE "met": false. No pity marks for wrong science. Be ruthless.
-3. DIAGRAM AMNESTY: DO NOT penalize for missing sketches/diagrams, as OCR vision may miss them. Grade based strictly on the text.
+1. SEMANTIC EQUIVALENCE: Do not penalize for simple English or missing keywords if the SCIENTIFIC MEANING is correct.
+2. THE FATAL FLAW: If the answer contains fundamentally incorrect concepts (e.g., writing 'Seed' instead of 'Technology'), score is 0. Be ruthless.
+3. THE "MICRO-LESSON": Feedback must be short and actionable. Formula: [Acknowledge correct part] + [State EXACT missing rubric fact] + [Advice for next time]. Speak directly to the student ("You").
 
-*** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
-Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 3 sentences.
-- Rule 1: Speak directly to the student as an elite Professor (Use "You").
-- Rule 2: NEVER use lazy phrases like "Study more" or "Expand on this."
-- Rule 3: Use this exact formula: [Acknowledge what they got right, if anything] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson to never miss it again].
-- Perfect Example: "You correctly defined hydroponics, but you missed 'capillarity'. Next time, remember that a Wicking system relies specifically on capillarity action to pull water up to the roots."
-
-*** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
-You MUST generate the "justification" BEFORE assigning the criteria. Output ONLY valid JSON. No markdown formatting.
+Output ONLY valid JSON. Keep keys extremely short to save tokens. No markdown formatting.
 
 {
   "students": [
     {
-      "studentName": "Extracted Name or 'Unknown'",
-      "registrationNumber": "Extracted ID or 'Unknown'",
+      "name": "Name or Unknown",
+      "id": "ID or Unknown",
+      "max": 100,
       "questions": [
         {
-          "questionId": "1a",
-          "questionTitle": "Brief title",
-          "answer_status": "Answered | Skipped",
-          "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.",
-          "atomic_criteria": [
-             { "criterion_text": "Mentioned 'Water'", "mark_value": 1.0, "met": true },
-             { "criterion_text": "Mentioned 'Chlorophyll'", "mark_value": 1.0, "met": false }
-          ],
-          "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
+          "qId": "1a",
+          "title": "Brief title",
+          "status": "Answered | Skipped",
+          "score": 1.5,
+          "max": 5.0,
+          "feedback": "Your Micro-Lesson."
         }
       ]
     }
@@ -138,23 +124,22 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
 
         // Optimization Prompt for Pre-processing
         const OPTIMIZE_PROMPT = `
-You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Atomic Triage Format".
+You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
 
 CRITICAL MANDATES:
-1. NO DATA LOSS: Preserve every alternative answer.
-2. ATOMIC DECONSTRUCTION: You MUST break down every question into its smallest, indivisible scoring requirement (e.g., 1 mark, 0.5 marks).
-3. NEVER group multiple requirements together. If a question is worth 5 marks for 5 reasons, you MUST create 5 separate "Atomic Criteria" lines.
-4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
+2. STRICT HIERARCHY: Every question MUST have its own block. Do not merge sub-questions.
+3. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
 
-=== PLAYBOOK ATOMIC TRIAGE FORMAT EXAMPLE ===
-Question 1a (Total: 3 marks)
-- Criterion 1a.1: Stated "conversion of light energy to chemical energy" [1 mark]
-- Criterion 1a.2: Explicitly wrote "Chlorophyll" [1 mark]
-- Criterion 1a.3: Mentioned "Water" or "H2O" [1 mark]
+=== PLAYBOOK STANDARD FORMAT EXAMPLE ===
+Question 1a: Definition (Max: 3 marks)
+- Award [1 mark] for stating "conversion of light energy to chemical energy".
+- Award [1 mark] for explicitly writing "Chlorophyll".
+- Award [1 mark] for mentioning "Water".
 
-Question 1b: Diagram (Total: 2 marks)
-- Criterion 1b.1: A leaf shape is clearly drawn [1 mark]
-- Criterion 1b.2: An arrow points into the leaf labeled "Sunlight" [1 mark]
+Question 1b: Diagram (Max: 2 marks)
+- Award [1 mark] if a leaf shape is clearly drawn.
+- Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "Sunlight".
 =========================================
 `;
 

@@ -62,14 +62,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (st.grading && st.grading.questions) {
                 st.grading.questions.forEach(q => {
-                    const qId = q.questionId !== undefined ? q.questionId : q.questionNumber;
-                    const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
-                    const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
+                    const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
+                    const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
+                    const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
+                    const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
 
                     if (!questionScores[qId]) {
-                        questionScores[qId] = { total: 0, count: 0, title: q.questionTitle };
+                        questionScores[qId] = { total: 0, count: 0, title: questionTitle };
                     }
-                    questionScores[qId].total += (parseFloat(marksAwarded) / parseFloat(maxMarks));
+
+                    const parsedAwarded = parseFloat(marksAwarded) || 0;
+                    const parsedMax = parseFloat(maxMarks) || 1; // prevent divide by zero
+
+                    questionScores[qId].total += (parsedAwarded / parsedMax);
                     questionScores[qId].count++;
                 });
             }
@@ -148,7 +153,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const score = st.grading ? st.grading.totalScore : 0;
                 const max = st.grading ? st.grading.maxScore : 100;
                 const regNo = st.registrationNumber || 'Unknown ID';
-                csv += `"${regNo}","${st.studentName}",${score},${max}\n`;
+                const studentName = st.studentName || 'Unknown Student';
+                csv += `"${regNo}","${studentName}",${score},${max}\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
@@ -171,9 +177,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             allFeedbackContent += `========================================\n\n\n`;
 
             students.forEach((student, index) => {
+                const regNo = student.registrationNumber || 'Unknown ID';
+                const studentName = student.studentName || 'Unknown Student';
+
                 allFeedbackContent += `[STUDENT ${index + 1} OF ${students.length}]\n`;
-                allFeedbackContent += `Student: ${student.studentName}\n`;
-                allFeedbackContent += `Registration No: ${student.registrationNumber || 'Unknown ID'}\n`;
+                allFeedbackContent += `Student: ${studentName}\n`;
+                allFeedbackContent += `Registration No: ${regNo}\n`;
 
                 const score = student.grading ? student.grading.totalScore : 0;
                 const max = student.grading ? student.grading.maxScore : 100;
@@ -181,16 +190,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (student.grading && student.grading.questions) {
                     student.grading.questions.forEach(q => {
-                        const qId = q.questionId !== undefined ? q.questionId : q.questionNumber;
-                        const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
-                        const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                        const justification = q.justification !== undefined ? q.justification : q.analysis;
-                        const constructiveFeedback = q.constructive_feedback || q.feedback || "No actionable feedback provided.";
+                        const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
+                        const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
+                        const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
+                        const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                        const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
-                        allFeedbackContent += `Question ${qId}: ${q.questionTitle}\n`;
+                        allFeedbackContent += `Question ${qId}: ${questionTitle}\n`;
                         allFeedbackContent += `Score: ${marksAwarded} / ${maxMarks}\n`;
-                        allFeedbackContent += `Justification:\n${justification}\n`;
-                        allFeedbackContent += `Constructive Feedback:\n${constructiveFeedback}\n\n`;
+                        allFeedbackContent += `Feedback:\n${constructiveFeedback}\n\n`;
                     });
                 } else {
                     allFeedbackContent += `No detailed grading data available.\n\n`;
@@ -269,12 +277,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function downloadStudentFeedback(student, session) {
+        const regNo = student.registrationNumber || 'Unknown ID';
+        const studentName = student.studentName || 'Unknown Student';
+
         let content = `========================================\n`;
         content += `PLAYBOOK - STUDENT FEEDBACK REPORT\n`;
         content += `========================================\n\n`;
         content += `Session: ${session.name}\n`;
-        content += `Student: ${student.studentName}\n`;
-        content += `Registration No: ${student.registrationNumber || 'Unknown ID'}\n`;
+        content += `Student: ${studentName}\n`;
+        content += `Registration No: ${regNo}\n`;
 
         const score = student.grading ? student.grading.totalScore : 0;
         const max = student.grading ? student.grading.maxScore : 100;
@@ -283,16 +294,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (student.grading && student.grading.questions) {
             student.grading.questions.forEach(q => {
-                const qId = q.questionId !== undefined ? q.questionId : q.questionNumber;
-                const marksAwarded = q.marks_awarded !== undefined ? q.marks_awarded : q.score;
-                const maxMarks = q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                const justification = q.justification !== undefined ? q.justification : q.analysis;
-                const constructiveFeedback = q.constructive_feedback !== undefined ? q.constructive_feedback : q.feedback;
+                const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
+                const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
+                const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
+                const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
-                content += `Question ${qId}: ${q.questionTitle}\n`;
+                content += `Question ${qId}: ${questionTitle}\n`;
                 content += `Score: ${marksAwarded} / ${maxMarks}\n\n`;
-                content += `Playbook Justification:\n${justification}\n\n`;
-                content += `Constructive Feedback:\n${constructiveFeedback}\n\n`;
+                content += `Feedback:\n${constructiveFeedback}\n\n`;
                 content += `----------------------------------------\n\n`;
             });
         } else {
@@ -304,7 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const a = document.createElement('a');
         a.setAttribute('hidden', '');
         a.setAttribute('href', url);
-        a.setAttribute('download', `${student.studentName.replace(/\s+/g, '_')}_Feedback.txt`);
+        a.setAttribute('download', `${studentName.replace(/\s+/g, '_')}_Feedback.txt`);
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
