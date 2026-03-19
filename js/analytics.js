@@ -194,11 +194,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                         const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
                         const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                        const justification = q.justification !== undefined ? q.justification : q.analysis;
                         const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
                         allFeedbackContent += `Question ${qId}: ${questionTitle}\n`;
                         allFeedbackContent += `Score: ${marksAwarded} / ${maxMarks}\n`;
-                        allFeedbackContent += `Feedback:\n${constructiveFeedback}\n\n`;
+                        if (justification) {
+                            allFeedbackContent += `Playbook Justification:\n${justification}\n`;
+                        }
+                        allFeedbackContent += `Constructive Feedback:\n${constructiveFeedback}\n\n`;
                     });
                 } else {
                     allFeedbackContent += `No detailed grading data available.\n\n`;
@@ -298,11 +302,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                 const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
                 const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const justification = q.justification !== undefined ? q.justification : q.analysis;
                 const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
                 content += `Question ${qId}: ${questionTitle}\n`;
                 content += `Score: ${marksAwarded} / ${maxMarks}\n\n`;
-                content += `Feedback:\n${constructiveFeedback}\n\n`;
+                if (justification) {
+                    content += `Playbook Justification:\n${justification}\n\n`;
+                }
+                content += `Constructive Feedback:\n${constructiveFeedback}\n\n`;
                 content += `----------------------------------------\n\n`;
             });
         } else {

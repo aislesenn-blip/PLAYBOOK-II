@@ -164,6 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const maxMarks = q.max !== undefined ? q.max : q.max_marks;
             const questionId = q.qId !== undefined ? q.qId : q.questionId;
             const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+            const justification = q.justification || q.analysis || "No step-by-step thinking provided.";
             const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided by Playbook.";
             const answerStatus = q.status !== undefined ? q.status : q.answer_status || "Answered"; // Default to Answered for legacy data
 
@@ -178,6 +179,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             const safeQuestionTitle = escapeHTML(String(questionTitle || ''));
+            const safeJustification = escapeHTML(String(justification || ''));
             const safeFeedback = escapeHTML(String(constructiveFeedback || ''));
             const safeAnswerStatus = escapeHTML(String(answerStatus || ''));
 
@@ -191,6 +193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="score-display"><span class="score-badge">${marksAwarded}</span> / ${maxMarks}</div>
                         <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-qindex="${qIndex}">Override</button>
                     </div>
+                </div>
+                <div class="feedback-box" style="margin-bottom: 0.5rem; padding: 0.75rem; background: rgba(0,0,0,0.02); border-left: 3px solid var(--primary-color);">
+                    <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary);">Playbook Justification (Step-by-Step):</strong>
+                    <p style="font-size: 0.9rem; margin: 0; white-space: pre-wrap; color: var(--text-primary);">${safeJustification}</p>
                 </div>
                 <div class="feedback-box">
                     <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Constructive Feedback:</strong>

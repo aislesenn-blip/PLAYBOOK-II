@@ -139,44 +139,91 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const numPages = pdfDoc.numPages;
-            const imageDataUrls = [];
+
+            // Helper function to detect if a page is mostly blank (using simple pixel variance)
+            function isCanvasBlank(canvas, ctx) {
+                const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+                let nonWhitePixels = 0;
+                // Sample every 10th pixel for performance
+                for (let i = 0; i < pixelBuffer.length; i += 10) {
+                    // Check if pixel is not fully white (ignoring alpha channel for standard PDF render)
+                    if ((pixelBuffer[i] & 0x00FFFFFF) !== 0x00FFFFFF) {
+                        nonWhitePixels++;
+                    }
+                }
+                const inkCoverage = nonWhitePixels / (pixelBuffer.length / 10);
+                return inkCoverage < 0.005; // Less than 0.5% non-white pixels usually means blank
+            }
 
             let sessionTotalScore = 0;
             let totalStudentsGraded = 0;
-            const CHUNK_SIZE = 5; // Process 5 pages per API call to prevent OOM and token exhaustion
 
-            for (let startIndex = 1; startIndex <= numPages; startIndex += CHUNK_SIZE) {
-                const endIndex = Math.min(startIndex + CHUNK_SIZE - 1, numPages);
-                const chunkImageDataUrls = [];
+            // Step A: Group pages into chunks by blank page detection
+            statusEl.textContent = 'Scanning Document...';
+            detailEl.textContent = `Detecting blank page separators across ${numPages} pages...`;
 
-                statusEl.textContent = `Processing Pages ${startIndex} to ${endIndex} of ${numPages}...`;
-                detailEl.textContent = 'Extracting and rendering exam chunks...';
+            const studentChunks = [];
+            let currentStudentPages = [];
 
-                // Convert chunk of pages to image Data URLs
-                for (let i = startIndex; i <= endIndex; i++) {
-                    const page = await pdfDoc.getPage(i);
-                    // Lower scale (1.5) to keep payload sizes manageable for 128k context windows
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+            for (let i = 1; i <= numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                // Lower scale (1.0) for fast blank detection
+                const viewport = page.getViewport({ scale: 1.0 });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                // Fill white background first
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 
-                    // Compress image as JPEG
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                    chunkImageDataUrls.push(dataUrl);
+                const isBlank = isCanvasBlank(canvas, ctx);
 
-                    // Free memory
-                    canvas.width = 0;
-                    canvas.height = 0;
+                // Scale up for AI processing (1.5)
+                const aiViewport = page.getViewport({ scale: 1.5 });
+                const aiCanvas = document.createElement('canvas');
+                const aiCtx = aiCanvas.getContext('2d');
+                aiCanvas.height = aiViewport.height;
+                aiCanvas.width = aiViewport.width;
+                aiCtx.fillStyle = '#FFFFFF';
+                aiCtx.fillRect(0, 0, aiCanvas.width, aiCanvas.height);
+
+                await page.render({ canvasContext: aiCtx, viewport: aiViewport }).promise;
+                const dataUrl = aiCanvas.toDataURL('image/jpeg', 0.8);
+
+                if (isBlank && currentStudentPages.length > 0) {
+                    studentChunks.push([...currentStudentPages]);
+                    currentStudentPages = [];
+                } else if (!isBlank) {
+                    currentStudentPages.push(dataUrl);
                 }
 
-                detailEl.textContent = `Analyzing chunk via secure Playbook API proxy. Do not close.`;
+                // Free memory
+                canvas.width = 0; canvas.height = 0;
+                aiCanvas.width = 0; aiCanvas.height = 0;
+            }
+
+            if (currentStudentPages.length > 0) {
+                studentChunks.push(currentStudentPages);
+            }
+
+            // Step B: Grade each student sequentially
+            for (let chunkIdx = 0; chunkIdx < studentChunks.length; chunkIdx++) {
+                const chunkImageDataUrls = studentChunks[chunkIdx];
+
+                statusEl.textContent = `Grading Student ${chunkIdx + 1} of ${studentChunks.length}...`;
+                detailEl.textContent = `Analyzing ${chunkImageDataUrls.length} pages for this student via Playbook API. Do not close.`;
 
                 // Trigger AI Engine natively via browser for this chunk
-                const gradedStudents = await window.PlaybookAI.gradeBatchExams(chunkImageDataUrls, markingSchemeText);
+                let gradedStudents = [];
+                try {
+                    gradedStudents = await window.PlaybookAI.gradeBatchExams(chunkImageDataUrls, markingSchemeText);
+                } catch (aiErr) {
+                    console.error("AI Error on chunk", chunkIdx, aiErr);
+                    continue;
+                }
 
                 // Insert each student into exam_submissions natively
                 for (let i = 0; i < gradedStudents.length; i++) {
