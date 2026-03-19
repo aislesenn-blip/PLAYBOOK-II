@@ -8,8 +8,10 @@
     <style>
         .grading-item {
             border: 1px solid var(--border-color);
-            padding: var(--spacing-sm);
+            padding: 1.5rem;
             background-color: var(--surface-color);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-sm);
         }
         .grading-item.editing {
             border-color: var(--accent-color);
@@ -20,22 +22,24 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: var(--spacing-xs);
-            margin-bottom: var(--spacing-xs);
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
         }
         .score-display {
-            font-family: var(--font-serif);
+            font-family: var(--font-sans);
+            font-weight: 600;
             font-size: 1.2rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
         .feedback-box {
-            background-color: var(--bg-color);
-            padding: var(--spacing-sm);
+            background-color: #f8fafc;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
             font-size: 0.95rem;
             color: var(--text-secondary);
-            border-left: 3px solid var(--accent-color);
+            border: 1px solid var(--border-color);
         }
         .nav-header {
             display: flex;
@@ -50,9 +54,9 @@
         }
     </style>
 </head>
-<body style="overflow: hidden; background-color: var(--bg-color);"> <!-- Prevent body scroll for split layout -->
+<body style="overflow: auto; background-color: var(--bg-color);">
 
-    <div class="app-container" style="display: flex; flex-direction: column; height: 100vh;">
+    <div class="app-container" style="display: flex; flex-direction: column; min-height: 100vh;">
         <!-- Minimalist Top Navigation -->
         <nav class="top-nav">
             <div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
@@ -91,28 +95,20 @@
         </header>
 
         <!-- Main Content -->
-        <main class="main-content flex-grow flex" style="padding: 0 1rem 1rem 1rem; overflow: hidden; height: 100%;">
+        <main class="main-content flex-grow" style="padding: 2rem; overflow-y: visible; height: auto;">
+            <div class="max-w-7xl mx-auto" style="width: 100%;">
 
-            <div class="split-layout" style="height: 100%; width: 100%; gap: 1rem;">
-
-                <!-- Left: Document Preview -->
-                <div class="document-preview card flex-1" style="margin: 0; padding: 0; overflow: hidden;" id="document-preview-container">
-                    <div class="flex-col items-center" style="color: var(--text-secondary); opacity: 0.5; width: 100%; height: 100%; justify-content: center; display: flex;">
-                        <p>Loading document...</p>
-                    </div>
-                </div>
-
-                <!-- Right: Grading Panel -->
-                <div class="grading-panel card flex-1" style="margin: 0; overflow-y: auto; height: 100%; padding: 1.5rem;">
-                    <div class="flex justify-between items-center mb-2">
-                        <h2 class="text-slate-900" style="font-size: 1.5rem; font-weight: 600;">Playbook Evaluation</h2>
+                <!-- Full-Width Grading Panel -->
+                <div class="card" style="margin: 0; padding: 2rem; border-radius: var(--radius-md);">
+                    <div class="flex justify-between items-center mb-2" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 2rem;">
+                        <h2 class="text-slate-900" style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0;">Playbook Evaluation</h2>
                         <div style="text-align: right;">
                             <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Score</span>
-                            <div style="font-size: 2rem; font-weight: 600; color: var(--text-primary);" id="total-score-display">0 / 0</div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary); line-height: 1;" id="total-score-display">0 / 0</div>
                         </div>
                     </div>
 
-                    <div id="grading-items-container">
+                    <div id="grading-items-container" class="grid gap-2" style="grid-template-columns: 1fr;">
                         <!-- Populated by JS -->
                     </div>
 
@@ -146,7 +142,6 @@
             <h2 style="margin-top: 1.5rem;" id="loading-status">Loading...</h2>
             <p id="loading-detail">Please wait while we fetch your data.</p>
         </div>
-    </div>
 
     <script src="js/app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
