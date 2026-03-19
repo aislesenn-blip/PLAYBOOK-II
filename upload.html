@@ -8,21 +8,28 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-logo">Playbook</div>
-            <ul class="sidebar-nav">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="upload.html" class="active">Upload Exams</a></li>
-                <li><a href="review.html">Review & Override</a></li>
-                <li><a href="analytics.html">Analytics</a></li>
-                <li><a href="manual.html">User Manual</a></li>
-                <li><a href="settings.html">Settings</a></li>
-            </ul>
-        </aside>
+        <!-- Minimalist Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <div class="nav-logo">Playbook</div>
+                    <ul class="nav-links flex gap-1 items-center">
+                        <li><a href="index.html">Dashboard</a></li>
+                        <li><a href="upload.html" class="active">Upload Exams</a></li>
+                        <li><a href="review.html">Review & Override</a></li>
+                        <li><a href="analytics.html">Analytics</a></li>
+                    </ul>
+                </div>
+                <div class="flex items-center gap-1 nav-actions">
+                    <a href="manual.html" class="nav-icon-link">User Manual</a>
+                    <a href="settings.html" class="nav-icon-link">Settings</a>
+                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
+                </div>
+            </div>
+        </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content max-w-7xl mx-auto">
             <header class="mb-2">
                 <h1>New Grading Session</h1>
                 <p>Upload your scanned student exams and the corresponding marking scheme. Playbook will automatically grade all responses—essays, formulas, and short answers.</p>
@@ -88,8 +95,19 @@
 
     <!-- Loading Overlay -->
     <div id="loading-overlay">
-        <div class="spinner"></div>
-        <h2 style="margin-top: 1rem;" id="loading-status">Analyzing Exams...</h2>
+        <!-- SVG Line Drawing Animation for PLAYBOOK -->
+        <svg class="playbook-loader" viewBox="0 0 500 100" xmlns="http://www.w3.org/2000/svg">
+            <path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H45 M30,50 H60" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="playbook-path" d="M250,20 L270,50 L290,20 V80 M270,50 V80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="playbook-path" d="M330,80 V20 H360 Q380,20 380,40 Q380,50 360,60 Q380,70 380,80 H330 M330,50 H360" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="playbook-path" d="M410,20 Q390,20 390,50 Q390,80 410,80 Q430,80 430,50 Q430,20 410,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="playbook-path" d="M460,20 Q440,20 440,50 Q440,80 460,80 Q480,80 480,50 Q480,20 460,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="playbook-path" d="M510,80 V20 M510,50 L540,20 M510,50 L540,80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+
+        <h2 style="margin-top: 1.5rem;" id="loading-status">Analyzing Exams...</h2>
         <p id="loading-detail">Playbook is evaluating student responses against your marking scheme.</p>
 
         <!-- Real-time grading progress log -->

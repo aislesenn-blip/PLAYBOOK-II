@@ -10,10 +10,10 @@
     --text-secondary: #64748b; /* text-slate-500 */
     --border-color: #e2e8f0; /* border-slate-200 */
 
-    /* App Accents: Teals and Emeralds */
-    --accent-color: #0ea5e9; /* Sky Blue */
-    --accent-hover: #0284c7; /* Darker Sky Blue */
-    --highlight-color: #38bdf8; /* Lighter Sky Blue */
+    /* App Accents: Uber Black */
+    --accent-color: #0f172a; /* Uber Black / Slate-900 */
+    --accent-hover: #000000; /* Pure Black */
+    --highlight-color: #334155; /* Lighter Slate-700 */
 
     /* Semantic Status Colors (Emerald, Cyan, Slate) */
     --success-bg: #d1fae5; /* bg-emerald-100 */
@@ -652,18 +652,43 @@ a:hover {
     pointer-events: all;
 }
 
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 1px solid var(--border-color);
-    border-top-color: var(--accent-color);
-    border-radius: 50%;
-    animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+/* Custom SVG Draw Animation for PLAYBOOK */
+.playbook-loader {
+    width: 250px;
+    height: auto;
     margin-bottom: var(--spacing-sm);
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.playbook-path {
+    stroke-dasharray: 400;
+    stroke-dashoffset: 400;
+    animation: drawPlaybook 3s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+/* Add slight delays to letters to make it look handwritten */
+.playbook-path:nth-child(1) { animation-delay: 0.0s; }
+.playbook-path:nth-child(2) { animation-delay: 0.2s; }
+.playbook-path:nth-child(3) { animation-delay: 0.4s; }
+.playbook-path:nth-child(4) { animation-delay: 0.6s; }
+.playbook-path:nth-child(5) { animation-delay: 0.8s; }
+.playbook-path:nth-child(6) { animation-delay: 1.0s; }
+.playbook-path:nth-child(7) { animation-delay: 1.2s; }
+.playbook-path:nth-child(8) { animation-delay: 1.4s; }
+
+@keyframes drawPlaybook {
+    0% {
+        stroke-dashoffset: 400;
+        fill: transparent;
+    }
+    50% {
+        stroke-dashoffset: 0;
+        fill: transparent;
+    }
+    100% {
+        stroke-dashoffset: 0;
+        fill: var(--accent-color);
+        stroke: var(--accent-color);
+    }
 }
 
 .stat-card {

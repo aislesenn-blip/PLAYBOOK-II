@@ -19,21 +19,28 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-logo">Playbook</div>
-            <ul class="sidebar-nav">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="upload.html">Upload Exams</a></li>
-                <li><a href="review.html">Review & Override</a></li>
-                <li><a href="analytics.html">Analytics</a></li>
-                <li><a href="manual.html">User Manual</a></li>
-                <li><a href="settings.html" class="active">Settings</a></li>
-            </ul>
-        </aside>
+        <!-- Minimalist Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <div class="nav-logo">Playbook</div>
+                    <ul class="nav-links flex gap-1 items-center">
+                        <li><a href="index.html">Dashboard</a></li>
+                        <li><a href="upload.html">Upload Exams</a></li>
+                        <li><a href="review.html">Review & Override</a></li>
+                        <li><a href="analytics.html">Analytics</a></li>
+                    </ul>
+                </div>
+                <div class="flex items-center gap-1 nav-actions">
+                    <a href="manual.html" class="nav-icon-link">User Manual</a>
+                    <a href="settings.html" class="nav-icon-link active" style="color: #0f172a; font-weight: 600;">Settings</a>
+                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
+                </div>
+            </div>
+        </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content max-w-7xl mx-auto">
             <header class="mb-2">
                 <h1>Settings</h1>
                 <p>Configure your grading scale and platform preferences.</p>

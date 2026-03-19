@@ -44,21 +44,28 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-logo">Playbook</div>
-            <ul class="sidebar-nav">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="upload.html">Upload Exams</a></li>
-                <li><a href="review.html">Review & Override</a></li>
-                <li><a href="analytics.html" class="active">Analytics</a></li>
-                <li><a href="manual.html">User Manual</a></li>
-                <li><a href="settings.html">Settings</a></li>
-            </ul>
-        </aside>
+        <!-- Minimalist Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <div class="nav-logo">Playbook</div>
+                    <ul class="nav-links flex gap-1 items-center">
+                        <li><a href="index.html">Dashboard</a></li>
+                        <li><a href="upload.html">Upload Exams</a></li>
+                        <li><a href="review.html">Review & Override</a></li>
+                        <li><a href="analytics.html" class="active">Analytics</a></li>
+                    </ul>
+                </div>
+                <div class="flex items-center gap-1 nav-actions">
+                    <a href="manual.html" class="nav-icon-link">User Manual</a>
+                    <a href="settings.html" class="nav-icon-link">Settings</a>
+                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
+                </div>
+            </div>
+        </nav>
 
         <!-- Main Content -->
-        <main class="main-content" style="height: 100vh; overflow-y: auto; padding-bottom: var(--spacing-xl);">
+        <main class="main-content max-w-7xl mx-auto" style="height: calc(100vh - 64px); overflow-y: auto; padding-bottom: var(--spacing-xl);">
             <header class="flex justify-between items-center mb-2">
                 <div>
                     <h1 id="analytics-title">Analytics</h1>
