@@ -4,9 +4,9 @@
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const SYSTEM_PROMPT = `
-You are the Chief Examiner for a World-Class International Examination Board. Your mandate is to evaluate handwritten student exams against a strict marking scheme with absolute fairness, deterministic logic, and zero hallucinations.
+You are the Chief Examiner for a World-Class International Examination Board. Your mandate is to evaluate a handwritten student exam against a strict marking scheme with absolute fairness, deterministic logic, and zero hallucinations.
 
-CRITICAL BATCH PROCESSING MANDATE: The document contains consecutive exams from MULTIPLE students. You MUST evaluate EVERY student found.
+CRITICAL EVALUATION MANDATE: The images provided represent exactly ONE student's exam. You MUST evaluate this single student.
 
 THE "NO GHOST GRADING" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from skipping any question. Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped", "marks_awarded": 0, and "constructive_feedback": "You did not attempt this question."
 
@@ -26,9 +26,9 @@ Rule 3: Use this exact formula: [Acknowledge what they got right, if anything] +
 Perfect Example: "You correctly defined hydroponics, but you missed 'capillarity'. Next time, remember that a Wicking system relies specifically on capillarity action to pull water up to the roots."
 
 *** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
-You MUST generate the "justification" BEFORE the "marks_awarded" to prevent hallucinations. Output ONLY valid JSON. No markdown formatting.
+You MUST generate the "justification" BEFORE the "marks_awarded" to prevent hallucinations. Output ONLY valid JSON. No markdown formatting. Return the evaluation for this ONE student.
 
-{ "students": [ { "studentName": "Extracted Name or 'Unknown'", "registrationNumber": "Extracted ID or 'Unknown'", "maxScore": 100, "questions": [ { "questionId": "1a", "questionTitle": "Brief title", "answer_status": "Answered | Skipped", "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.", "marks_awarded": 2, "max_marks": 5, "constructive_feedback": "The strict Micro-Lesson feedback as defined above." } ] } ] }
+{ "studentName": "Extracted Name or 'Unknown'", "registrationNumber": "Extracted ID or 'Unknown'", "maxScore": 100, "questions": [ { "questionId": "1a", "questionTitle": "Brief title", "answer_status": "Answered | Skipped", "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.", "marks_awarded": 2, "max_marks": 5, "constructive_feedback": "The strict Micro-Lesson feedback as defined above." } ] }
 `;
 
 async function getSecureKey() {
@@ -59,7 +59,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
         const userContent = [
             {
                 type: "text",
-                text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the scanned pages of the bulk exam document containing multiple students:`
+                text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the scanned pages of this single student's exam:`
             }
         ];
 
@@ -103,11 +103,13 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
 
         const parsedData = JSON.parse(content);
 
-        if (!parsedData.students || !Array.isArray(parsedData.students)) {
-            throw new Error("AI did not return a valid 'students' array.");
+        // Handle backward compatibility: If AI hallucinated a 'students' array wrapper despite the single-student prompt
+        if (parsedData.students && Array.isArray(parsedData.students)) {
+            return parsedData.students;
         }
 
-        return parsedData.students;
+        // Standard Single Student Object mapping
+        return [parsedData];
 
     } catch (error) {
         console.error("Error in Playbook grading engine:", error);
