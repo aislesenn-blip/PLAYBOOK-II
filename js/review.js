@@ -132,17 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         prevBtn.disabled = index === 0;
         nextBtn.disabled = index === students.length - 1;
 
-        // Render Preview
-        const previewContainer = document.getElementById('document-preview-container');
-        previewContainer.innerHTML = '';
-        if (student.pages && student.pages.length > 0) {
-            const img = document.createElement('img');
-            img.src = student.pages[0]; // Displaying first page for prototype
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.objectFit = 'contain';
-            previewContainer.appendChild(img);
-        }
+        // Document Preview removed for full-width layout
 
         // Render Grading
         const gradingContainer = document.getElementById('grading-items-container');
@@ -184,23 +174,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             const safeAnswerStatus = escapeHTML(String(answerStatus || ''));
 
             itemDiv.innerHTML = `
-                <div class="grading-header">
+                <div class="grading-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600;">Question ${questionId}: ${safeQuestionTitle}</h4>
-                        <span style="font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; ${statusBadgeColor}">${safeAnswerStatus}</span>
+                        <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600; font-size: 1.1rem; color: #0f172a;">Q${questionId}</h4>
                     </div>
                     <div class="flex items-center gap-1">
-                        <div class="score-display"><span class="score-badge">${marksAwarded}</span> / ${maxMarks}</div>
-                        <button class="btn btn-secondary override-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-qindex="${qIndex}">Override</button>
+                        <div class="score-display"><span class="score-badge" style="background-color: #d1fae5; color: #065f46; border: none; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 700; font-size: 1rem;">${marksAwarded} / ${maxMarks}</span></div>
                     </div>
                 </div>
-                <div class="feedback-box" style="margin-bottom: 0.5rem; padding: 0.75rem; background: rgba(0,0,0,0.02); border-left: 3px solid var(--primary-color);">
-                    <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary);">Playbook Justification (Step-by-Step):</strong>
-                    <p style="font-size: 0.9rem; margin: 0; white-space: pre-wrap; color: var(--text-primary);">${safeJustification}</p>
+
+                <div class="feedback-box" style="margin-bottom: 1rem; padding: 1.25rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <strong style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em;">AI FEEDBACK</strong>
+                    <p style="font-size: 0.95rem; margin: 0; white-space: pre-wrap; color: #334155; line-height: 1.6;">${safeJustification}</p>
                 </div>
-                <div class="feedback-box">
-                    <strong style="display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase;">Constructive Feedback:</strong>
-                    <textarea class="feedback-edit" style="width:100%; height:60px; border:1px solid transparent; background:transparent; font-family:inherit; font-size:inherit; color:inherit; resize:none;" readonly>${safeFeedback}</textarea>
+
+                <!-- Constructive feedback area -->
+                <div class="feedback-box" style="padding: 1.25rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <strong style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">CONSTRUCTIVE FEEDBACK</strong>
+                    <textarea class="feedback-edit" style="width:100%; height:60px; border:1px solid transparent; background:transparent; font-family:inherit; font-size:0.95rem; color:#334155; resize:none; line-height: 1.6; padding:0;" readonly>${safeFeedback}</textarea>
+                </div>
+
+                <div style="margin-top: 1rem; text-align: right;">
+                    <button class="btn btn-secondary override-btn" style="padding: 0.35rem 1rem; font-size: 0.8rem; border-radius: 6px; font-weight: 600;" data-qindex="${qIndex}">Edit Score & Feedback</button>
                 </div>
             `;
             gradingContainer.appendChild(itemDiv);
@@ -243,8 +238,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     };
                     await window.PlaybookDB.saveSubmission(backendSubmission);
 
-                    scoreDisplay.innerHTML = `<span class="score-badge">${newScore}</span> / ${maxMarks}`;
-                    overrideBtn.textContent = 'Override';
+                    scoreDisplay.innerHTML = `<span class="score-badge" style="background-color: #d1fae5; color: #065f46; border: none; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 700; font-size: 1rem;">${newScore} / ${maxMarks}</span>`;
+                    overrideBtn.textContent = 'Edit Score & Feedback';
                     itemDiv.classList.remove('editing');
                     feedbackArea.readOnly = true;
                     feedbackArea.style.border = '1px solid transparent';
@@ -252,8 +247,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 } else {
                     // Edit
-                    scoreDisplay.innerHTML = `<input type="number" class="override-input" value="${marksAwarded}" max="${maxMarks}" min="0"> / ${maxMarks}`;
-                    overrideBtn.textContent = 'Save';
+                    scoreDisplay.innerHTML = `<input type="number" class="override-input" value="${marksAwarded}" max="${maxMarks}" min="0" style="padding: 0.2rem 0.5rem; width: 60px; text-align: center; border-radius: 4px; border: 1px solid #cbd5e1;"> <span style="font-weight: 700; color: #0f172a; margin-left: 0.5rem;">/ ${maxMarks}</span>`;
+                    overrideBtn.textContent = 'Save Changes';
                     itemDiv.classList.add('editing');
                     feedbackArea.readOnly = false;
                     feedbackArea.style.border = '1px solid var(--border-color)';

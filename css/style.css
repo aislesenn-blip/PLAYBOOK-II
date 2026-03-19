@@ -458,8 +458,11 @@ a:hover {
 
 /* Mobile (ElevenLabs Massive UI Scale) */
 @media (max-width: 768px) {
-    body {
+    body, html {
         overflow: auto !important;
+        height: auto !important;
+    }
+    body {
         font-size: 1.1rem; /* Base text */
     }
 
@@ -586,9 +589,9 @@ a:hover {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    overflow-y: auto;
+    overflow-y: visible;
     padding-right: var(--spacing-sm);
-    height: 100%;
+    height: auto;
     padding-bottom: var(--spacing-lg);
 }
 
