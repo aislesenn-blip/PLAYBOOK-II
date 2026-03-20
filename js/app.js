@@ -1,3 +1,14 @@
+// Global utility functions
+window.escapeHTML = function(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Playbook Initialized');
 

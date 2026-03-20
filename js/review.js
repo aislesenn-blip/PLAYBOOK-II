@@ -161,17 +161,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Apply conditional styling for Skipped vs Answered
             const statusBadgeColor = answerStatus.toLowerCase() === "skipped" ? "background-color: var(--danger-color, #e74c3c); color: white;" : "background-color: #eee; color: #333;";
 
-            // Create a safe, escaped version of strings
-            const escapeHTML = (str) => {
-                const div = document.createElement('div');
-                div.textContent = str;
-                return div.innerHTML;
-            };
-
-            const safeQuestionTitle = escapeHTML(String(questionTitle || ''));
-            const safeJustification = escapeHTML(String(justification || ''));
-            const safeFeedback = escapeHTML(String(constructiveFeedback || ''));
-            const safeAnswerStatus = escapeHTML(String(answerStatus || ''));
+            const safeQuestionTitle = window.escapeHTML(String(questionTitle || ''));
+            const safeJustification = window.escapeHTML(String(justification || ''));
+            const safeFeedback = window.escapeHTML(String(constructiveFeedback || ''));
+            const safeAnswerStatus = window.escapeHTML(String(answerStatus || ''));
 
             itemDiv.innerHTML = `
                 <div class="grading-header" style="display: flex; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
