@@ -101,6 +101,11 @@ async function gradeBatchExams(base64PDF, markingSchemeText) {
         if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
         else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
 
+        // JSON Sanitizer: Robustly double-escape unescaped backslashes to prevent "Bad escaped character" JSON.parse errors.
+        // This safely preserves valid JSON structure escapes (\", \\, \/, \n) but double-escapes everything else (e.g. \frac, \sin, \theta)
+        // by matching any backslash NOT preceded by a backslash AND NOT followed by ", \, /, or n.
+        content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
+
         const parsedData = JSON.parse(content);
 
         // Handle backward compatibility: If AI hallucinated a 'students' array wrapper despite the single-student prompt
