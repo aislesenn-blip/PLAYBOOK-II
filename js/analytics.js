@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     pageHtml += `
                             </div>
                             <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;">
-                                Evaluated by Playbook Intelligence Engine
+                                PLAYBOOK
                             </div>
                         </div>
                     `;
