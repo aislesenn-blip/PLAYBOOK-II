@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
 
                     let pageHtml = `
-                        <div style="page-break-after: ${index === students.length - 1 ? 'auto' : 'always'}; padding: 40px; background: white; color: #0f172a; font-family: 'Inter', system-ui, sans-serif; width: 800px;">
+                        <div style="page-break-after: ${index === students.length - 1 ? 'auto' : 'always'}; padding: 40px; background: white; color: #0f172a; font-family: 'Inter', system-ui, sans-serif; width: 800px; box-sizing: border-box; overflow-wrap: break-word; word-wrap: break-word;">
                             <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div>
                                     <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #0f172a;">${studentName}</h1>
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 pageHtml += `
                                     <div style="margin-bottom: 16px;">
                                         <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px;">Playbook Justification</div>
-                                        <div style="color: #475569; font-size: 14px; line-height: 1.6; white-space: pre-wrap; padding-left: 12px; border-left: 2px solid #cbd5e1;">${window.escapeHTML(justification)}</div>
+                                        <div style="color: #475569; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; padding-left: 12px; border-left: 2px solid #cbd5e1;">${window.escapeHTML(justification)}</div>
                                     </div>
                                 `;
                             }
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             pageHtml += `
                                         <div>
                                             <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px;">Constructive Feedback</div>
-                                            <div style="color: #0f172a; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${window.escapeHTML(constructiveFeedback)}</div>
+                                            <div style="color: #0f172a; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">${window.escapeHTML(constructiveFeedback)}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     qHtml += `
                         <div style="margin-bottom: 16px;">
                             <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px;">Playbook Justification</div>
-                            <div style="color: #475569; font-size: 14px; line-height: 1.6; white-space: pre-wrap; padding-left: 12px; border-left: 2px solid #cbd5e1;">${window.escapeHTML(justification)}</div>
+                            <div style="color: #475569; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; padding-left: 12px; border-left: 2px solid #cbd5e1;">${window.escapeHTML(justification)}</div>
                         </div>
                     `;
                 }
@@ -559,7 +559,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 qHtml += `
                         <div>
                             <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px;">Constructive Feedback</div>
-                            <div style="color: #0f172a; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${window.escapeHTML(constructiveFeedback)}</div>
+                            <div style="color: #0f172a; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">${window.escapeHTML(constructiveFeedback)}</div>
                         </div>
                     </div>
                 `;
