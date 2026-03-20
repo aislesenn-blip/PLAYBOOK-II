@@ -171,8 +171,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('download-all-feedback-btn').addEventListener('click', async (e) => {
             const btn = e.target;
             const originalText = btn.textContent;
-            btn.innerHTML = `<svg class="spinner" viewBox="0 0 50 50" style="width: 16px; height: 16px; margin-right: 4px; display: inline-block; animation: rotate 2s linear infinite;"><circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5" stroke="currentColor" stroke-linecap="round" style="animation: dash 1.5s ease-in-out infinite;"></circle></svg> Generating PDF...`;
             btn.disabled = true;
+
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingStatus = document.getElementById('loading-status');
+            if (loadingOverlay && loadingStatus) {
+                loadingStatus.textContent = "Generating Master PDF...";
+                loadingOverlay.classList.add('active');
+            }
 
             try {
                 // To keep the bundle small without adding JSZip, we will create one massive HTML document
@@ -278,6 +284,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 template.innerHTML = combinedHTML;
                 containerWrapper.style.display = 'block';
 
+                // Allow browser to render the DOM changes before capturing to prevent blank pages
+                await new Promise(resolve => setTimeout(resolve, 150));
+
                 const opt = {
                     margin:       [10, 10, 10, 10],
                     filename:     `${session.name.replace(/\s+/g, '_')}_Master_Feedback.pdf`,
@@ -296,6 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.error("Failed to generate master PDF:", error);
                 alert("Failed to generate master PDF. Please try again.");
             } finally {
+                if (loadingOverlay) loadingOverlay.classList.remove('active');
                 btn.textContent = originalText;
                 btn.disabled = false;
             }
@@ -370,14 +380,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (student) {
                     // Update button to show loading state
                     const originalText = e.target.textContent;
-                    e.target.innerHTML = `<svg class="spinner" viewBox="0 0 50 50" style="width: 16px; height: 16px; margin-right: 4px; display: inline-block; animation: rotate 2s linear infinite;"><circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5" stroke="currentColor" stroke-linecap="round" style="animation: dash 1.5s ease-in-out infinite;"></circle></svg> Generating...`;
                     e.target.disabled = true;
+
+                    const loadingOverlay = document.getElementById('loading-overlay');
+                    const loadingStatus = document.getElementById('loading-status');
+                    if (loadingOverlay && loadingStatus) {
+                        loadingStatus.textContent = "Generating PDF...";
+                        loadingOverlay.classList.add('active');
+                    }
+
                     try {
                         await downloadStudentFeedbackPDF(student, session);
                     } catch (error) {
                         console.error('PDF Generation failed:', error);
                         alert('Failed to generate PDF. Please try again.');
                     } finally {
+                        if (loadingOverlay) loadingOverlay.classList.remove('active');
                         e.target.textContent = originalText;
                         e.target.disabled = false;
                     }
@@ -572,6 +590,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Temporarily display template for html2pdf to read it
         const containerWrapper = document.getElementById('pdf-template-container');
         containerWrapper.style.display = 'block';
+
+        // Allow browser to render the DOM changes before capturing to prevent blank pages
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         const opt = {
             margin:       [10, 10, 10, 10], // mm
