@@ -73,19 +73,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tbody = document.getElementById('professors-list');
         tbody.innerHTML = '';
 
-        // Create a safe, escaped version of strings
-        const escapeHTML = (str) => {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        };
-
         users.forEach(user => {
             if (user.role === 'professor') {
                 const tr = document.createElement('tr');
-                const safeName = escapeHTML(String(user.full_name || ''));
-                const safeEmail = escapeHTML(String(user.email || ''));
-                const safeRole = escapeHTML(String(user.role || ''));
+                const safeName = window.escapeHTML(String(user.full_name || ''));
+                const safeEmail = window.escapeHTML(String(user.email || ''));
+                const safeRole = window.escapeHTML(String(user.role || ''));
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${safeName}</td>

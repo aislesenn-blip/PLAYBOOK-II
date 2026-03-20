@@ -70,13 +70,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     statusBadgeColor = 'var(--partial-text)';
                 }
 
-                // Create a safe, escaped version of strings
-                const escapeHTML = (str) => {
-                    const div = document.createElement('div');
-                    div.textContent = str;
-                    return div.innerHTML;
-                };
-
                 let actionLink = '-';
                 if (currentStatus === 'completed') {
                     actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
@@ -84,12 +77,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
                 }
 
-                const safeSessionName = escapeHTML(String(session.name || ''));
+                const safeSessionName = window.escapeHTML(String(session.name || ''));
 
                 // Supabase returns created_at as an ISO string
                 const dateObj = session.created_at ? new Date(session.created_at) : new Date();
                 const formattedDate = dateObj.toLocaleDateString();
-                const safeSessionDate = escapeHTML(formattedDate);
+                const safeSessionDate = window.escapeHTML(formattedDate);
 
                 // Format display status for UI cleanly
                 let displayStatus = currentStatus;
@@ -98,7 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                     displayStatus = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
                 }
-                const safeSessionStatus = escapeHTML(String(displayStatus || ''));
+                const safeSessionStatus = window.escapeHTML(String(displayStatus || ''));
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${safeSessionName}</td>
