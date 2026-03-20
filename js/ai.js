@@ -48,77 +48,94 @@ async function getSecureKey() {
     }
 }
 
+// Helper function for exponential backoff delay
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 // Client-Side Distributed Grading Engine
-async function gradeBatchExams(base64PDF, markingSchemeText) {
-    try {
-        const apiKey = await getSecureKey();
+async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+        try {
+            const apiKey = await getSecureKey();
 
-        // Ensure backwards compatibility and dynamic context building
-        // We now accept an array of image data URLs directly from the browser's PDF parser
-        // This is 100% compatible with GPT-4o's vision capabilities and completely avoids PDF parsing errors.
-        const userContent = [
-            {
-                type: "text",
-                text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the scanned pages of this single student's exam:`
-            }
-        ];
+            // Ensure backwards compatibility and dynamic context building
+            // We now accept an array of image data URLs directly from the browser's PDF parser
+            // This is 100% compatible with GPT-4o's vision capabilities and completely avoids PDF parsing errors.
+            const userContent = [
+                {
+                    type: "text",
+                    text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the scanned pages of this single student's exam:`
+                }
+            ];
 
-        // Ensure base64PDF is treated as an array of image URLs (handled by upload.js)
-        base64PDF.forEach(imageUrl => {
-            userContent.push({
-                type: "image_url",
-                image_url: { url: imageUrl }
+            // Ensure base64PDF is treated as an array of image URLs (handled by upload.js)
+            base64PDF.forEach(imageUrl => {
+                userContent.push({
+                    type: "image_url",
+                    image_url: { url: imageUrl }
+                });
             });
-        });
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'google/gemini-2.0-flash-001', // Required model: Guaranteed massive context window support on OpenRouter
-                temperature: 0.0,
-                seed: 42,
-                max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
-                messages: [
-                    { role: 'system', content: SYSTEM_PROMPT },
-                    { role: 'user', content: userContent }
-                ],
-                response_format: { type: "json_object" }
-            })
-        });
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.0-flash-001', // Required model: Guaranteed massive context window support on OpenRouter
+                    temperature: 0.0,
+                    seed: 42,
+                    max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
+                    messages: [
+                        { role: 'system', content: SYSTEM_PROMPT },
+                        { role: 'user', content: userContent }
+                    ],
+                    response_format: { type: "json_object" }
+                })
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            let content = data.choices[0].message.content;
+
+            if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
+            else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
+
+            // JSON Sanitizer: Robustly double-escape unescaped backslashes to prevent "Bad escaped character" JSON.parse errors.
+            // This safely preserves valid JSON structure escapes (\", \\, \/, \n) but double-escapes everything else (e.g. \frac, \sin, \theta)
+            // by matching any backslash NOT preceded by a backslash AND NOT followed by ", \, /, or n.
+            content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
+
+            const parsedData = JSON.parse(content);
+
+            // Handle backward compatibility: If AI hallucinated a 'students' array wrapper despite the single-student prompt
+            if (parsedData.students && Array.isArray(parsedData.students)) {
+                return parsedData.students;
+            }
+
+            // Standard Single Student Object mapping
+            return [parsedData];
+
+        } catch (error) {
+            attempt++;
+            console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
+
+            // If we've exhausted all retries, throw the error to halt the queue
+            if (attempt >= maxRetries) {
+                console.error("Error in Playbook grading engine (All retries exhausted):", error);
+                throw error;
+            }
+
+            // Exponential backoff: Wait 3s, then 6s, before retrying
+            const backoffTime = attempt * 3000;
+            console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
+            await delay(backoffTime);
         }
-
-        const data = await response.json();
-        let content = data.choices[0].message.content;
-
-        if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
-        else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
-
-        // JSON Sanitizer: Robustly double-escape unescaped backslashes to prevent "Bad escaped character" JSON.parse errors.
-        // This safely preserves valid JSON structure escapes (\", \\, \/, \n) but double-escapes everything else (e.g. \frac, \sin, \theta)
-        // by matching any backslash NOT preceded by a backslash AND NOT followed by ", \, /, or n.
-        content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
-
-        const parsedData = JSON.parse(content);
-
-        // Handle backward compatibility: If AI hallucinated a 'students' array wrapper despite the single-student prompt
-        if (parsedData.students && Array.isArray(parsedData.students)) {
-            return parsedData.students;
-        }
-
-        // Standard Single Student Object mapping
-        return [parsedData];
-
-    } catch (error) {
-        console.error("Error in Playbook grading engine:", error);
-        throw error;
     }
 }
 
@@ -145,44 +162,61 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
 =========================================
 `;
 
-        async function optimizeMarkingScheme(rawText) {
-            const apiKey = await getSecureKey();
+        async function optimizeMarkingScheme(rawText, maxRetries = 3) {
+            let attempt = 0;
+            while (attempt < maxRetries) {
+                try {
+                    const apiKey = await getSecureKey();
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-001',
-                    temperature: 0.0,
-                    seed: 42,
-                    messages: [
-                        {
-                            role: 'system',
-                            content: OPTIMIZE_PROMPT
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json',
                         },
-                        {
-                            role: 'user',
-                            content: rawText
-                        }
-                    ]
-                })
-            });
+                        body: JSON.stringify({
+                            model: 'google/gemini-2.0-flash-001',
+                            temperature: 0.0,
+                            seed: 42,
+                            messages: [
+                                {
+                                    role: 'system',
+                                    content: OPTIMIZE_PROMPT
+                                },
+                                {
+                                    role: 'user',
+                                    content: rawText
+                                }
+                            ]
+                        })
+                    });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+                    }
+
+                    const data = await response.json();
+                    let content = data.choices[0].message.content;
+
+                    if (content.startsWith('```')) {
+                        content = content.replace(/^```[^\n]*\n|\n```$/g, '');
+                    }
+                    return content;
+                } catch (error) {
+                    attempt++;
+                    console.warn(`Optimization Attempt ${attempt} failed: ${error.message}`);
+
+                    if (attempt >= maxRetries) {
+                        console.error("Error in Playbook optimization engine (All retries exhausted):", error);
+                        throw error;
+                    }
+
+                    const backoffTime = attempt * 3000;
+                    console.log(`Self-Healing Loop activated for optimization: Retrying in ${backoffTime / 1000} seconds...`);
+                    await delay(backoffTime);
+                }
             }
-
-            const data = await response.json();
-            let content = data.choices[0].message.content;
-
-            if (content.startsWith('```')) {
-                content = content.replace(/^```[^\n]*\n|\n```$/g, '');
-            }
-            return content;
         }
 
 // Export for both main thread and Web Worker environments
