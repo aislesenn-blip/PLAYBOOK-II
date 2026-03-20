@@ -181,15 +181,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             try {
-                // To keep the bundle small without adding JSZip, we will create one massive HTML document
-                // where each student's feedback is separated by a page break, then convert to a single PDF.
+                // html2canvas struggles to render excessively long vertical pages (>10,000px).
+                // Creating one massive HTML string of all students exceeds browser canvas limits,
+                // resulting in a PDF filled with completely blank pages.
+                // We fix this by iterating students individually, rendering them onto the DOM,
+                // and chaining html2pdf workers to add new pages explicitly.
                 const containerWrapper = document.getElementById('pdf-template-container');
                 const template = document.getElementById('pdf-template');
-                const originalTemplateHTML = template.innerHTML; // save original single-student template
+                const originalTemplateHTML = template.innerHTML;
 
-                let combinedHTML = '';
+                containerWrapper.style.display = 'block';
 
-                students.forEach((student, index) => {
+                const opt = {
+                    margin:       [10, 10, 10, 10],
+                    filename:     `${session.name.replace(/\s+/g, '_')}_Master_Feedback.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, logging: false },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                let worker = html2pdf().set(opt);
+
+                for (let index = 0; index < students.length; index++) {
+                    const student = students[index];
                     const regNo = student.registrationNumber || 'Unknown ID';
                     const studentName = student.studentName || 'Unknown Student';
                     const score = student.grading ? student.grading.totalScore : 0;
@@ -204,32 +218,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
 
-                    let pageHtml = `
-                        <div style="page-break-after: ${index === students.length - 1 ? 'auto' : 'always'}; padding: 40px; background: white; color: #0f172a; font-family: 'Inter', system-ui, sans-serif; width: 100%; max-width: 750px; box-sizing: border-box; overflow-wrap: break-word; word-wrap: break-word;">
-                            <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
-                                <div>
-                                    <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #0f172a;">${studentName}</h1>
-                                    <p style="margin: 5px 0 0 0; color: #64748b; font-size: 16px;">Reg No: ${regNo}</p>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Exam Session</div>
-                                    <div style="font-size: 18px; font-weight: 600; color: #0f172a; margin-top: 4px;">${session.name}</div>
-                                </div>
-                            </div>
+                    // Populate header
+                    document.getElementById('pdf-student-name').textContent = studentName;
+                    document.getElementById('pdf-reg-no').textContent = `Registration No: ${regNo}`;
+                    document.getElementById('pdf-session-name').textContent = session.name;
+                    document.getElementById('pdf-total-score').textContent = `${score} / ${max}`;
+                    document.getElementById('pdf-grade').textContent = grade;
 
-                            <div style="display: flex; gap: 20px; margin-bottom: 40px;">
-                                <div style="flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center;">
-                                    <div style="font-size: 14px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">Total Score</div>
-                                    <div style="font-size: 32px; font-weight: 700; color: #0f172a;">${score} / ${max}</div>
-                                </div>
-                                <div style="flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center;">
-                                    <div style="font-size: 14px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">Overall Grade</div>
-                                    <div style="font-size: 32px; font-weight: 700; color: #0f172a;">${grade}</div>
-                                </div>
-                            </div>
-
-                            <div style="display: flex; flex-direction: column; gap: 24px;">
-                    `;
+                    // Populate questions
+                    const container = document.getElementById('pdf-questions-container');
+                    container.innerHTML = '';
 
                     if (student.grading && student.grading.questions) {
                         student.grading.questions.forEach(q => {
@@ -240,17 +238,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                             const justification = q.justification !== undefined ? q.justification : q.analysis;
                             const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
-                            pageHtml += `
-                                <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
-                                    <div style="background: #f8fafc; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                                        <h3 style="margin: 0; font-size: 16px; color: #0f172a;">Question ${qId}: <span style="font-weight: 400; color: #64748b;">${questionTitle}</span></h3>
-                                        <div style="font-weight: 600; font-size: 16px; color: #0f172a;">${marksAwarded} / ${maxMarks}</div>
-                                    </div>
-                                    <div style="padding: 20px;">
+                            const qEl = document.createElement('div');
+                            qEl.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; page-break-inside: avoid;';
+
+                            let qHtml = `
+                                <div style="background: #f8fafc; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="margin: 0; font-size: 16px; color: #0f172a;">Question ${qId}: <span style="font-weight: 400; color: #64748b;">${questionTitle}</span></h3>
+                                    <div style="font-weight: 600; font-size: 16px; color: #0f172a;">${marksAwarded} / ${maxMarks}</div>
+                                </div>
+                                <div style="padding: 20px;">
                             `;
 
                             if (justification) {
-                                pageHtml += `
+                                qHtml += `
                                     <div style="margin-bottom: 16px;">
                                         <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px;">Playbook Justification</div>
                                         <div style="color: #475569; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; padding-left: 12px; border-left: 2px solid #cbd5e1;">${window.escapeHTML(justification)}</div>
@@ -258,44 +258,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 `;
                             }
 
-                            pageHtml += `
-                                        <div>
-                                            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px;">Constructive Feedback</div>
-                                            <div style="color: #0f172a; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">${window.escapeHTML(constructiveFeedback)}</div>
-                                        </div>
+                            qHtml += `
+                                    <div>
+                                        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px;">Constructive Feedback</div>
+                                        <div style="color: #0f172a; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">${window.escapeHTML(constructiveFeedback)}</div>
                                     </div>
                                 </div>
                             `;
+
+                            qEl.innerHTML = qHtml;
+                            container.appendChild(qEl);
                         });
                     }
 
-                    pageHtml += `
-                            </div>
-                            <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;">
-                                PLAYBOOK
-                            </div>
-                        </div>
-                    `;
+                    // Allow browser to render DOM changes before capturing
+                    await new Promise(resolve => setTimeout(resolve, 50));
 
-                    combinedHTML += pageHtml;
-                });
+                    if (index === 0) {
+                        // First page is generated automatically by toPdf()
+                        worker = worker.from(template).toContainer().toCanvas().toPdf();
+                    } else {
+                        // For subsequent students, we first add a new page to the pdf
+                        worker = worker.get('pdf').then(pdf => {
+                            pdf.addPage();
+                            return pdf;
+                        }).from(template).toContainer().toCanvas().toPdf();
+                    }
+                }
 
-                // Temporarily replace the template content with our combined HTML
-                template.innerHTML = combinedHTML;
-                containerWrapper.style.display = 'block';
-
-                // Allow browser to render the DOM changes before capturing to prevent blank pages
-                await new Promise(resolve => setTimeout(resolve, 150));
-
-                const opt = {
-                    margin:       [10, 10, 10, 10],
-                    filename:     `${session.name.replace(/\s+/g, '_')}_Master_Feedback.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true, logging: false },
-                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                };
-
-                await html2pdf().set(opt).from(template).save();
+                // Final save
+                await worker.save();
 
                 // Restore
                 containerWrapper.style.display = 'none';
