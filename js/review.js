@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const safeAnswerStatus = escapeHTML(String(answerStatus || ''));
 
             itemDiv.innerHTML = `
-                <div class="grading-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
+                <div class="grading-header" style="display: flex; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <h4 style="margin: 0; font-family: var(--font-sans); font-weight: 600; font-size: 1.1rem; color: #0f172a;">Q${questionId}</h4>
                     </div>
