@@ -1,122 +1,116 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playbook - Dashboard</title>
-    <link rel="stylesheet" href="css/style.css">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Playbook - Dashboard</title>
+<link href="css/style.css" rel="stylesheet"/>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Minimalist Top Navigation -->
-        <nav class="top-nav">
-            <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <div class="nav-logo">Playbook</div>
-                    <button class="hamburger-menu" aria-label="Toggle navigation" style="display: none;">
-                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
-                    <ul class="nav-links flex gap-1 items-center">
-                        <li><a href="index.html" class="active">Dashboard</a></li>
-                        <li><a href="upload.html">Upload Exams</a></li>
-                        <li><a href="review.html">Review & Override</a></li>
-                        <li><a href="analytics.html">Analytics</a></li>
-                    </ul>
-                </div>
-                <div class="flex items-center gap-1 nav-actions">
-                    <a href="manual.html" class="nav-icon-link">User Manual</a>
-                    <a href="settings.html" class="nav-icon-link">Settings</a>
-                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Main Content -->
-        <main class="main-content max-w-7xl mx-auto">
-            <header class="page-header flex justify-between items-center mb-2">
-                <div>
-                    <h1>Dashboard</h1>
-                    <p class="text-secondary">Welcome back, <span id="prof-name-display" style="font-weight: 600;">Professor</span>. Here is an overview of your grading.</p>
-                </div>
-                <div class="flex gap-1 items-center">
-                    <a href="upload.html" class="btn">New Grading Session</a>
-                </div>
-            </header>
-
-            <!-- Stats Grid -->
-            <section class="stats-grid grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="card stat-card">
-                    <div class="stat-number" id="stat-total-graded">0</div>
-                    <div class="stat-label">Exams Graded</div>
-                </div>
-                <div class="card stat-card">
-                    <div class="stat-number" id="stat-pending">0</div>
-                    <div class="stat-label">Pending Reviews</div>
-                </div>
-                <div class="card stat-card">
-                    <div class="stat-number" id="stat-avg">0%</div>
-                    <div class="stat-label">Avg. Class Score</div>
-                </div>
-            </section>
-
-            <!-- Recent Activity -->
-            <section class="card">
-                <h3 class="mb-1">Recent Sessions</h3>
-                <div class="table-container"><table class="table">
-                    <thead>
-                        <tr>
-                            <th>Session Name</th>
-                            <th>Total Students</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sessions-table-body">
-                        <!-- Populated by JS -->
-                    </tbody>
-                </table></div>
-            </section>
-
-        </main>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div id="loading-overlay">
-        <!-- SVG Line Drawing Animation for PLAYBOOK -->
-        <!-- SVG Line Drawing Animation for PLAYBOOK -->
-        <svg class="playbook-loader" viewBox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
-            <!-- P -->
-            <path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- L -->
-            <path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- A -->
-            <path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- Y -->
-            <path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- B -->
-            <path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- O -->
-            <path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- O -->
-            <path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- K -->
-            <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-
-        <h2 style="margin-top: 1.5rem;" id="loading-status">Loading...</h2>
-        <p id="loading-detail">Please wait while we fetch your data.</p>
-    </div>
-
-    <script src="js/app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/db.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/queue.js"></script>
-    <script src="js/dashboard.js"></script>
+<div class="app-container">
+<!-- Minimalist Top Navigation -->
+<nav class="top-nav">
+<div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+<div class="flex items-center gap-2">
+<div class="nav-logo">Playbook</div>
+<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
+<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
+<line x1="3" x2="21" y1="12" y2="12"></line>
+<line x1="3" x2="21" y1="6" y2="6"></line>
+<line x1="3" x2="21" y1="18" y2="18"></line>
+</svg>
+</button>
+<ul class="nav-links flex gap-1 items-center">
+<li><a class="active" href="index.html">Dashboard</a></li>
+<li><a href="upload.html">Upload Exams</a></li>
+<li><a href="review.html">Review &amp; Override</a></li>
+<li><a href="analytics.html">Analytics</a></li>
+<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
+</div>
+<div class="flex items-center gap-1 nav-actions">
+<a class="nav-icon-link" href="manual.html">User Manual</a>
+<a class="nav-icon-link" href="settings.html">Settings</a>
+<button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="main-content max-w-7xl mx-auto">
+<header class="page-header flex justify-between items-center mb-2">
+<div>
+<h1>Dashboard</h1>
+<p class="text-secondary">Welcome back, <span id="prof-name-display" style="font-weight: 600;">Professor</span>. Here is an overview of your grading.</p>
+</div>
+<div class="flex gap-1 items-center">
+<a class="btn" href="upload.html">New Grading Session</a>
+</div>
+</header>
+<!-- Stats Grid -->
+<section class="stats-grid grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
+<div class="card stat-card">
+<div class="stat-number" id="stat-total-graded">0</div>
+<div class="stat-label">Exams Graded</div>
+</div>
+<div class="card stat-card">
+<div class="stat-number" id="stat-pending">0</div>
+<div class="stat-label">Pending Reviews</div>
+</div>
+<div class="card stat-card">
+<div class="stat-number" id="stat-avg">0%</div>
+<div class="stat-label">Avg. Class Score</div>
+</div>
+</section>
+<!-- Recent Activity -->
+<section class="card">
+<h3 class="mb-1">Recent Sessions</h3>
+<div class="table-container"><table class="table">
+<thead>
+<tr>
+<th>Session Name</th>
+<th>Total Students</th>
+<th>Date</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="sessions-table-body">
+<!-- Populated by JS -->
+</tbody>
+</table></div>
+</section>
+</main>
+</div>
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+<!-- SVG Line Drawing Animation for PLAYBOOK -->
+<!-- SVG Line Drawing Animation for PLAYBOOK -->
+<svg class="playbook-loader" viewbox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
+<!-- P -->
+<path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- L -->
+<path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- A -->
+<path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- Y -->
+<path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- B -->
+<path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- O -->
+<path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- O -->
+<path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- K -->
+<path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+</svg>
+<h2 id="loading-status" style="margin-top: 1.5rem;">Loading...</h2>
+<p id="loading-detail">Please wait while we fetch your data.</p>
+</div>
+<script src="js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/queue.js"></script>
+<script src="js/dashboard.js"></script>
 </body>
 </html>

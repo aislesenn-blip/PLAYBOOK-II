@@ -1,11 +1,12 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playbook - Review & Override</title>
-    <link rel="stylesheet" href="css/style.css">
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Playbook - Review &amp; Override</title>
+<link href="css/style.css" rel="stylesheet"/>
+<style>
         .grading-item {
             border: 1px solid var(--border-color);
             padding: 1.5rem;
@@ -55,105 +56,94 @@
     </style>
 </head>
 <body style="overflow: auto; background-color: var(--bg-color);">
-
-    <div class="app-container" style="display: flex; flex-direction: column; min-height: 100vh;">
-        <!-- Minimalist Top Navigation -->
-        <nav class="top-nav">
-            <div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
-                <div class="flex items-center gap-2">
-                    <div class="nav-logo">Playbook</div>
-                    <button class="hamburger-menu" aria-label="Toggle navigation" style="display: none;">
-                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
-                    <ul class="nav-links flex gap-1 items-center">
-                        <li><a href="index.html">Dashboard</a></li>
-                        <li><a href="upload.html">Upload Exams</a></li>
-                        <li><a href="review.html" class="active">Review & Override</a></li>
-                        <li><a href="analytics.html">Analytics</a></li>
-                    </ul>
-                </div>
-                <div class="flex items-center gap-1 nav-actions">
-                    <a href="manual.html" class="nav-icon-link">User Manual</a>
-                    <a href="settings.html" class="nav-icon-link">Settings</a>
-                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Secondary Review Header -->
-        <header class="flex justify-between items-center mb-2 px-4 py-2" style="background-color: var(--surface-color); border-bottom: 1px solid var(--border-color);">
-            <div class="flex items-center gap-2">
-                <span class="font-semibold" style="color: var(--text-primary);" id="session-title">Loading Session...</span>
-            </div>
-
-            <div class="flex items-center gap-1">
-                <span style="font-size: 0.9rem; color: var(--text-secondary);" class="text-xs font-semibold uppercase tracking-wider">Student <span id="current-student-idx">0</span> of <span id="total-student-count">0</span>: <strong style="color: var(--text-primary);" id="student-name">...</strong> (<span id="student-reg-num">...</span>)</span>
-                <button class="btn btn-secondary" id="prev-btn" style="padding: 0.25rem 0.75rem;" disabled>&larr; Prev</button>
-                <button class="btn btn-secondary" id="next-btn" style="padding: 0.25rem 0.75rem;">Next &rarr;</button>
-            </div>
-
-            <div>
-                <button id="finalize-btn" class="btn btn-sm">Finalize Scores</button>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="main-content flex-grow" style="padding: 2rem; overflow-y: visible; height: auto;">
-            <div class="max-w-7xl mx-auto" style="width: 100%;">
-
-                <!-- Full-Width Grading Panel -->
-                <div class="card" style="margin: 0; padding: 2rem; border-radius: var(--radius-md);">
-                    <div class="flex justify-between items-center mb-2" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 2rem;">
-                        <h2 class="text-slate-900" style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0;">Playbook Evaluation</h2>
-                        <div style="text-align: right;">
-                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Score</span>
-                            <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary); line-height: 1;" id="total-score-display">0 / 0</div>
-                        </div>
-                    </div>
-
-                    <div id="grading-items-container" class="grid gap-2" style="grid-template-columns: 1fr;">
-                        <!-- Populated by JS -->
-                    </div>
-
-                </div>
-            </div>
-        </main>
-    </div>
-
-        <!-- Loading Overlay -->
-        <div id="loading-overlay">
-            <!-- SVG Line Drawing Animation for PLAYBOOK -->
-            <svg class="playbook-loader" viewBox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
-                <!-- P -->
-                <path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- L -->
-                <path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- A -->
-                <path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- Y -->
-                <path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- B -->
-                <path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- O -->
-                <path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- O -->
-                <path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- K -->
-                <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-
-            <h2 style="margin-top: 1.5rem;" id="loading-status">Loading...</h2>
-            <p id="loading-detail">Please wait while we fetch your data.</p>
-        </div>
-
-    <script src="js/app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/db.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/review.js"></script>
+<div class="app-container" style="display: flex; flex-direction: column; min-height: 100vh;">
+<!-- Minimalist Top Navigation -->
+<nav class="top-nav">
+<div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
+<div class="flex items-center gap-2">
+<div class="nav-logo">Playbook</div>
+<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
+<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
+<line x1="3" x2="21" y1="12" y2="12"></line>
+<line x1="3" x2="21" y1="6" y2="6"></line>
+<line x1="3" x2="21" y1="18" y2="18"></line>
+</svg>
+</button>
+<ul class="nav-links flex gap-1 items-center">
+<li><a href="index.html">Dashboard</a></li>
+<li><a href="upload.html">Upload Exams</a></li>
+<li><a class="active" href="review.html">Review &amp; Override</a></li>
+<li><a href="analytics.html">Analytics</a></li>
+<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
+</div>
+<div class="flex items-center gap-1 nav-actions">
+<a class="nav-icon-link" href="manual.html">User Manual</a>
+<a class="nav-icon-link" href="settings.html">Settings</a>
+<button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+</div>
+</div>
+</nav>
+<!-- Secondary Review Header -->
+<header class="flex justify-between items-center mb-2 px-4 py-2" style="background-color: var(--surface-color); border-bottom: 1px solid var(--border-color);">
+<div class="flex items-center gap-2">
+<span class="font-semibold" id="session-title" style="color: var(--text-primary);">Loading Session...</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-xs font-semibold uppercase tracking-wider" style="font-size: 0.9rem; color: var(--text-secondary);">Student <span id="current-student-idx">0</span> of <span id="total-student-count">0</span>: <strong id="student-name" style="color: var(--text-primary);">...</strong> (<span id="student-reg-num">...</span>)</span>
+<button class="btn btn-secondary" disabled="" id="prev-btn" style="padding: 0.25rem 0.75rem;">← Prev</button>
+<button class="btn btn-secondary" id="next-btn" style="padding: 0.25rem 0.75rem;">Next →</button>
+</div>
+<div>
+<button class="btn btn-sm" id="finalize-btn">Finalize Scores</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="main-content flex-grow" style="padding: 2rem; overflow-y: visible; height: auto;">
+<div class="max-w-7xl mx-auto" style="width: 100%;">
+<!-- Full-Width Grading Panel -->
+<div class="card" style="margin: 0; padding: 2rem; border-radius: var(--radius-md);">
+<div class="flex justify-between items-center mb-2" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 2rem;">
+<h2 class="text-slate-900" style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0;">Playbook Evaluation</h2>
+<div style="text-align: right;">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Score</span>
+<div id="total-score-display" style="font-size: 2rem; font-weight: 700; color: var(--text-primary); line-height: 1;">0 / 0</div>
+</div>
+</div>
+<div class="grid gap-2" id="grading-items-container" style="grid-template-columns: 1fr;">
+<!-- Populated by JS -->
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+<!-- SVG Line Drawing Animation for PLAYBOOK -->
+<svg class="playbook-loader" viewbox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
+<!-- P -->
+<path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- L -->
+<path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- A -->
+<path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- Y -->
+<path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- B -->
+<path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- O -->
+<path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- O -->
+<path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+<!-- K -->
+<path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+</svg>
+<h2 id="loading-status" style="margin-top: 1.5rem;">Loading...</h2>
+<p id="loading-detail">Please wait while we fetch your data.</p>
+</div>
+<script src="js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/review.js"></script>
 </body>
 </html>
