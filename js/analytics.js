@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
 
                     let pageHtml = `
-                        <div style="page-break-after: ${index === students.length - 1 ? 'auto' : 'always'}; padding: 40px; background: white; color: #0f172a; font-family: 'Inter', system-ui, sans-serif; width: 800px; box-sizing: border-box; overflow-wrap: break-word; word-wrap: break-word;">
+                        <div style="page-break-after: ${index === students.length - 1 ? 'auto' : 'always'}; padding: 40px; background: white; color: #0f172a; font-family: 'Inter', system-ui, sans-serif; width: 100%; max-width: 750px; box-sizing: border-box; overflow-wrap: break-word; word-wrap: break-word;">
                             <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div>
                                     <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #0f172a;">${studentName}</h1>
