@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     headers: { 'xi-api-key': this.apiKey, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         text: scriptText,
-                        model_id: "eleven_monolingual_v1",
+                        model_id: "eleven_multilingual_v2", // Updated to modern model to fix free tier deprecation block
                         voice_settings: { stability: 0.4, similarity_boost: 0.85, style: 0.3 } // More dramatic style
                     })
                 });
