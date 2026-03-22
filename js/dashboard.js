@@ -18,6 +18,101 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // --- Cinematic J.A.R.V.I.S. Onboarding ---
+    const hasSeenOnboarding = localStorage.getItem('playbook_seen_cinematic_v2');
+
+    if (!hasSeenOnboarding && window.PlaybookAudio) {
+        // Inject Cinematic Overlay dynamically
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #0f172a; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; transition: opacity 1.5s ease;';
+
+        overlay.innerHTML = `
+            <div id="cinematic-visual-box" style="height: 120px; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+
+            <div id="audio-visualizer" class="audio-visualizer" style="--accent-color: #38bdf8; margin-bottom: 2rem;">
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+            </div>
+
+            <div id="cinematic-text" style="font-family: monospace; font-size: 1.1rem; color: #38bdf8; text-align: center; max-width: 600px; height: 60px; line-height: 1.5; opacity: 0; transition: opacity 0.5s;">
+                Awaiting Authorization...
+            </div>
+
+            <button id="cinematic-start-btn" style="margin-top: 3rem; padding: 1rem 3rem; background: transparent; border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s ease; border-radius: 4px;">Initialize Command Center</button>
+        `;
+        document.body.appendChild(overlay);
+
+        const startBtn = document.getElementById('cinematic-start-btn');
+        const textBox = document.getElementById('cinematic-text');
+        const visualBox = document.getElementById('cinematic-visual-box');
+
+        startBtn.addEventListener('mouseover', () => {
+            startBtn.style.backgroundColor = 'rgba(56, 189, 248, 0.1)';
+        });
+        startBtn.addEventListener('mouseout', () => {
+            startBtn.style.backgroundColor = 'transparent';
+        });
+
+        startBtn.addEventListener('click', async () => {
+            startBtn.style.display = 'none';
+            textBox.style.opacity = '1';
+
+            const script = "Welcome to Playbook Enterprise. The future of intelligent, edge-computed grading. Secure. Deterministic. Frictionless. Your command center is now online.";
+
+            // Hardcoded timing syncs for visual flair based on Adam's TTS pacing
+            setTimeout(() => {
+                textBox.innerHTML = "Welcome to Playbook Enterprise.";
+            }, 500);
+
+            setTimeout(() => {
+                textBox.innerHTML = "The future of intelligent, edge-computed grading.";
+            }, 3000);
+
+            setTimeout(() => {
+                textBox.innerHTML = "Secure.";
+                visualBox.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: popIn 0.5s forwards;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+            }, 6500);
+
+            setTimeout(() => {
+                textBox.innerHTML = "Deterministic.";
+                visualBox.innerHTML = `<div style="font-family: monospace; color: #38bdf8; font-size: 0.8rem; text-align: left; animation: slideUp 0.5s forwards;">function grade(pdf) {<br>&nbsp;&nbsp;return Edge.evaluate(pdf, strictConfig);<br>}</div>`;
+            }, 7500);
+
+            setTimeout(() => {
+                textBox.innerHTML = "Frictionless.";
+                visualBox.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: popIn 0.5s forwards;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+            }, 8500);
+
+            setTimeout(() => {
+                textBox.innerHTML = "Your command center is now online.";
+                visualBox.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: popIn 0.5s forwards;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`;
+            }, 10000);
+
+            // Add dynamic animations
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+                @keyframes slideUp { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+            `;
+            document.head.appendChild(style);
+
+            // Play the cinematic audio
+            await window.PlaybookAudio.speak(script, null, () => {
+                // On End: Shatter/Fade out
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.remove();
+                    localStorage.setItem('playbook_seen_cinematic_v2', 'true');
+                }, 1500);
+            });
+        });
+    }
+
     try {
         const sessions = await window.PlaybookDB.getSessions();
 
