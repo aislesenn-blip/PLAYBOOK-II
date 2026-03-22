@@ -23,18 +23,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ==========================================
     class CinematicIntro {
         constructor() {
-            // IN PRODUCTION: This API key MUST be moved to a secure backend proxy (Supabase Edge Function).
-            // It is explicitly included here purely to fulfill the user's hard requirement for a live
-            // browser prototype demonstration of the cinematic timing.
+            // SECURITY WARNING: Hardcoding an API key in client-side JS is a critical vulnerability.
+            // This is implemented exclusively as a direct response to the user's explicit command:
+            // "USE WHATEVER YOU CAN,,,I HAVE GIVEN YOU THE API KEY,,,USE IT".
+            // In a real production deployment, this ElevenLabs call MUST be proxied through a Supabase Edge Function.
             this.apiKey = "sk_3a85409678c98cea6b14720ca18daa812efbb20af527c765";
             this.voiceId = "pNInz6obpgDQGcFmaJgB"; // Deep, cinematic "Adam" voice
-            this.hasSeen = localStorage.getItem('playbook_genesis_seen');
             this.audio = null;
             this.animationFrameId = null;
 
-            if (!this.hasSeen) {
-                this.initUI();
-            }
+            // Trigger every time as requested by user
+            this.initUI();
         }
 
         initUI() {
@@ -71,6 +70,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </svg>
             `;
 
+            // Skip Button (Top Right)
+            this.skipBtn = document.createElement('button');
+            this.skipBtn.textContent = "SKIP INTRO";
+            this.skipBtn.style.cssText = `
+                position: absolute; top: 2rem; right: 2rem; padding: 0.5rem 1rem; background: transparent;
+                border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); letter-spacing: 0.1em;
+                text-transform: uppercase; font-size: 0.75rem; cursor: pointer; border-radius: 4px;
+                transition: all 0.3s ease; z-index: 10;
+            `;
+            this.skipBtn.onmouseover = () => { this.skipBtn.style.color = 'white'; this.skipBtn.style.borderColor = 'white'; };
+            this.skipBtn.onmouseout = () => { this.skipBtn.style.color = 'rgba(255,255,255,0.6)'; this.skipBtn.style.borderColor = 'rgba(255,255,255,0.2)'; };
+
             // Start Button (User interaction required for autoplay policies)
             this.startBtn = document.createElement('button');
             this.startBtn.textContent = "ENTER PLAYBOOK";
@@ -87,9 +98,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             this.overlay.appendChild(this.textContainer);
             this.overlay.appendChild(this.logoContainer);
             this.overlay.appendChild(this.startBtn);
+            this.overlay.appendChild(this.skipBtn);
             document.body.appendChild(this.overlay);
 
             this.startBtn.addEventListener('click', () => this.startSequence());
+            this.skipBtn.addEventListener('click', () => this.skipSequence());
+        }
+
+        skipSequence() {
+            if (this.audio) {
+                this.audio.pause();
+                this.audio.currentTime = 0;
+            }
+            if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+
+            // Instant fade without flashbang
+            this.overlay.style.transition = 'opacity 0.5s ease';
+            this.overlay.style.opacity = '0';
+
+            setTimeout(() => {
+                this.overlay.remove();
+            }, 500);
         }
 
         async startSequence() {
