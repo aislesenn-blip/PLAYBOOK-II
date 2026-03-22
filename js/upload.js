@@ -34,16 +34,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let nextChunk = await window.PlaybookQueue.getNextPendingChunk(sessionId);
 
-        const theaterContainer = document.getElementById('grading-theater-container');
-        const theaterNotifications = document.getElementById('grading-theater-notifications');
-
         while (nextChunk) {
             const pendingCount = await window.PlaybookQueue.getPendingCount(sessionId);
 
             // UI Update for Live Review Theater & Queue
             statusEl.textContent = `Grading Student ${totalStudentsGraded + 1}...`;
             detailEl.textContent = `${pendingCount} students remaining in queue. Analyzing pages via Playbook API.`;
-            theaterContainer.style.display = 'block';
 
             // If we have at least 1 graded, show the review button
             if (totalStudentsGraded > 0 && !document.getElementById('live-review-btn')) {
@@ -93,32 +89,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
 
                     sessionTotalScore += studentTotal;
-
-                    // Update Grading Theater
-                    const notification = document.createElement('div');
-                    notification.style.cssText = 'padding: 0.75rem; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; color: #334155; animation: fadeIn 0.5s ease-in-out;';
-
-                    let notificationText = `<strong>Student ${totalStudentsGraded + i + 1} (${student.name !== undefined ? student.name : student.studentName || 'Unknown'})</strong> graded. Total: ${studentTotal}/${explicitMaxMarks}.`;
-
-                    if (parsedQuestions.length > 0) {
-                        const firstQ = parsedQuestions[0];
-                        const qScore = parseFloat(firstQ.score) || parseFloat(firstQ.marks_awarded) || 0;
-                        const maxMarks = firstQ.max || firstQ.max_marks || 0;
-                        notificationText += ` <em>Scanning Q${firstQ.questionId || firstQ.qId || '1'}... ${qScore}/${maxMarks} awarded.</em>`;
-                    }
-
-                    notification.innerHTML = notificationText;
-
-                    if (theaterNotifications.firstChild) {
-                        theaterNotifications.insertBefore(notification, theaterNotifications.firstChild);
-                    } else {
-                        theaterNotifications.appendChild(notification);
-                    }
-
-                    // Keep only the last 5 notifications to prevent clutter
-                    if (theaterNotifications.children.length > 5) {
-                        theaterNotifications.removeChild(theaterNotifications.lastChild);
-                    }
                 }
 
                 totalStudentsGraded += gradedStudents.length;
@@ -180,54 +150,108 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     const form = document.getElementById('upload-form');
-    const schemeFileInput = document.getElementById('scheme-file');
     const examsFileInput = document.getElementById('exams-file');
 
-    // Smart Pre-Processor Logic
-    const optimizeBtn = document.getElementById('optimize-scheme-btn');
-    const resetBtn = document.getElementById('reset-scheme-btn');
-    const rawContainer = document.getElementById('raw-scheme-container');
-    const optimizedContainer = document.getElementById('optimized-scheme-container');
-    const rawTextarea = document.getElementById('raw-scheme-text');
-    const optimizedTextarea = document.getElementById('optimized-scheme-text');
+    // The Playbook Blueprint Logic
+    const blocksContainer = document.getElementById('blueprint-blocks-container');
+    const addBlockBtn = document.getElementById('add-blueprint-block-btn');
+    const saveBlueprintBtn = document.getElementById('save-blueprint-btn');
+    const unlockBlueprintBtn = document.getElementById('unlock-blueprint-btn');
+    const builderContainer = document.getElementById('blueprint-builder-container');
+    const lockedContainer = document.getElementById('blueprint-locked-container');
 
-    // Handle .txt upload and dump into textarea
-    schemeFileInput.addEventListener('change', async (e) => {
-        if(e.target.files[0]) {
-            const text = await e.target.files[0].text();
-            rawTextarea.value = text;
-        }
-    });
+    let isBlueprintLocked = false;
+    let blockCount = 0;
 
-    optimizeBtn.addEventListener('click', async () => {
-        if (!rawTextarea.value.trim()) {
-            alert('Please paste or upload a raw scheme first.');
+    function addBlueprintBlock() {
+        blockCount++;
+        const block = document.createElement('div');
+        block.className = 'blueprint-block';
+        block.style.cssText = 'padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background-color: #f8fafc; position: relative;';
+
+        block.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <input type="text" class="form-control block-q-id" placeholder="Q Number (e.g. 1a)" style="width: 120px; padding: 0.4rem; font-size: 0.85rem; font-weight: bold;" required>
+                <input type="number" class="form-control block-marks" placeholder="Max Marks" style="width: 100px; padding: 0.4rem; font-size: 0.85rem;" min="1" required>
+            </div>
+            <textarea class="form-control block-criteria" placeholder="Enter explicit grading criteria..." style="height: 60px; resize: vertical; font-size: 0.85rem; margin-bottom: 0.5rem;" required></textarea>
+            <button type="button" class="btn btn-secondary remove-block-btn" style="position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border-radius: 50%; padding: 0; line-height: 1; font-size: 14px; background: white; color: var(--error-color); border-color: var(--error-color);">×</button>
+        `;
+
+        block.querySelector('.remove-block-btn').addEventListener('click', () => {
+            block.remove();
+        });
+
+        blocksContainer.appendChild(block);
+    }
+
+    // Add initial block
+    addBlueprintBlock();
+
+    addBlockBtn.addEventListener('click', addBlueprintBlock);
+
+    saveBlueprintBtn.addEventListener('click', () => {
+        const blocks = document.querySelectorAll('.blueprint-block');
+        if (blocks.length === 0) {
+            alert('Please add at least one question block.');
             return;
         }
 
-        optimizeBtn.textContent = 'Formatting...';
-        optimizeBtn.disabled = true;
+        // Validate
+        let isValid = true;
+        blocks.forEach(b => {
+            const id = b.querySelector('.block-q-id').value.trim();
+            const criteria = b.querySelector('.block-criteria').value.trim();
+            if (!id || !criteria) isValid = false;
+        });
 
-        try {
-            const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
-            optimizedTextarea.value = structured;
-
-            rawContainer.style.display = 'none';
-            optimizedContainer.style.display = 'block';
-        } catch (e) {
-            console.error(e);
-            alert(`Failed to optimize: ${e.message}`);
-        } finally {
-            optimizeBtn.textContent = 'Auto-Format Scheme';
-            optimizeBtn.disabled = false;
+        if (!isValid) {
+            alert('Please fill out all question IDs and criteria.');
+            return;
         }
+
+        isBlueprintLocked = true;
+        builderContainer.style.display = 'none';
+        lockedContainer.style.display = 'block';
+
+        // Animate paths backwards strictly for the blueprint SVG
+        const paths = document.querySelectorAll('#playbook-blueprint-anim .pb-path');
+        paths.forEach(p => {
+            p.style.strokeDasharray = '400';
+            p.style.animation = 'none';
+            p.style.strokeDashoffset = '0';
+            p.getBoundingClientRect(); // trigger reflow
+            p.style.transition = 'stroke-dashoffset 1s ease-in-out, stroke 1s, fill 1s';
+            p.style.strokeDashoffset = '400';
+            p.style.fill = 'transparent';
+        });
+
+        setTimeout(() => {
+            document.getElementById('playbook-blueprint-anim').style.display = 'none';
+            const shield = document.getElementById('shield-icon');
+            shield.style.display = 'block';
+            shield.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+        }, 1000);
     });
 
-    resetBtn.addEventListener('click', () => {
-        optimizedContainer.style.display = 'none';
-        rawContainer.style.display = 'block';
-        optimizedTextarea.value = '';
+    unlockBlueprintBtn.addEventListener('click', () => {
+        isBlueprintLocked = false;
+        lockedContainer.style.display = 'none';
+        builderContainer.style.display = 'block';
+        document.getElementById('playbook-blueprint-anim').style.display = 'block';
+        document.getElementById('shield-icon').style.display = 'none';
     });
+
+    // Add popIn animation to global scope dynamically for the shield
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = `
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(styleSheet);
+
 
     // File name display
     examsFileInput.addEventListener('change', (e) => {
@@ -239,16 +263,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        if (!isBlueprintLocked) {
+            alert('Please lock your blueprint before starting the grading session.');
+            return;
+        }
+
         const sessionName = document.getElementById('session-name').value;
         const totalExamMarksInput = document.getElementById('total-exam-marks');
         const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
 
-        // Decide which scheme text to use
-        let markingSchemeText = optimizedTextarea.value.trim();
-        if (!markingSchemeText) {
-            markingSchemeText = rawTextarea.value.trim();
-        }
+        // Compile Marking Scheme Text from Visual Builder
+        let markingSchemeText = "=== PLAYBOOK STANDARD FORMAT ===\n";
+        const blocks = document.querySelectorAll('.blueprint-block');
+        blocks.forEach(b => {
+            const id = b.querySelector('.block-q-id').value.trim();
+            const marks = b.querySelector('.block-marks').value.trim() || '1';
+            const criteria = b.querySelector('.block-criteria').value.trim();
+            markingSchemeText += `Question ${id}: (Max: ${marks} marks)\n${criteria}\n\n`;
+        });
+        markingSchemeText += "=========================================";
 
         if (!examsFile || !sessionName) {
             alert('Please provide a session name and upload an exams PDF.');
