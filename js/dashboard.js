@@ -18,100 +18,197 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Cinematic J.A.R.V.I.S. Onboarding ---
-    const hasSeenOnboarding = localStorage.getItem('playbook_seen_cinematic_v2');
+    // ==========================================
+    // CINEMATIC "GENESIS" AD-LIKE ONBOARDING
+    // ==========================================
+    class CinematicIntro {
+        constructor() {
+            // IN PRODUCTION: This API key MUST be moved to a secure backend proxy (Supabase Edge Function).
+            // It is explicitly included here purely to fulfill the user's hard requirement for a live
+            // browser prototype demonstration of the cinematic timing.
+            this.apiKey = "sk_3a85409678c98cea6b14720ca18daa812efbb20af527c765";
+            this.voiceId = "pNInz6obpgDQGcFmaJgB"; // Deep, cinematic "Adam" voice
+            this.hasSeen = localStorage.getItem('playbook_genesis_seen');
+            this.audio = null;
+            this.animationFrameId = null;
 
-    if (!hasSeenOnboarding && window.PlaybookAudio) {
-        // Inject Cinematic Overlay dynamically
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #0f172a; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; transition: opacity 1.5s ease;';
+            if (!this.hasSeen) {
+                this.initUI();
+            }
+        }
 
-        overlay.innerHTML = `
-            <div id="cinematic-visual-box" style="height: 120px; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem;">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            </div>
-
-            <div id="audio-visualizer" class="audio-visualizer" style="--accent-color: #38bdf8; margin-bottom: 2rem;">
-                <div class="visualizer-bar"></div>
-                <div class="visualizer-bar"></div>
-                <div class="visualizer-bar"></div>
-                <div class="visualizer-bar"></div>
-                <div class="visualizer-bar"></div>
-            </div>
-
-            <div id="cinematic-text" style="font-family: monospace; font-size: 1.1rem; color: #38bdf8; text-align: center; max-width: 600px; height: 60px; line-height: 1.5; opacity: 0; transition: opacity 0.5s;">
-                Awaiting Authorization...
-            </div>
-
-            <button id="cinematic-start-btn" style="margin-top: 3rem; padding: 1rem 3rem; background: transparent; border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s ease; border-radius: 4px;">Initialize Command Center</button>
-        `;
-        document.body.appendChild(overlay);
-
-        const startBtn = document.getElementById('cinematic-start-btn');
-        const textBox = document.getElementById('cinematic-text');
-        const visualBox = document.getElementById('cinematic-visual-box');
-
-        startBtn.addEventListener('mouseover', () => {
-            startBtn.style.backgroundColor = 'rgba(56, 189, 248, 0.1)';
-        });
-        startBtn.addEventListener('mouseout', () => {
-            startBtn.style.backgroundColor = 'transparent';
-        });
-
-        startBtn.addEventListener('click', async () => {
-            startBtn.style.display = 'none';
-            textBox.style.opacity = '1';
-
-            const script = "Welcome to Playbook Enterprise. The future of intelligent, edge-computed grading. Secure. Deterministic. Frictionless. Your command center is now online.";
-
-            // Hardcoded timing syncs for visual flair based on Adam's TTS pacing
-            setTimeout(() => {
-                textBox.innerHTML = "Welcome to Playbook Enterprise.";
-            }, 500);
-
-            setTimeout(() => {
-                textBox.innerHTML = "The future of intelligent, edge-computed grading.";
-            }, 3000);
-
-            setTimeout(() => {
-                textBox.innerHTML = "Secure.";
-                visualBox.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: popIn 0.5s forwards;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
-            }, 6500);
-
-            setTimeout(() => {
-                textBox.innerHTML = "Deterministic.";
-                visualBox.innerHTML = `<div style="font-family: monospace; color: #38bdf8; font-size: 0.8rem; text-align: left; animation: slideUp 0.5s forwards;">function grade(pdf) {<br>&nbsp;&nbsp;return Edge.evaluate(pdf, strictConfig);<br>}</div>`;
-            }, 7500);
-
-            setTimeout(() => {
-                textBox.innerHTML = "Frictionless.";
-                visualBox.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: popIn 0.5s forwards;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
-            }, 8500);
-
-            setTimeout(() => {
-                textBox.innerHTML = "Your command center is now online.";
-                visualBox.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: popIn 0.5s forwards;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`;
-            }, 10000);
-
-            // Add dynamic animations
-            const style = document.createElement('style');
-            style.innerHTML = `
-                @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-                @keyframes slideUp { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        initUI() {
+            // Create a pure black, absolute full-screen overlay that blocks the dashboard
+            this.overlay = document.createElement('div');
+            this.overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background-color: #000; z-index: 99999;
+                display: flex; flex-direction: column; justify-content: center; align-items: center;
+                overflow: hidden; font-family: 'Inter', sans-serif;
             `;
+
+            // The main cinematic text container (starts hidden)
+            this.textContainer = document.createElement('div');
+            this.textContainer.style.cssText = `
+                color: white; font-size: 2.5rem; font-weight: 300; text-transform: uppercase;
+                letter-spacing: 0.3em; text-align: center; max-width: 80%;
+                opacity: 0; filter: blur(10px); transform: scale(0.95);
+                transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1),
+                            filter 1.5s cubic-bezier(0.4, 0, 0.2, 1),
+                            transform 2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            `;
+
+            // The Playbook Shield Logo (hidden initially)
+            this.logoContainer = document.createElement('div');
+            this.logoContainer.style.cssText = `
+                position: absolute; opacity: 0; transform: scale(0);
+                transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            `;
+            this.logoContainer.innerHTML = `
+                <svg width="150" height="150" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 20px rgba(255,255,255,0.8));">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <path d="M9 12l2 2 4-4"></path>
+                </svg>
+            `;
+
+            // Start Button (User interaction required for autoplay policies)
+            this.startBtn = document.createElement('button');
+            this.startBtn.textContent = "ENTER PLAYBOOK";
+            this.startBtn.style.cssText = `
+                position: absolute; bottom: 20%; padding: 1rem 3rem; background: transparent;
+                border: 1px solid rgba(255,255,255,0.3); color: white; letter-spacing: 0.2em;
+                text-transform: uppercase; font-size: 0.9rem; cursor: pointer;
+                transition: all 0.5s ease;
+            `;
+
+            this.startBtn.onmouseover = () => { this.startBtn.style.backgroundColor = 'rgba(255,255,255,0.1)'; this.startBtn.style.letterSpacing = '0.3em'; };
+            this.startBtn.onmouseout = () => { this.startBtn.style.backgroundColor = 'transparent'; this.startBtn.style.letterSpacing = '0.2em'; };
+
+            this.overlay.appendChild(this.textContainer);
+            this.overlay.appendChild(this.logoContainer);
+            this.overlay.appendChild(this.startBtn);
+            document.body.appendChild(this.overlay);
+
+            this.startBtn.addEventListener('click', () => this.startSequence());
+        }
+
+        async startSequence() {
+            this.startBtn.style.opacity = '0';
+            this.startBtn.style.pointerEvents = 'none';
+
+            // Subtle pulsing ambient light effect
+            this.overlay.style.animation = 'pulseAmbient 4s infinite alternate ease-in-out';
+            const style = document.createElement('style');
+            style.innerHTML = `@keyframes pulseAmbient { 0% { background-color: #000; } 100% { background-color: #0a0a0a; } }`;
             document.head.appendChild(style);
 
-            // Play the cinematic audio
-            await window.PlaybookAudio.speak(script, null, () => {
-                // On End: Shatter/Fade out
-                overlay.style.opacity = '0';
+            const scriptText = "For decades, you've traded your time for paper. Thousands of hours. Subjective errors. That era ends today. Welcome to Playbook Enterprise. Absolute precision. Zero hallucinations. Your command center is now online.";
+
+            try {
+                // Fetch audio from ElevenLabs using the user's provided key
+                const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}?optimize_streaming_latency=3`, {
+                    method: 'POST',
+                    headers: { 'xi-api-key': this.apiKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: scriptText,
+                        model_id: "eleven_monolingual_v1",
+                        voice_settings: { stability: 0.4, similarity_boost: 0.85, style: 0.3 } // More dramatic style
+                    })
+                });
+
+                if (!response.ok) throw new Error("Audio generation failed");
+
+                const blob = await response.blob();
+                this.audio = new Audio(URL.createObjectURL(blob));
+
+                this.audio.onplay = () => this.startRenderLoop();
+                this.audio.onended = () => this.endSequence();
+
+                await this.audio.play();
+
+            } catch (err) {
+                console.error("Cinematic Intro Failed:", err);
+                this.endSequence(); // Skip if API fails so user isn't trapped
+            }
+        }
+
+        // Hardware-locked Render Loop for perfect Audio/Visual sync
+        startRenderLoop() {
+            const loop = () => {
+                const time = this.audio.currentTime;
+
+                // Hardcoded timing triggers based on the cinematic script structure
+                if (time > 0.5 && time < 4.0) {
+                    this.triggerText("TRADED YOUR TIME", "scale(1)", "0px");
+                } else if (time > 4.5 && time < 7.0) {
+                    this.triggerText("THOUSANDS OF HOURS", "scale(1.05)", "0px");
+                } else if (time > 7.5 && time < 10.0) {
+                    this.triggerText("SUBJECTIVE ERRORS", "scale(1.1)", "2px", "rgba(239, 68, 68, 0.8)"); // Subtle red hint
+                } else if (time > 10.5 && time < 13.0) {
+                    this.triggerText("THAT ERA ENDS TODAY.", "scale(1)", "0px", "white");
+                } else if (time > 13.5 && time < 17.5) {
+                    // Hide text, show Logo
+                    this.textContainer.style.opacity = '0';
+                    this.textContainer.style.transform = 'scale(1.2)';
+                    this.textContainer.style.filter = 'blur(20px)';
+
+                    this.logoContainer.style.opacity = '1';
+                    this.logoContainer.style.transform = 'scale(1)';
+                } else if (time > 18.0 && time < 20.5) {
+                    this.triggerText("ABSOLUTE PRECISION", "scale(1)", "0px");
+                } else if (time > 21.0 && time < 24.0) {
+                    this.triggerText("ZERO HALLUCINATIONS", "scale(1.05)", "0px");
+                } else if (time > 24.5) {
+                    this.triggerText("YOUR COMMAND CENTER IS NOW ONLINE", "scale(1)", "0px", "#38bdf8");
+                }
+
+                this.animationFrameId = requestAnimationFrame(loop);
+            };
+            this.animationFrameId = requestAnimationFrame(loop);
+        }
+
+        triggerText(text, transform, blur, color = "white") {
+            if (this.textContainer.textContent !== text) {
+                this.textContainer.style.transition = 'none'; // reset transition instantly
+                this.textContainer.style.opacity = '0';
+                this.textContainer.style.filter = 'blur(10px)';
+                this.textContainer.style.transform = 'scale(0.95)';
+                this.textContainer.textContent = text;
+                this.textContainer.style.color = color;
+
+                // Force reflow
+                void this.textContainer.offsetWidth;
+
+                // Animate to new state
+                this.textContainer.style.transition = 'opacity 1s cubic-bezier(0.4, 0, 0.2, 1), filter 1s cubic-bezier(0.4, 0, 0.2, 1), transform 2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                this.textContainer.style.opacity = '1';
+                this.textContainer.style.filter = `blur(${blur})`;
+                this.textContainer.style.transform = transform;
+            }
+        }
+
+        endSequence() {
+            if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+
+            // The "Flashbang" Reveal Transition
+            this.overlay.style.transition = 'all 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            this.overlay.style.backgroundColor = 'white'; // Blinding flash
+            this.textContainer.style.opacity = '0';
+            this.logoContainer.style.transform = 'scale(10)'; // Logo expands past screen edges
+            this.logoContainer.style.opacity = '0';
+
+            setTimeout(() => {
+                this.overlay.style.opacity = '0';
                 setTimeout(() => {
-                    overlay.remove();
-                    localStorage.setItem('playbook_seen_cinematic_v2', 'true');
-                }, 1500);
-            });
-        });
+                    this.overlay.remove();
+                    localStorage.setItem('playbook_genesis_seen', 'true');
+                }, 1500); // Wait for fade out
+            }, 1000); // Hold flash momentarily
+        }
     }
+
+    // Initialize Intro if needed
+    new CinematicIntro();
 
     try {
         const sessions = await window.PlaybookDB.getSessions();
