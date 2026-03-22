@@ -119,14 +119,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusEl.textContent = 'Grading Complete!';
         detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
 
-        if (window.PlaybookAudio) {
-            const finalScript = `Evaluation sequence complete. ${totalStudentsGraded} exams processed.`;
-            await window.PlaybookAudio.speak(finalScript);
-        }
-
         setTimeout(() => {
             window.location.href = `index.html`;
-        }, 1500);
+        }, 3000);
     }
 
 
@@ -271,6 +266,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 pdf_storage_path: storagePath
             }).eq('id', savedSession.id);
 
+            statusEl.textContent = 'Grading Engine Active...';
+            detailEl.textContent = 'Playbook AI is analyzing the document. Please do not close this window.';
+
             // 4. Distributed Client-Side Processing
             // Convert PDF to Base64 Images natively using pdf.js to guarantee model compatibility (e.g. GPT-4o)
             const arrayBuffer = await examsFile.arrayBuffer();
@@ -281,16 +279,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const numPages = pdfDoc.numPages;
-
-            // Cinematic Upload Co-Pilot
-            statusEl.textContent = 'Grading Engine Active...';
-            detailEl.textContent = 'Playbook AI is analyzing the document. Please do not close this window.';
-
-            if (window.PlaybookAudio) {
-                const script = `Document secured. Initiating structural analysis across ${numPages} pages. Deploying Playbook Edge Agents.`;
-                // Play audio asynchronously so it doesn't block the visual canvas rendering loop
-                window.PlaybookAudio.speak(script);
-            }
 
             // Helper function to detect if a page is mostly blank (using simple pixel variance)
             function isCanvasBlank(canvas, ctx) {
