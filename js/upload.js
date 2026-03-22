@@ -34,16 +34,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let nextChunk = await window.PlaybookQueue.getNextPendingChunk(sessionId);
 
-        const theaterContainer = document.getElementById('grading-theater-container');
-        const theaterNotifications = document.getElementById('grading-theater-notifications');
-
         while (nextChunk) {
             const pendingCount = await window.PlaybookQueue.getPendingCount(sessionId);
 
             // UI Update for Live Review Theater & Queue
             statusEl.textContent = `Grading Student ${totalStudentsGraded + 1}...`;
             detailEl.textContent = `${pendingCount} students remaining in queue. Analyzing pages via Playbook API.`;
-            theaterContainer.style.display = 'block';
 
             // If we have at least 1 graded, show the review button
             if (totalStudentsGraded > 0 && !document.getElementById('live-review-btn')) {
@@ -93,32 +89,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
 
                     sessionTotalScore += studentTotal;
-
-                    // Update Grading Theater
-                    const notification = document.createElement('div');
-                    notification.style.cssText = 'padding: 0.75rem; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; color: #334155; animation: fadeIn 0.5s ease-in-out;';
-
-                    let notificationText = `<strong>Student ${totalStudentsGraded + i + 1} (${student.name !== undefined ? student.name : student.studentName || 'Unknown'})</strong> graded. Total: ${studentTotal}/${explicitMaxMarks}.`;
-
-                    if (parsedQuestions.length > 0) {
-                        const firstQ = parsedQuestions[0];
-                        const qScore = parseFloat(firstQ.score) || parseFloat(firstQ.marks_awarded) || 0;
-                        const maxMarks = firstQ.max || firstQ.max_marks || 0;
-                        notificationText += ` <em>Scanning Q${firstQ.questionId || firstQ.qId || '1'}... ${qScore}/${maxMarks} awarded.</em>`;
-                    }
-
-                    notification.innerHTML = notificationText;
-
-                    if (theaterNotifications.firstChild) {
-                        theaterNotifications.insertBefore(notification, theaterNotifications.firstChild);
-                    } else {
-                        theaterNotifications.appendChild(notification);
-                    }
-
-                    // Keep only the last 5 notifications to prevent clutter
-                    if (theaterNotifications.children.length > 5) {
-                        theaterNotifications.removeChild(theaterNotifications.lastChild);
-                    }
                 }
 
                 totalStudentsGraded += gradedStudents.length;
