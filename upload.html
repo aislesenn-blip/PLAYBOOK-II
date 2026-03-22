@@ -53,54 +53,29 @@
 </div>
 </div>
 <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
-<!-- The Playbook Blueprint Visual Builder -->
+<!-- Smart Marking Scheme Builder -->
 <div class="card flex-col">
 <div class="flex justify-between items-center w-100">
-<h3 class="mb-1">The Playbook</h3>
-<a href="manual.html#standard-marking-scheme" style="font-size: 0.8rem; text-decoration: underline; color: var(--text-secondary);" target="_blank">Blueprint Guide</a>
+<h3 class="mb-1">Smart Marking Scheme</h3>
+<a href="manual.html#standard-marking-scheme" style="font-size: 0.8rem; text-decoration: underline; color: var(--text-secondary);" target="_blank">Format Guide</a>
 </div>
-<div id="blueprint-builder-container" style="display: block; width: 100%;">
-<p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Visually build your grading rules. Add blocks for each question.</p>
-
-<div id="blueprint-blocks-container" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 1rem;">
-    <!-- Blocks will be injected here via JS -->
+<div id="raw-scheme-container" style="display: block; width: 100%;">
+<p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste raw text below or upload a .txt to let the pre-processor standardize it.</p>
+<textarea class="form-control" id="raw-scheme-text" placeholder="Paste raw unstructured marking scheme here..." style="height: 150px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
+<div class="flex justify-between items-center">
+<label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                                    Upload .txt
+                                    <input accept=".txt" id="scheme-file" style="display: none;" type="file"/>
+</label>
+<button class="btn" id="optimize-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Auto-Format Scheme</button>
 </div>
-
-<div class="flex justify-between items-center mt-1 pt-1" style="border-top: 1px solid var(--border-color);">
-    <button class="btn btn-secondary" id="add-blueprint-block-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">+ Add Question Block</button>
-    <button class="btn" id="save-blueprint-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem; background-color: var(--success-color);" type="button">Lock Blueprint</button>
 </div>
+<div id="optimized-scheme-container" style="display: none; width: 100%;">
+<p style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.5rem;">Review &amp; Tweak Standardized Scheme:</p>
+<textarea class="form-control" id="optimized-scheme-text" required="" style="height: 200px; resize: vertical; border-color: var(--success-color);"></textarea>
+<div class="flex justify-between mt-1">
+<button class="btn btn-secondary" id="reset-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Reset</button>
 </div>
-
-<div id="blueprint-locked-container" style="display: none; width: 100%; text-align: center; padding: 2rem 1rem;">
-    <!-- Reverse Playbook SVG Animation into Shield -->
-    <svg id="playbook-blueprint-anim" viewbox="0 0 540 100" style="width: 250px; height: 100px; margin: 0 auto;">
-        <!-- P -->
-        <path class="pb-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        <!-- L -->
-        <path class="pb-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        <!-- A -->
-        <path class="pb-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        <!-- Y -->
-        <path class="pb-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        <!-- B -->
-        <path class="pb-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        <!-- O -->
-        <path class="pb-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        <!-- O -->
-        <path class="pb-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        <!-- K -->
-        <path class="pb-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-    </svg>
-
-    <svg id="shield-icon" viewbox="0 0 24 24" style="width: 64px; height: 64px; margin: 0 auto; display: none; color: var(--success-color);" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-        <path d="M9 12l2 2 4-4"></path>
-    </svg>
-
-    <h4 style="margin-top: 1rem; color: var(--success-text);">Blueprint Locked</h4>
-    <p style="font-size: 0.85rem; color: var(--text-secondary);">Your grading rules are securely saved for this session.</p>
-    <button class="btn btn-secondary mt-1" id="unlock-blueprint-btn" style="padding: 0.3rem 0.8rem; font-size: 0.75rem;" type="button">Unlock & Edit</button>
 </div>
 </div>
 <!-- Upload Scanned Exams -->
