@@ -933,3 +933,186 @@ a:hover {
         gap: 1rem !important;
     }
 }
+
+/* =========================================================================
+   PLAYBOOK NATIVE MOBILE APP OVERRIDES (BOLT STYLE)
+   Enforces a strict 100vw, no-zoom, bottom-nav mobile layout
+   ========================================================================= */
+@media (max-width: 768px) {
+    /* 1. Viewport & Scroll Locking */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        /* Prevent elastic bouncing on iOS */
+        overscroll-behavior-y: none;
+        -webkit-overflow-scrolling: touch;
+        /* Disable text size adjustment that causes zoom */
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* 2. Layout Resets */
+    .app-container {
+        padding-bottom: 80px; /* Space for the bottom tab bar */
+    }
+
+    .main-content {
+        padding: 1rem !important; /* Tighter margins like Bolt */
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* 3. Kill the Top Nav & Hamburger entirely */
+    .top-nav {
+        display: none !important;
+    }
+
+    /* 4. Native Bottom Tab Bar (Injected via HTML) */
+    .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 70px;
+        background-color: var(--surface-color);
+        border-top: 1px solid var(--border-color);
+        justify-content: space-around;
+        align-items: center;
+        z-index: 9999;
+        padding-bottom: env(safe-area-inset-bottom, 10px); /* iPhone notch support */
+        box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .mobile-tab {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: var(--text-secondary);
+        width: 33%;
+        height: 100%;
+    }
+
+    .mobile-tab svg {
+        width: 24px;
+        height: 24px;
+        margin-bottom: 4px;
+        stroke: currentColor;
+    }
+
+    .mobile-tab span {
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .mobile-tab.active {
+        color: var(--accent-color);
+    }
+    .mobile-tab.active svg {
+        stroke-width: 2.5;
+    }
+
+    /* 5. Transform Tables into Vertical Cards */
+    .table-container {
+        overflow-x: visible !important; /* Remove horizontal scrolling container */
+    }
+
+    .table, .table tbody, .table tr, .table td {
+        display: block;
+        width: 100%;
+    }
+
+    .table thead {
+        display: none; /* Hide table headers */
+    }
+
+    .table tr {
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background-color: var(--surface-color);
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .table td {
+        padding: 0.5rem 0 !important;
+        border: none !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+
+    /* Fix empty state table rows from squishing */
+    .table td[colspan] {
+        display: block !important;
+        text-align: center !important;
+    }
+
+    /* Inject labels before td content using data attributes (requires JS update or generic approach) */
+    /* Fallback: Right align the content if it's acting as a label-value pair */
+    .table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        margin-right: 1rem;
+    }
+
+    /* 6. Massive Touch Targets */
+    .btn, button, input[type="text"], input[type="number"], .form-control {
+        min-height: 54px !important; /* Bolt-sized touch targets */
+        font-size: 1rem !important;
+        border-radius: 12px !important;
+    }
+
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    /* 7. Full-width Cards */
+    .card {
+        border-radius: var(--radius-md) !important;
+        border: 1px solid var(--border-color) !important;
+        margin-left: -1rem; /* Bleed to edges slightly */
+        margin-right: -1rem;
+        width: calc(100% + 2rem);
+        border-left: none;
+        border-right: none;
+        border-radius: 0 !important;
+    }
+
+    /* Keep stats grid contained */
+    .stats-grid .card {
+        margin: 0;
+        width: 100%;
+        border: 1px solid var(--border-color) !important;
+        border-radius: var(--radius-md) !important;
+    }
+
+    /* Stats Grid to 2 columns */
+    section.stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .stat-card {
+        padding: 1rem !important;
+    }
+
+    .stat-number {
+        font-size: 2rem !important;
+    }
+}
+
+/* Hide Bottom Nav on Desktop */
+@media (min-width: 769px) {
+    .mobile-bottom-nav {
+        display: none !important;
+    }
+}
