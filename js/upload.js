@@ -167,35 +167,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (file) {
             // Show a quick loading state
             const prevText = rawTextarea.value;
-            rawTextarea.value = "Extracting text from PDF, please wait...";
+            rawTextarea.value = "Reading document, please wait...";
 
             if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
                 try {
                     const arrayBuffer = await file.arrayBuffer();
                     const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
 
-                    // Note: pdf.js expects workerSrc to be set globally. It is already set in upload.js line 278,
-                    // but we ensure it is set here dynamically in case it hasn't been initialized yet.
                     if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
                         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                     }
 
                     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let fullText = "";
+                    let imagesArray = [];
+
+                    rawTextarea.value = `Rendering ${pdfDoc.numPages} pages for Vision AI...`;
 
                     for (let i = 1; i <= pdfDoc.numPages; i++) {
                         const page = await pdfDoc.getPage(i);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(" ");
-                        fullText += pageText + "\n";
+                        // Scale up for AI processing (1.5) just like exams
+                        const aiViewport = page.getViewport({ scale: 1.5 });
+                        const aiCanvas = document.createElement('canvas');
+                        const aiCtx = aiCanvas.getContext('2d');
+                        aiCanvas.height = aiViewport.height;
+                        aiCanvas.width = aiViewport.width;
+                        aiCtx.fillStyle = '#FFFFFF';
+                        aiCtx.fillRect(0, 0, aiCanvas.width, aiCanvas.height);
+
+                        await page.render({ canvasContext: aiCtx, viewport: aiViewport }).promise;
+                        const dataUrl = aiCanvas.toDataURL('image/jpeg', 0.8);
+                        imagesArray.push(dataUrl);
+
+                        // Free memory
+                        aiCanvas.width = 0; aiCanvas.height = 0;
                     }
 
-                    if (fullText.trim() === "") {
-                        alert("Could not extract any text from this PDF. It may be a scanned image rather than a text document.");
+                    rawTextarea.value = "Sending scanned images to Playbook AI for OCR and Formatting. Please wait...";
+
+                    // Directly call the AI to optimize from images
+                    try {
+                        const structured = await window.PlaybookAI.optimizeMarkingScheme(imagesArray);
+                        optimizedTextarea.value = structured;
+
+                        rawContainer.style.display = 'none';
+                        optimizedContainer.style.display = 'block';
+                    } catch (aiError) {
+                        console.error("AI Error:", aiError);
+                        alert(`Failed to analyze scanned PDF: ${aiError.message}`);
                         rawTextarea.value = prevText;
-                    } else {
-                        rawTextarea.value = fullText;
                     }
+
                 } catch (error) {
                     console.error("Error reading PDF:", error);
                     alert("Failed to read PDF file: " + error.message);

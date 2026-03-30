@@ -168,6 +168,23 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
                 try {
                     const apiKey = await getSecureKey();
 
+                    let userContent = rawText;
+
+                    if (Array.isArray(rawText)) {
+                        userContent = [
+                            {
+                                type: "text",
+                                text: `Here are the scanned pages of a marking scheme. Please transcribe and rewrite them into the strict "Playbook Standard Format".`
+                            }
+                        ];
+                        rawText.forEach(imageUrl => {
+                            userContent.push({
+                                type: "image_url",
+                                image_url: { url: imageUrl }
+                            });
+                        });
+                    }
+
                     const response = await fetch(API_URL, {
                         method: 'POST',
                         headers: {
@@ -185,7 +202,7 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
                                 },
                                 {
                                     role: 'user',
-                                    content: rawText
+                                    content: userContent
                                 }
                             ]
                         })
