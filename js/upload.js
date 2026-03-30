@@ -170,7 +170,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const arrayBuffer = await file.arrayBuffer();
                     const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
 
-                    if (pdfjsLib) {
+                    // Note: pdf.js expects workerSrc to be set globally. It is already set in upload.js line 278,
+                    // but we ensure it is set here dynamically in case it hasn't been initialized yet.
+                    if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
                         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                     }
 
@@ -242,8 +244,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Decide which scheme text to use
         let markingSchemeText = optimizedTextarea.value.trim();
-        if (!markingSchemeText) {
+        if (!markingSchemeText || optimizedContainer.style.display === 'none') {
             markingSchemeText = rawTextarea.value.trim();
+        }
+
+        // Disable required attribute temporarily if hidden to allow form submission
+        if (optimizedContainer.style.display === 'none') {
+            optimizedTextarea.removeAttribute('required');
+        } else {
+            optimizedTextarea.setAttribute('required', '');
         }
 
         if (!examsFile || !sessionName) {
