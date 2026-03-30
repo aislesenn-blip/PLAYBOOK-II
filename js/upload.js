@@ -165,6 +165,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     schemeFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
+            // Show a quick loading state
+            const prevText = rawTextarea.value;
+            rawTextarea.value = "Extracting text from PDF, please wait...";
+
             if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
                 try {
                     const arrayBuffer = await file.arrayBuffer();
@@ -185,16 +189,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const pageText = textContent.items.map(item => item.str).join(" ");
                         fullText += pageText + "\n";
                     }
-                    rawTextarea.value = fullText;
+
+                    if (fullText.trim() === "") {
+                        alert("Could not extract any text from this PDF. It may be a scanned image rather than a text document.");
+                        rawTextarea.value = prevText;
+                    } else {
+                        rawTextarea.value = fullText;
+                    }
                 } catch (error) {
                     console.error("Error reading PDF:", error);
-                    alert("Failed to read PDF file.");
+                    alert("Failed to read PDF file: " + error.message);
+                    rawTextarea.value = prevText;
                 }
             } else {
-                const text = await file.text();
-                rawTextarea.value = text;
+                try {
+                    const text = await file.text();
+                    rawTextarea.value = text;
+                } catch (error) {
+                     alert("Failed to read file.");
+                     rawTextarea.value = prevText;
+                }
             }
         }
+        // Reset the file input so the same file can be selected again
+        e.target.value = '';
     });
 
     optimizeBtn.addEventListener('click', async () => {
