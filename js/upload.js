@@ -252,8 +252,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                     }
 
-                    // Ensure max Score isn't 0
-                    maxTotal = maxTotal > 0 ? maxTotal : (student.max || student.maxScore || 100);
+                    // Ensure max Score isn't 0, prioritizing AI's explicit top-level maxScore over summed maxTotal
+                    maxTotal = student.maxScore !== undefined ? student.maxScore : (student.max !== undefined ? student.max : (maxTotal > 0 ? maxTotal : 100));
 
                     try {
                         await window.supabaseClient.from('exam_submissions').insert({
