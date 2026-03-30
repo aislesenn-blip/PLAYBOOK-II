@@ -6,8 +6,148 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
 
+    const overlay = document.getElementById('loading-overlay');
+    const statusEl = document.getElementById('loading-status');
+    const detailEl = document.getElementById('loading-detail');
+
+    window.resumeSession = async function resumeSession(meta) {
+        overlay.classList.add('active');
+        statusEl.textContent = 'Resuming Session...';
+        detailEl.textContent = `Preparing to grade remaining exams for ${meta.sessionName}...`;
+
+        await processQueue(meta);
+    }
+
+    async function processQueue(meta) {
+        const { sessionId, markingSchemeText, explicitMaxMarks, storagePath } = meta;
+        let totalStudentsGraded = await window.PlaybookQueue.getCompletedCount(sessionId);
+        let sessionTotalScore = 0; // In a full implementation, we'd persist the running total, or just let the dashboard recalculate it. For now we just query existing submissions.
+
+        // Fetch existing score to resume correctly
+        try {
+            const { data } = await window.supabaseClient.from('exam_submissions').select('total_score').eq('session_id', sessionId);
+            if (data) {
+                sessionTotalScore = data.reduce((sum, s) => sum + s.total_score, 0);
+                totalStudentsGraded = data.length; // More accurate
+            }
+        } catch(e) {}
+
+        let nextChunk = await window.PlaybookQueue.getNextPendingChunk(sessionId);
+
+        while (nextChunk) {
+            const pendingCount = await window.PlaybookQueue.getPendingCount(sessionId);
+
+            // UI Update for Live Review Theater & Queue
+            statusEl.textContent = `Grading Student ${totalStudentsGraded + 1}...`;
+            detailEl.textContent = `${pendingCount} students remaining in queue. Analyzing pages via Playbook API.`;
+
+            // If we have at least 1 graded, show the review button
+            if (totalStudentsGraded > 0 && !document.getElementById('live-review-btn')) {
+                const btn = document.createElement('a');
+                btn.id = 'live-review-btn';
+                btn.href = `review.html?session=${sessionId}`;
+                btn.target = '_blank';
+                btn.className = 'btn';
+                btn.style.marginTop = '1rem';
+                btn.style.backgroundColor = '#10b981'; // green-500
+                btn.textContent = 'Review Graded Students Now (Opens in new tab)';
+                detailEl.parentNode.appendChild(btn);
+
+                // Also update the session status to needs_review immediately
+                try {
+                    await window.supabaseClient.from('sessions').update({
+                        status: 'needs_review'
+                    }).eq('id', sessionId);
+                } catch(e) {}
+            }
+
+            try {
+                let gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText);
+
+                for (let i = 0; i < gradedStudents.length; i++) {
+                    const student = gradedStudents[i];
+                    let studentTotal = 0;
+
+                    const parsedQuestions = student.questions || student.evaluations || student.results || [];
+                    if (parsedQuestions && Array.isArray(parsedQuestions)) {
+                        parsedQuestions.forEach(q => {
+                            const qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            studentTotal += qScore;
+                        });
+                    }
+
+                    await window.supabaseClient.from('exam_submissions').insert({
+                        session_id: sessionId,
+                        student_name: student.name !== undefined ? student.name : student.studentName || `Unknown Student ${totalStudentsGraded + i + 1}`,
+                        registration_number: student.id !== undefined ? student.id : student.registrationNumber || `ID-UNKNOWN-${totalStudentsGraded + i + 1}`,
+                        pdf_storage_path: storagePath,
+                        total_score: studentTotal,
+                        max_score: explicitMaxMarks,
+                        grading_data: { questions: parsedQuestions },
+                        status: 'completed',
+                        completed_at: new Date().toISOString()
+                    });
+
+                    sessionTotalScore += studentTotal;
+                }
+
+                totalStudentsGraded += gradedStudents.length;
+                await window.PlaybookQueue.markChunkCompleted(nextChunk.id);
+            } catch (aiErr) {
+                console.error("AI Error on chunk", nextChunk.id, aiErr);
+                alert(`Grading paused due to an error on chunk ${nextChunk.id}. Please try resuming the session later. Error: ${aiErr.message}`);
+                overlay.classList.remove('active');
+                return; // Break out to preserve the pending chunk for resumption
+            }
+
+            nextChunk = await window.PlaybookQueue.getNextPendingChunk(sessionId);
+        }
+
+        // Finished all chunks
+        statusEl.textContent = 'Finalizing Results...';
+        detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
+
+        const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
+        await window.supabaseClient.from('sessions').update({
+            status: 'needs_review',
+            total_students: totalStudentsGraded,
+            average_score: sessionAverage
+        }).eq('id', sessionId);
+
+        await window.PlaybookQueue.deleteMeta(sessionId);
+
+        statusEl.textContent = 'Grading Complete!';
+        detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
+
+        setTimeout(() => {
+            window.location.href = `index.html`;
+        }, 3000);
+    }
+
+
+
     const sessionUser = requireAuth(['professor', 'admin']);
     if (!sessionUser) return;
+
+    // --- CHECK FOR PENDING SESSION IN QUEUE ---
+    try {
+        if (window.PlaybookQueue) {
+            const pending = await window.PlaybookQueue.getFirstPendingSession();
+            if (pending) {
+                const resume = confirm(`You have an unfinished grading session ("${pending.meta.sessionName}") with ${pending.pendingCount} exams remaining. Would you like to resume it now?\n\nClick OK to resume, or Cancel to start a new session (the old one will be cleared from your local browser).`);
+                if (resume) {
+                    resumeSession(pending.meta);
+                    return; // Stop normal init
+                } else {
+                    await window.PlaybookQueue.deleteAllChunksForSession(pending.meta.sessionId);
+                    await window.PlaybookQueue.deleteMeta(pending.meta.sessionId);
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Queue check failed:", e);
+    }
+
 
     const form = document.getElementById('upload-form');
     const schemeFileInput = document.getElementById('scheme-file');
@@ -21,11 +161,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawTextarea = document.getElementById('raw-scheme-text');
     const optimizedTextarea = document.getElementById('optimized-scheme-text');
 
-    // Handle .txt upload and dump into textarea
+    // Handle .txt / .pdf upload and dump into textarea
     schemeFileInput.addEventListener('change', async (e) => {
-        if(e.target.files[0]) {
-            const text = await e.target.files[0].text();
-            rawTextarea.value = text;
+        const file = e.target.files[0];
+        if (file) {
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+
+                    // Note: pdf.js expects workerSrc to be set globally. It is already set in upload.js line 278,
+                    // but we ensure it is set here dynamically in case it hasn't been initialized yet.
+                    if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    }
+
+                    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = "";
+
+                    for (let i = 1; i <= pdfDoc.numPages; i++) {
+                        const page = await pdfDoc.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(" ");
+                        fullText += pageText + "\n";
+                    }
+                    rawTextarea.value = fullText;
+                } catch (error) {
+                    console.error("Error reading PDF:", error);
+                    alert("Failed to read PDF file.");
+                }
+            } else {
+                const text = await file.text();
+                rawTextarea.value = text;
+            }
         }
     });
 
@@ -70,12 +238,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const sessionName = document.getElementById('session-name').value;
+        const totalExamMarksInput = document.getElementById('total-exam-marks');
+        const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
 
         // Decide which scheme text to use
         let markingSchemeText = optimizedTextarea.value.trim();
-        if (!markingSchemeText) {
+        if (!markingSchemeText || optimizedContainer.style.display === 'none') {
             markingSchemeText = rawTextarea.value.trim();
+        }
+
+        // Disable required attribute temporarily if hidden to allow form submission
+        if (optimizedContainer.style.display === 'none') {
+            optimizedTextarea.removeAttribute('required');
+        } else {
+            optimizedTextarea.setAttribute('required', '');
         }
 
         if (!examsFile || !sessionName) {
@@ -83,9 +260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const overlay = document.getElementById('loading-overlay');
-        const statusEl = document.getElementById('loading-status');
-        const detailEl = document.getElementById('loading-detail');
+
         overlay.classList.add('active');
 
         try {
@@ -216,87 +391,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 studentChunks.push(currentStudentPages);
             }
 
-            // Step B: Grade each student sequentially
+
+            // Step B: Save chunks to IndexedDB Queue
+            statusEl.textContent = 'Building Queue...';
+            detailEl.textContent = `Saving ${studentChunks.length} students to local storage to prevent data loss...`;
+
+            const meta = {
+                sessionId: savedSession.id,
+                sessionName: document.getElementById('session-name').value,
+                markingSchemeText: markingSchemeText,
+                explicitMaxMarks: explicitMaxMarks,
+                storagePath: storagePath
+            };
+            await window.PlaybookQueue.saveMeta(meta);
+
             for (let chunkIdx = 0; chunkIdx < studentChunks.length; chunkIdx++) {
                 const chunkImageDataUrls = studentChunks[chunkIdx];
-
-                statusEl.textContent = `Grading Student ${chunkIdx + 1} of ${studentChunks.length}...`;
-                detailEl.textContent = `Analyzing ${chunkImageDataUrls.length} pages for this student via Playbook API. Do not close.`;
-
-                // Trigger AI Engine natively via browser for this chunk
-                let gradedStudents = [];
-                try {
-                    gradedStudents = await window.PlaybookAI.gradeBatchExams(chunkImageDataUrls, markingSchemeText);
-                } catch (aiErr) {
-                    console.error("AI Error on chunk", chunkIdx, aiErr);
-                    continue;
-                }
-
-                // Insert each student into exam_submissions natively
-                for (let i = 0; i < gradedStudents.length; i++) {
-                    const student = gradedStudents[i];
-                    let studentTotal = 0;
-                    let maxTotal = 0;
-
-                    // Defensive Mapping: Catch common LLM schema deviations
-                    const parsedQuestions = student.questions || student.evaluations || student.results || [];
-
-                    // Calculate Triage Score from streamlined keys
-                    if (parsedQuestions && Array.isArray(parsedQuestions)) {
-                        parsedQuestions.forEach(q => {
-                            const qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
-                            const qMax = parseFloat(q.max) || parseFloat(q.max_marks) || 0;
-
-                            studentTotal += qScore;
-                            maxTotal += qMax;
-                        });
-                    }
-
-                    // Ensure max Score isn't 0
-                    maxTotal = maxTotal > 0 ? maxTotal : (student.max || student.maxScore || 100);
-
-                    try {
-                        await window.supabaseClient.from('exam_submissions').insert({
-                            session_id: savedSession.id,
-                            student_name: student.name !== undefined ? student.name : student.studentName || `Unknown Student ${totalStudentsGraded + i + 1}`,
-                            registration_number: student.id !== undefined ? student.id : student.registrationNumber || `ID-UNKNOWN-${totalStudentsGraded + i + 1}`,
-                            pdf_storage_path: storagePath,
-                            total_score: studentTotal,
-                            max_score: maxTotal,
-                            grading_data: { questions: parsedQuestions },
-                            status: 'completed',
-                            completed_at: new Date().toISOString()
-                        });
-
-                        sessionTotalScore += studentTotal;
-                    } catch (dbErr) {
-                        console.error("Failed to insert student:", student, dbErr);
-                    }
-                }
-
-                totalStudentsGraded += gradedStudents.length;
-
-                // Explicitly clear memory of current chunk images to prevent OOM
-                chunkImageDataUrls.length = 0;
+                await window.PlaybookQueue.saveChunk({
+                    id: `${savedSession.id}_chunk_${chunkIdx}`,
+                    sessionId: savedSession.id,
+                    images: chunkImageDataUrls,
+                    status: 'pending'
+                });
             }
 
-            statusEl.textContent = 'Finalizing Results...';
-            detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
-
-            // 5. Update Session to Needs Review
-            const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
-            await window.supabaseClient.from('sessions').update({
-                status: 'needs_review',
-                total_students: totalStudentsGraded,
-                average_score: sessionAverage
-            }).eq('id', savedSession.id);
-
-            statusEl.textContent = 'Grading Complete!';
-            detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
-
-            setTimeout(() => {
-                window.location.href = `index.html`;
-            }, 3000);
+            // Step C: Process the Queue (Start Live Review Theater)
+            await processQueue(meta);
 
         } catch (error) {
             // Attempt to mark session as failed

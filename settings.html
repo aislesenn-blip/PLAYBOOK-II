@@ -1,76 +1,86 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playbook - Settings</title>
-    <link rel="stylesheet" href="css/style.css">
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Playbook - Settings</title>
+<link href="css/style.css" rel="stylesheet"/>
+<style>
         .grading-row {
             display: flex;
             gap: var(--spacing-sm);
             align-items: center;
             margin-bottom: var(--spacing-xs);
+            flex-wrap: wrap;
         }
         .grading-row input {
             width: 100px;
+            flex-grow: 1;
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-logo">Playbook</div>
-            <ul class="sidebar-nav">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="upload.html">Upload Exams</a></li>
-                <li><a href="review.html">Review & Override</a></li>
-                <li><a href="analytics.html">Analytics</a></li>
-                <li><a href="manual.html">User Manual</a></li>
-                <li><a href="settings.html" class="active">Settings</a></li>
-            </ul>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="main-content">
-            <header class="mb-2">
-                <h1>Settings</h1>
-                <p>Configure your grading scale and platform preferences.</p>
-            </header>
-
-            <div class="grid gap-2" style="grid-template-columns: 1fr;">
-
-                <section class="card">
-                    <h2 class="mb-1">Custom Grading Scale</h2>
-                    <p class="mb-2">Define the letter grades corresponding to score percentages. This scale will be used in all Analytics reports.</p>
-
-                    <form id="grading-scale-form">
-                        <div id="scale-container">
-                            <!-- Populated by JS -->
-                        </div>
-
-                        <div class="mt-2 flex gap-1">
-                            <button type="button" id="add-row-btn" class="btn btn-secondary">+ Add Row</button>
-                            <button type="submit" class="btn">Save Scale</button>
-                        </div>
-                        <p id="scale-status" style="display:none; color: var(--success-color); margin-top: var(--spacing-sm); font-weight: 500;">Scale saved successfully!</p>
-                    </form>
-                </section>
-
-                <section class="card mt-2">
-                    <h2 class="mb-1">Danger Zone</h2>
-                    <p class="mb-1">Permanently delete all sessions, students, and settings from your local browser.</p>
-                    <button class="btn" style="background-color: var(--error-color); border-color: var(--error-color); color: white;" onclick="if(confirm('Are you sure? This cannot be undone.')){ indexedDB.deleteDatabase('PlaybookDB'); alert('Database wiped. Please refresh.'); location.reload(); }">Wipe Local Database</button>
-                </section>
-
-            </div>
-        </main>
-    </div>
-    <script src="js/app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/db.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/settings.js"></script>
+<div class="app-container">
+<!-- Minimalist Top Navigation -->
+<nav class="top-nav">
+<div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+<div class="flex items-center gap-2">
+<div class="nav-logo">Playbook</div>
+<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
+<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
+<line x1="3" x2="21" y1="12" y2="12"></line>
+<line x1="3" x2="21" y1="6" y2="6"></line>
+<line x1="3" x2="21" y1="18" y2="18"></line>
+</svg>
+</button>
+<ul class="nav-links flex gap-1 items-center">
+<li><a href="index.html">Dashboard</a></li>
+<li><a href="upload.html">Upload Exams</a></li>
+<li><a href="review.html">Review &amp; Override</a></li>
+<li><a href="analytics.html">Analytics</a></li>
+<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
+</div>
+<div class="flex items-center gap-1 nav-actions">
+<a class="nav-icon-link" href="manual.html">User Manual</a>
+<a class="nav-icon-link active" href="settings.html" style="color: #0f172a; font-weight: 600;">Settings</a>
+<button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="main-content max-w-7xl mx-auto">
+<header class="mb-2">
+<h1>Settings</h1>
+<p>Configure your grading scale and platform preferences.</p>
+</header>
+<div class="grid gap-2" style="grid-template-columns: 1fr;">
+<section class="card">
+<h2 class="mb-1">Custom Grading Scale</h2>
+<p class="mb-2">Define the letter grades corresponding to score percentages. This scale will be used in all Analytics reports.</p>
+<form id="grading-scale-form">
+<div id="scale-container">
+<!-- Populated by JS -->
+</div>
+<div class="mt-2 flex gap-1">
+<button class="btn btn-secondary" id="add-row-btn" type="button">+ Add Row</button>
+<button class="btn" type="submit">Save Scale</button>
+</div>
+<p id="scale-status" style="display:none; color: var(--success-color); margin-top: var(--spacing-sm); font-weight: 500;">Scale saved successfully!</p>
+</form>
+</section>
+<section class="card mt-2">
+<h2 class="mb-1">Danger Zone</h2>
+<p class="mb-1">Permanently delete all sessions, students, and settings from your local browser.</p>
+<button class="btn" onclick="if(confirm('Are you sure? This cannot be undone.')){ indexedDB.deleteDatabase('PlaybookDB'); alert('Database wiped. Please refresh.'); location.reload(); }" style="background-color: var(--error-color); border-color: var(--error-color); color: white;">Wipe Local Database</button>
+</section>
+</div>
+</main>
+</div>
+<script src="js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/settings.js"></script>
 </body>
 </html>

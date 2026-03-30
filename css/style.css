@@ -10,10 +10,10 @@
     --text-secondary: #64748b; /* text-slate-500 */
     --border-color: #e2e8f0; /* border-slate-200 */
 
-    /* App Accents: Teals and Emeralds */
-    --accent-color: #0ea5e9; /* Sky Blue */
-    --accent-hover: #0284c7; /* Darker Sky Blue */
-    --highlight-color: #38bdf8; /* Lighter Sky Blue */
+    /* App Accents: Uber Black */
+    --accent-color: #0f172a; /* Uber Black / Slate-900 */
+    --accent-hover: #000000; /* Pure Black */
+    --highlight-color: #334155; /* Lighter Slate-700 */
 
     /* Semantic Status Colors (Emerald, Cyan, Slate) */
     --success-bg: #d1fae5; /* bg-emerald-100 */
@@ -44,13 +44,13 @@
 
     /* App-like Structure (Softer, rounder) */
     --radius-sm: 8px; /* rounded-md */
-    --radius-md: 12px; /* rounded-lg */
-    --radius-lg: 24px; /* pill shapes */
+    --radius-md: 16px; /* rounded-2xl */
+    --radius-lg: 9999px; /* pill shapes */
 
     /* Soft Elevation */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow */
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+    --shadow-sm: none; /* shadow-sm */
+    --shadow-md: none; /* shadow */
+    --shadow-lg: none; /* shadow-lg */
 
     --transition-speed: 0.2s; /* Snappier, app-like fades */
 }
@@ -59,6 +59,11 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    scrollbar-width: none !important; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari and Opera */
 }
 
 body {
@@ -99,12 +104,14 @@ a:hover {
     color: var(--accent-hover);
 }
 
-/* Layout */
+/* Layout (Minimalist Corporate) */
 .app-container {
     display: flex;
+    flex-direction: column;
     min-height: 100vh;
 }
 
+/* Legacy Sidebar styles preserved for unmigrated pages */
 .sidebar {
     width: 250px;
     background-color: var(--surface-color);
@@ -147,11 +154,110 @@ a:hover {
     border-bottom: 1px solid var(--text-primary);
 }
 
+/* New Top Navigation */
+.top-nav {
+    background-color: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 var(--spacing-lg);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.nav-content {
+    height: 64px;
+}
+
+.nav-logo {
+    font-family: var(--font-sans);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a; /* text-slate-900 */
+    letter-spacing: -0.03em;
+    margin-right: var(--spacing-md);
+}
+
+.hamburger-menu {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-primary);
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hamburger-menu:hover {
+    color: var(--accent-color);
+}
+
+.nav-links {
+    list-style: none;
+    height: 100%;
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.nav-links li {
+    height: 100%;
+}
+
+.nav-links a {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 var(--spacing-xs);
+    color: var(--text-secondary);
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+}
+
+.nav-links a:hover, .nav-links a.active {
+    color: #0f172a; /* text-slate-900 */
+    border-bottom: 2px solid #0f172a;
+}
+
+.nav-icon-link {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+.nav-icon-link:hover {
+    color: #0f172a;
+}
+
+.btn-sm {
+    padding: 0.4rem 1rem !important;
+    font-size: 0.875rem !important;
+}
+
+.max-w-7xl {
+    max-width: 80rem; /* 1280px */
+    width: 100%;
+}
+
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .main-content {
     flex-grow: 1;
     padding: var(--spacing-lg);
     background-color: var(--bg-color);
     overflow-y: auto;
+}
+
+.page-header {
+    margin-top: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
 }
 
 /* UI Elements */
@@ -168,21 +274,21 @@ a:hover {
     font-size: 1rem;
     cursor: pointer;
     border-radius: var(--radius-lg); /* Pill shaped */
-    box-shadow: 0 1px 2px 0 rgba(14, 165, 233, 0.05);
+    box-shadow: none;
     transition: all var(--transition-speed) ease;
 }
 
 .btn:hover {
     background-color: var(--accent-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.2);
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-secondary {
     background-color: var(--surface-color);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
 }
 
 .btn-secondary:hover {
@@ -190,7 +296,7 @@ a:hover {
     border-color: var(--text-secondary);
     color: var(--text-primary);
     transform: none;
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
 }
 
 .card {
@@ -199,7 +305,7 @@ a:hover {
     border-radius: var(--radius-md); /* rounded-lg */
     padding: var(--spacing-sm); /* p-4 equivalent */
     margin-bottom: var(--spacing-sm); /* mb-4 equivalent */
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
 }
 
 /* Forms */
@@ -244,17 +350,19 @@ a:hover {
 }
 
 .table th, .table td {
-    padding: 1rem;
+    padding: 1rem 1.5rem;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    border-left: none;
+    border-right: none;
 }
 
 .table th {
     font-family: var(--font-sans);
-    font-weight: 500;
-    font-size: 0.85rem;
+    font-weight: 600;
+    font-size: 0.875rem;
     color: var(--text-secondary);
-    border-bottom: 2px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .table tr:last-child td {
@@ -304,10 +412,27 @@ a:hover {
         overflow: auto !important;
     }
 
-    .app-container {
-        flex-direction: column;
+    /* Fix header overlapping and make responsive headers wrap cleanly */
+    header.flex.justify-between {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+    }
+    header.flex.justify-between .flex.gap-1 {
+        flex-wrap: wrap;
     }
 
+    /* Form control adjustments on tablet */
+    .form-control[style*="width: 250px"] {
+        width: 100% !important;
+        flex-grow: 1;
+    }
+
+    /* Stat grid fix for tablet */
+    section[style*="grid-template-columns: repeat(4, 1fr);"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Legacy Responsive Sidebar Styles */
     .sidebar {
         width: 100%;
         border-right: none;
@@ -333,12 +458,79 @@ a:hover {
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none; /* Firefox */
     }
+
     .sidebar-nav::-webkit-scrollbar {
         display: none; /* Chrome, Safari, Opera */
     }
 
     .sidebar-nav li {
         margin-bottom: 0;
+    }
+
+    /* New Navigation Overrides */
+    .top-nav {
+        padding: 0 var(--spacing-md);
+    }
+
+    .nav-links {
+        display: none; /* Hide by default on mobile, let JS toggle */
+        flex-direction: column;
+        gap: 0;
+        margin: 0;
+        width: 100%;
+        background-color: var(--surface-color);
+        position: absolute;
+        top: 100%;
+        left: 0;
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        z-index: 40;
+    }
+
+    .nav-links.active {
+        display: flex;
+    }
+
+    .nav-links li {
+        width: 100%;
+        height: auto;
+    }
+
+    .nav-links a {
+        padding: 1rem var(--spacing-sm);
+        text-align: left;
+        width: 100%;
+        height: auto;
+        display: block;
+        align-items: center;
+        font-size: 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        border-radius: 0;
+        background: transparent;
+    }
+
+    .nav-links li:last-child a {
+        border-bottom: none;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+        background: var(--neutral-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .nav-content .flex.items-center.gap-2 {
+        flex-direction: row; /* Keep logo and hamburger inline */
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .hamburger-menu {
+        display: flex !important; /* Force visibility on mobile */
+    }
+
+    .nav-content {
+        height: auto;
+        padding: var(--spacing-sm) 0;
     }
 
     .main-content {
@@ -362,113 +554,7 @@ a:hover {
 }
 
 /* Mobile (ElevenLabs Massive UI Scale) */
-@media (max-width: 768px) {
-    body {
-        overflow: auto !important;
-        font-size: 1.1rem; /* Base text */
-    }
 
-    :root {
-        --spacing-lg: 3rem;
-        --spacing-md: 2rem;
-        --spacing-sm: 1.5rem;
-        --spacing-xs: 1rem;
-    }
-
-    h1 {
-        font-size: 3rem; /* text-5xl equivalent */
-        line-height: 1.1;
-        margin-bottom: var(--spacing-sm);
-    }
-
-    h2 { font-size: 2.2rem; margin-bottom: var(--spacing-sm); }
-    h3 { font-size: 1.5rem; margin-bottom: var(--spacing-sm); }
-
-    p {
-        font-size: 1.2rem; /* text-xl */
-        margin-bottom: var(--spacing-sm);
-        line-height: 1.6;
-    }
-
-    .btn {
-        padding: 1rem 2rem !important;
-        font-size: 1.2rem !important;
-        border-radius: var(--radius-md);
-        width: 100%;
-        text-align: center;
-    }
-
-    .form-label {
-        font-size: 1.2rem;
-        margin-bottom: var(--spacing-xs);
-    }
-
-    .form-control {
-        font-size: 1.1rem;
-        padding: 1rem;
-    }
-
-    .main-content {
-        padding: var(--spacing-md) var(--spacing-sm);
-    }
-
-    .sidebar-logo {
-        font-size: 2rem;
-    }
-
-    .sidebar-nav a {
-        font-size: 1.2rem;
-        padding: 0.5rem 1.5rem;
-    }
-
-    .stat-number {
-        font-size: 4rem;
-    }
-
-    .stat-label {
-        font-size: 1rem;
-    }
-
-    /* Fix Layout Collapses */
-    .card.flex.justify-between,
-    header.flex.justify-between {
-        flex-direction: column;
-        align-items: flex-start !important;
-        gap: var(--spacing-md);
-        margin-bottom: var(--spacing-lg);
-    }
-
-    .flex.gap-1.items-center {
-        flex-direction: column;
-        width: 100%;
-        align-items: stretch !important;
-        gap: var(--spacing-sm);
-    }
-
-    .form-control[style*="width: 250px"] {
-        width: 100% !important;
-    }
-
-    .table-container {
-        overflow-x: auto;
-        width: 100%;
-        display: block;
-        margin-bottom: var(--spacing-md);
-    }
-
-    /* Target inline grid gaps and alignments on cards */
-    .grid.gap-2 {
-        gap: var(--spacing-lg) !important;
-        grid-template-columns: 1fr !important;
-        margin-bottom: var(--spacing-lg) !important;
-    }
-
-    #raw-scheme-container .flex.justify-between,
-    #optimized-scheme-container .flex.justify-between {
-        flex-direction: column !important;
-        gap: var(--spacing-sm);
-    }
-}
 
 .document-preview {
     background-color: var(--neutral-bg);
@@ -491,9 +577,9 @@ a:hover {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    overflow-y: auto;
+    overflow-y: visible;
     padding-right: var(--spacing-sm);
-    height: 100%;
+    height: auto;
     padding-bottom: var(--spacing-lg);
 }
 
@@ -557,22 +643,47 @@ a:hover {
     pointer-events: all;
 }
 
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 1px solid var(--border-color);
-    border-top-color: var(--accent-color);
-    border-radius: 50%;
-    animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+/* Custom SVG Draw Animation for PLAYBOOK */
+.playbook-loader {
+    width: 250px;
+    height: auto;
     margin-bottom: var(--spacing-sm);
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.playbook-path {
+    stroke-dasharray: 400;
+    stroke-dashoffset: 400;
+    animation: drawPlaybook 3s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+/* Add slight delays to letters to make it look handwritten */
+.playbook-path:nth-child(1) { animation-delay: 0.0s; }
+.playbook-path:nth-child(2) { animation-delay: 0.2s; }
+.playbook-path:nth-child(3) { animation-delay: 0.4s; }
+.playbook-path:nth-child(4) { animation-delay: 0.6s; }
+.playbook-path:nth-child(5) { animation-delay: 0.8s; }
+.playbook-path:nth-child(6) { animation-delay: 1.0s; }
+.playbook-path:nth-child(7) { animation-delay: 1.2s; }
+.playbook-path:nth-child(8) { animation-delay: 1.4s; }
+
+@keyframes drawPlaybook {
+    0% {
+        stroke-dashoffset: 400;
+        fill: transparent;
+    }
+    50% {
+        stroke-dashoffset: 0;
+        fill: transparent;
+    }
+    100% {
+        stroke-dashoffset: 0;
+        fill: var(--accent-color);
+        stroke: var(--accent-color);
+    }
 }
 
 .stat-card {
-    border-left: 2px solid var(--accent-color);
+    border-left: 1px solid var(--border-color);
 }
 .stat-number {
     font-size: 3rem;
@@ -586,6 +697,478 @@ a:hover {
 .stat-label {
     text-transform: uppercase;
     font-size: 0.75rem;
+    font-weight: 600;
     letter-spacing: 0.05em;
     color: var(--text-secondary);
+}
+/* NEW STRICT MOBILE DESIGN MANDATE (Max Width 768px) */
+@media (max-width: 768px) {
+    /* 1. Typography Reset (Billion Dollar App Style) */
+    body {
+        font-size: 16px; /* text-base for legibility */
+        line-height: 1.5;
+    }
+
+    h1 {
+        font-size: 1.75rem; /* 28px */
+        line-height: 1.2;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+    }
+    h2 {
+        font-size: 1.5rem; /* 24px */
+        font-weight: 700;
+        letter-spacing: -0.03em;
+    }
+    h3 {
+        font-size: 1.25rem; /* 20px */
+        font-weight: 600;
+    }
+
+    p {
+        font-size: 16px;
+        color: var(--text-secondary);
+    }
+
+    /* 5. Container Spacing */
+    .main-content {
+        padding: 1.5rem 1.25rem; /* Extra padding */
+    }
+}
+
+/* 2. Navigation & Hidden Actions */
+@media (max-width: 768px) {
+    .top-nav {
+        height: 56px;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background-color: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(4px);
+        border-bottom: 1px solid var(--border-color);
+        padding: 0 1rem; /* px-4 */
+    }
+
+    .nav-content {
+        height: 100%;
+        padding: 0;
+    }
+
+    /* Force the hamburger icon to right, logo to left */
+    .nav-content.flex.justify-between.items-center {
+        width: 100%;
+    }
+
+    .nav-content > .flex.items-center.gap-2 {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 56px; /* Below navbar */
+        left: 0;
+        width: 100%;
+        background: white;
+        border-bottom: 1px solid var(--border-color);
+        flex-direction: column;
+        gap: 0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-links.active {
+        display: flex;
+    }
+
+    .nav-links li {
+        width: 100%;
+    }
+
+    .nav-links a {
+        padding: 1rem;
+        width: 100%;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+        height: auto;
+    }
+
+    .nav-links li:last-child a {
+        border-bottom: none;
+    }
+
+    .hamburger-menu {
+        display: block !important;
+        cursor: pointer;
+        padding: 8px;
+        background: transparent;
+        border: none;
+    }
+
+    /* Mobile user profile and sign out logic */
+    .mobile-signout {
+        display: block;
+        padding: 1rem;
+        width: 100%;
+        text-align: left;
+        color: #ef4444; /* red-500 */
+        font-weight: 500;
+        border-top: 1px solid var(--border-color);
+        background: transparent;
+        cursor: pointer;
+    }
+
+    #user-menu {
+        display: none; /* Hide standard desktop user menu on mobile */
+    }
+}
+/* Show mobile signout li only on mobile */
+@media (max-width: 768px) {
+    .mobile-signout-li {
+        display: block !important;
+    }
+}
+@media (min-width: 769px) {
+    .mobile-signout-li {
+        display: none !important;
+    }
+}
+
+/* 3. The Evaluation Dashboard (Flexbox & Overlaps) */
+@media (max-width: 768px) {
+    .grading-header {
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .grading-header > div {
+        flex-wrap: wrap;
+    }
+
+    /* Feedback stack fix */
+    .bg-slate-50.rounded-lg.p-4.mb-4.border.border-slate-200.flex.gap-6 {
+        flex-direction: column !important;
+        gap: 1rem !important; /* gap-4 */
+    }
+
+    .bg-slate-50.rounded-lg.p-4.mb-4.border.border-slate-200.flex.gap-6 > div {
+        width: 100% !important;
+    }
+}
+/* Fix grading header dynamically generated in review.js */
+@media (max-width: 768px) {
+    .grading-header {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+}
+@media (max-width: 768px) {
+    .feedback-stack {
+        flex-direction: column !important;
+        gap: 1rem !important; /* gap-4 */
+    }
+}
+
+/* 4. Touch Targets & Buttons (The 44px Rule) */
+@media (max-width: 768px) {
+    /* Standardize all clickable elements */
+    button, .btn, .nav-links a {
+        min-height: 44px;
+        font-size: 14px !important; /* text-sm */
+        font-weight: 500 !important; /* font-medium */
+    }
+
+    /* Primary Actions */
+    .btn.btn-primary {
+        width: 100%;
+        display: block;
+        text-align: center;
+    }
+
+    /* Secondary Actions: Edit Score & Feedback */
+    button[style*="background: white"] { /* Targets the "Edit Score & Feedback" button in review.js */
+        border: 1px solid #cbd5e1 !important; /* border-slate-300 */
+        border-radius: 9999px !important; /* rounded-full */
+        padding: 0.5rem 1rem !important; /* px-4 py-2 */
+        font-size: 0.875rem !important; /* text-sm */
+        background: transparent !important;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+@media (max-width: 768px) {
+    /* Hide desktop nav actions that cause overlap */
+    .nav-actions {
+        display: none !important;
+    }
+
+    /* Ensure the mobile dropdown is above all other content */
+    .nav-links {
+        z-index: 100 !important;
+    }
+}
+@media (max-width: 768px) {
+    /* Fix inline anchor tag padding overflow in mobile nav dropdown */
+    .nav-links a {
+        display: block !important;
+        background: white; /* Ensure solid background against page content */
+    }
+}
+/* Missing mobile Tailwind polyfill replacements from previous deleted code */
+@media (max-width: 768px) {
+    /* Layout Collapses - since we removed the previous media queries,
+       we need to enforce flexbox wrapping for `.flex.justify-between` sections that break horizontally */
+
+    .card.flex.justify-between,
+    header.flex.justify-between,
+    .dashboard-header, /* specific to index/analytics */
+    .dashboard-header > .flex,
+    form .flex.gap-4 {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 1rem !important;
+    }
+
+    /* Stats grid */
+    section[style*="grid-template-columns: repeat(4, 1fr)"],
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 1rem !important;
+    }
+}
+
+/* =========================================================================
+   PLAYBOOK NATIVE MOBILE APP OVERRIDES (BOLT STYLE)
+   Enforces a strict 100vw, no-zoom, bottom-nav mobile layout
+   ========================================================================= */
+@media (max-width: 768px) {
+    /* 1. Viewport & Scroll Locking */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        /* Prevent elastic bouncing on iOS */
+        overscroll-behavior-y: none;
+        -webkit-overflow-scrolling: touch;
+        /* Disable text size adjustment that causes zoom */
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* 2. Layout Resets */
+    .app-container {
+        padding-bottom: 80px; /* Space for the bottom tab bar */
+    }
+
+    .main-content {
+        padding: 1rem !important; /* Tighter margins like Bolt */
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* 3. Kill the Top Nav & Hamburger entirely */
+    .top-nav {
+        display: none !important;
+    }
+
+    /* 4. Native Bottom Tab Bar (Injected via HTML) */
+    .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 84px; /* Taller, premium feel */
+        background-color: var(--surface-color);
+        border-top: 1px solid rgba(0,0,0,0.04);
+        justify-content: space-around;
+        align-items: center;
+        z-index: 9999;
+        padding-bottom: env(safe-area-inset-bottom, 20px); /* iPhone notch support */
+        box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.08); /* Soft elevated shadow */
+    }
+
+    .mobile-tab {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: var(--text-secondary);
+        width: 33%;
+        height: 100%;
+        transition: all 0.2s ease;
+    }
+
+    .mobile-tab svg {
+        width: 28px; /* Larger icons */
+        height: 28px;
+        margin-bottom: 6px;
+        stroke: currentColor;
+        stroke-width: 1.5; /* Lighter by default */
+    }
+
+    .mobile-tab span {
+        font-size: 0.75rem; /* 12px */
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+
+    .mobile-tab.active {
+        color: var(--accent-color);
+    }
+    .mobile-tab.active svg {
+        stroke-width: 2.5; /* Bold active state */
+        transform: scale(1.1); /* Subtle pop */
+    }
+
+    /* 5. Transform Tables into Vertical Cards */
+    .table-container {
+        overflow-x: visible !important; /* Remove horizontal scrolling container */
+    }
+
+    .table, .table tbody, .table tr, .table td {
+        display: block;
+        width: 100%;
+    }
+
+    .table thead {
+        display: none; /* Hide table headers */
+    }
+
+    .table tr {
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background-color: var(--surface-color);
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .table td {
+        padding: 0.5rem 0 !important;
+        border: none !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+
+    /* Fix empty state table rows from squishing */
+    .table td[colspan] {
+        display: block !important;
+        text-align: center !important;
+    }
+
+    /* Inject labels before td content using data attributes (requires JS update or generic approach) */
+    /* Fallback: Right align the content if it's acting as a label-value pair */
+    .table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        margin-right: 1rem;
+    }
+
+    /* 6. Massive Touch Targets */
+    .btn, button, input[type="text"], input[type="number"], .form-control {
+        min-height: 56px !important; /* Premium minimum touch target */
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+    }
+
+    .form-control {
+        border-radius: 16px !important;
+        background-color: #f1f5f9; /* Soft input bg */
+        border: 1px solid transparent !important; /* Clean input look */
+    }
+
+    .form-control:focus {
+        border: 1px solid var(--accent-color) !important;
+    }
+
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+        border-radius: 9999px !important; /* Fully pill shaped */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important; /* subtle elevation */
+    }
+
+    /* Prevent inline buttons from squishing */
+    .flex.justify-between.items-center > .btn,
+    .flex.justify-between.items-center > label.btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+        height: auto !important;
+        min-height: 56px !important;
+        white-space: normal !important;
+        text-align: center;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .flex.justify-between.items-center {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.5rem !important;
+    }
+
+    .flex.justify-between.items-center.w-100 {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 0.5rem !important;
+    }
+
+    /* Fix Grid Splitting on Mobile to stack cards vertically */
+    .grid.gap-2[style*="grid-template-columns: 1fr 1fr;"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* 7. Premium Rounded Cards (No Edge Bleed) */
+    .card {
+        border-radius: 24px !important; /* Super round */
+        border: none !important;
+        background-color: #ffffff;
+        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06) !important; /* Soft, deep shadow */
+        padding: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+        width: 100% !important; /* Contain it */
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    /* Keep stats grid contained */
+    .stats-grid .card {
+        margin-bottom: 0 !important;
+        padding: 1.25rem !important;
+    }
+
+    /* Stats Grid to 2 columns */
+    section.stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .stat-card {
+        padding: 1rem !important;
+    }
+
+    .stat-number {
+        font-size: 2rem !important;
+    }
+}
+
+/* Hide Bottom Nav on Desktop */
+@media (min-width: 769px) {
+    .mobile-bottom-nav {
+        display: none !important;
+    }
 }

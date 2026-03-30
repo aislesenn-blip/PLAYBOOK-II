@@ -1,11 +1,12 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playbook - Analytics</title>
-    <link rel="stylesheet" href="css/style.css">
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Playbook - Analytics</title>
+<link href="css/style.css" rel="stylesheet"/>
+<style>
         .chart-container {
             display: flex;
             align-items: flex-end;
@@ -43,102 +44,207 @@
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-logo">Playbook</div>
-            <ul class="sidebar-nav">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="upload.html">Upload Exams</a></li>
-                <li><a href="review.html">Review & Override</a></li>
-                <li><a href="analytics.html" class="active">Analytics</a></li>
-                <li><a href="manual.html">User Manual</a></li>
-                <li><a href="settings.html">Settings</a></li>
-            </ul>
-        </aside>
+<div class="app-container">
+<!-- Minimalist Top Navigation -->
+<nav class="top-nav">
+<div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+<div class="flex items-center gap-2">
+<div class="nav-logo">Playbook</div>
+<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
+<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
+<line x1="3" x2="21" y1="12" y2="12"></line>
+<line x1="3" x2="21" y1="6" y2="6"></line>
+<line x1="3" x2="21" y1="18" y2="18"></line>
+</svg>
+</button>
+<ul class="nav-links flex gap-1 items-center">
+<li><a href="index.html">Dashboard</a></li>
+<li><a href="upload.html">Upload Exams</a></li>
+<li><a href="review.html">Review &amp; Override</a></li>
+<li><a class="active" href="analytics.html">Analytics</a></li>
+<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
+</div>
+<div class="flex items-center gap-1 nav-actions">
+<a class="nav-icon-link" href="manual.html">User Manual</a>
+<a class="nav-icon-link" href="settings.html">Settings</a>
+<button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="main-content max-w-7xl mx-auto" style="height: calc(100vh - 64px); overflow-y: auto; padding-bottom: var(--spacing-xl);">
+<header class="flex justify-between items-center mb-2">
+<div>
+<h1 id="analytics-title">Analytics</h1>
+<p>Review class performance, score distributions, and export results.</p>
+</div>
+<div class="flex gap-1">
+<button class="btn btn-secondary" onclick="window.print()">Print Report</button>
+<button class="btn" id="download-csv-btn">Download CSV</button>
+<button class="btn" id="download-all-feedback-btn">Download All Feedback (PDF)</button>
+</div>
+</header>
+<!-- Stats Grid -->
+<section class="grid gap-2 mb-2" style="grid-template-columns: repeat(4, 1fr);">
+<div class="card stat-card">
+<div class="stat-number" id="stat-total">0</div>
+<div class="stat-label">Total Students</div>
+</div>
+<div class="card stat-card">
+<div class="stat-number" id="stat-avg">0%</div>
+<div class="stat-label">Average Score</div>
+</div>
+<div class="card stat-card">
+<div class="stat-number" id="stat-high">0%</div>
+<div class="stat-label">Highest Score</div>
+</div>
+<div class="card stat-card" style="border-left-color: var(--highlight-color);">
+<div class="stat-number" id="stat-lowest-q">-</div>
+<div class="stat-label">Lowest Performing Q</div>
+</div>
+</section>
+<div class="grid gap-2" style="grid-template-columns: 2fr 1fr;">
+<!-- Distribution Chart (Pure CSS) -->
+<section class="card">
+<h3 class="mb-1">Score Distribution</h3>
+<div class="chart-container" id="chart-container">
+<!-- Populated by JS -->
+</div>
+</section>
+<!-- Insights -->
+<section class="card">
+<h3 class="mb-1">Playbook Insights</h3>
+<ul id="insights-list" style="padding-left: 1.2rem; color: var(--text-secondary); font-size: 0.95rem;">
+<!-- Populated by JS -->
+</ul>
+</section>
+</div>
+<!-- Student Results Table -->
+<section class="card mt-2">
+<div class="flex justify-between items-center mb-1">
+<h3>Individual Results</h3>
+<input class="form-control" id="student-search" placeholder="Search student..." style="width: 250px;" type="text"/>
+</div>
+<div class="table-container"><table class="table">
+<thead>
+<tr>
+<th>Registration No.</th>
+<th>Name</th>
+<th>Score</th>
+<th>Grade</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="students-table-body">
+<!-- Populated by JS -->
+</tbody>
+</table></div>
+</section>
+</main>
+</div>
 
-        <!-- Main Content -->
-        <main class="main-content" style="height: 100vh; overflow-y: auto; padding-bottom: var(--spacing-xl);">
-            <header class="flex justify-between items-center mb-2">
-                <div>
-                    <h1 id="analytics-title">Analytics</h1>
-                    <p>Review class performance, score distributions, and export results.</p>
-                </div>
-                <div class="flex gap-1">
-                    <button class="btn btn-secondary" onclick="window.print()">Print Report</button>
-                    <button class="btn" id="download-csv-btn">Download CSV</button>
-                    <button class="btn" id="download-all-feedback-btn">Download All Feedback (.txt)</button>
-                </div>
-            </header>
-
-            <!-- Stats Grid -->
-            <section class="grid gap-2 mb-2" style="grid-template-columns: repeat(4, 1fr);">
-                <div class="card stat-card">
-                    <div class="stat-number" id="stat-total">0</div>
-                    <div class="stat-label">Total Students</div>
-                </div>
-                <div class="card stat-card">
-                    <div class="stat-number" id="stat-avg">0%</div>
-                    <div class="stat-label">Average Score</div>
-                </div>
-                <div class="card stat-card">
-                    <div class="stat-number" id="stat-high">0%</div>
-                    <div class="stat-label">Highest Score</div>
-                </div>
-                <div class="card stat-card" style="border-left-color: var(--highlight-color);">
-                    <div class="stat-number" id="stat-lowest-q">-</div>
-                    <div class="stat-label">Lowest Performing Q</div>
-                </div>
-            </section>
-
-            <div class="grid gap-2" style="grid-template-columns: 2fr 1fr;">
-
-                <!-- Distribution Chart (Pure CSS) -->
-                <section class="card">
-                    <h3 class="mb-1">Score Distribution</h3>
-                    <div class="chart-container" id="chart-container">
-                        <!-- Populated by JS -->
-                    </div>
-                </section>
-
-                <!-- Insights -->
-                <section class="card">
-                    <h3 class="mb-1">Playbook Insights</h3>
-                    <ul style="padding-left: 1.2rem; color: var(--text-secondary); font-size: 0.95rem;" id="insights-list">
-                        <!-- Populated by JS -->
-                    </ul>
-                </section>
-
-            </div>
-
-            <!-- Student Results Table -->
-            <section class="card mt-2">
-                <div class="flex justify-between items-center mb-1">
-                    <h3>Individual Results</h3>
-                    <input type="text" id="student-search" class="form-control" placeholder="Search student..." style="width: 250px;">
-                </div>
-                <div class="table-container"><table class="table">
-                    <thead>
-                        <tr>
-                            <th>Registration No.</th>
-                            <th>Name</th>
-                            <th>Score</th>
-                            <th>Grade</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="students-table-body">
-                        <!-- Populated by JS -->
-                    </tbody>
-                </table></div>
-            </section>
-
-        </main>
+<!-- Slide-out Drawer for "View Feedback" -->
+<div class="overlay" id="feedback-drawer-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; transition: opacity 0.3s; opacity: 0; backdrop-filter: blur(2px);">
+    <div id="feedback-drawer" style="position: absolute; right: -600px; top: 0; bottom: 0; width: 600px; max-width: 100%; background: #ffffff; box-shadow: -4px 0 24px rgba(0,0,0,0.1); padding: 2rem; overflow-y: auto; transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1); border-left: 1px solid var(--border-color);">
+        <button id="close-drawer-btn" style="position: absolute; top: 1.5rem; right: 1.5rem; background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 0.5rem; border-radius: var(--radius-md); transition: background-color 0.2s;">
+            <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>
+        </button>
+        <div id="feedback-drawer-content" style="margin-top: 1rem;">
+            <!-- Content populated dynamically -->
+        </div>
     </div>
-    <script src="js/app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/db.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/analytics.js"></script>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+    <!-- SVG Line Drawing Animation for PLAYBOOK -->
+    <svg class="playbook-loader" viewBox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
+        <path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+    </svg>
+    <h2 id="loading-status" style="margin-top: 1.5rem;">Loading...</h2>
+</div>
+
+<!-- Hidden PDF Template -->
+<div id="pdf-template-container" style="display: none; position: absolute; left: -9999px; top: 0;">
+    <div id="pdf-template" style="width: 100%; max-width: 750px; padding: 40px; background: white; color: #0f172a; font-family: 'Inter', system-ui, sans-serif; box-sizing: border-box; overflow-wrap: break-word; word-wrap: break-word;">
+        <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #0f172a;" id="pdf-student-name">Student Name</h1>
+                <p style="margin: 5px 0 0 0; color: #64748b; font-size: 16px;" id="pdf-reg-no">Reg No: 12345</p>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Exam Session</div>
+                <div style="font-size: 18px; font-weight: 600; color: #0f172a; margin-top: 4px;" id="pdf-session-name">Session Name</div>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 20px; margin-bottom: 40px;">
+            <div style="flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center;">
+                <div style="font-size: 14px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">Total Score</div>
+                <div style="font-size: 32px; font-weight: 700; color: #0f172a;" id="pdf-total-score">0 / 100</div>
+            </div>
+            <div style="flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center;">
+                <div style="font-size: 14px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">Overall Grade</div>
+                <div style="font-size: 32px; font-weight: 700; color: #0f172a;" id="pdf-grade">A</div>
+            </div>
+        </div>
+
+        <div id="pdf-questions-container" style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- Questions populated dynamically -->
+        </div>
+
+        <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;">
+            PLAYBOOK
+        </div>
+    </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="js/analytics.js"></script>
+
+<!-- Bolt-Style Bottom Tab Bar (Mobile Only) -->
+<nav class="mobile-bottom-nav">
+    <a href="index.html" class="mobile-tab ">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Home</span>
+    </a>
+    <a href="upload.html" class="mobile-tab ">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+        <span>Upload</span>
+    </a>
+    <a href="analytics.html" class="mobile-tab active">
+        <svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Stats</span>
+    </a>
+    <a href="#" id="mobile-logout-tab" class="mobile-tab">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <span>Account</span>
+    </a>
+</nav>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const logoutTab = document.getElementById('mobile-logout-tab');
+        if (logoutTab) {
+            logoutTab.addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.removeItem('playbook_session');
+                window.location.href = 'login.html';
+            });
+        }
+    });
+</script>
 </body>
+
 </html>

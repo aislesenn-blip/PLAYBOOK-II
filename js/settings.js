@@ -37,12 +37,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             div.className = 'grading-row';
             div.innerHTML = `
                 <input type="text" class="form-control scale-label" value="${row.label}" placeholder="Label (e.g. A)" required>
-                <input type="number" step="0.1" class="form-control scale-max" value="${row.max}" placeholder="Max %" required>
-                <span>% to</span>
-                <input type="number" step="0.1" class="form-control scale-min" value="${row.min}" placeholder="Min %" required>
-                <span>%</span>
-                <input type="color" class="form-control scale-color" value="${row.color || '#0a0a0a'}" style="width: 60px; padding: 0.2rem;">
-                <button type="button" class="btn btn-secondary remove-row-btn" style="padding: 0.5rem 1rem;" data-index="${idx}">X</button>
+                <div class="flex items-center gap-1 flex-grow">
+                    <input type="number" step="0.1" class="form-control scale-max" value="${row.max}" placeholder="Max %" required>
+                    <span>% to</span>
+                    <input type="number" step="0.1" class="form-control scale-min" value="${row.min}" placeholder="Min %" required>
+                    <span>%</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <input type="color" class="form-control scale-color" value="${row.color || '#0a0a0a'}" style="width: 60px; padding: 0.2rem; flex-grow: 0;">
+                    <button type="button" class="btn btn-secondary remove-row-btn" style="padding: 0.5rem 1rem;" data-index="${idx}">X</button>
+                </div>
             `;
             scaleContainer.appendChild(div);
         });
