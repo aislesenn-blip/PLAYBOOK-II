@@ -161,11 +161,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawTextarea = document.getElementById('raw-scheme-text');
     const optimizedTextarea = document.getElementById('optimized-scheme-text');
 
-    // Handle .txt upload and dump into textarea
+    // Handle .txt / .pdf upload and dump into textarea
     schemeFileInput.addEventListener('change', async (e) => {
-        if(e.target.files[0]) {
-            const text = await e.target.files[0].text();
-            rawTextarea.value = text;
+        const file = e.target.files[0];
+        if (file) {
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+
+                    if (pdfjsLib) {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    }
+
+                    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = "";
+
+                    for (let i = 1; i <= pdfDoc.numPages; i++) {
+                        const page = await pdfDoc.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(" ");
+                        fullText += pageText + "\n";
+                    }
+                    rawTextarea.value = fullText;
+                } catch (error) {
+                    console.error("Error reading PDF:", error);
+                    alert("Failed to read PDF file.");
+                }
+            } else {
+                const text = await file.text();
+                rawTextarea.value = text;
+            }
         }
     });
 
