@@ -28,7 +28,7 @@ Perfect Example: "You correctly defined hydroponics, but you missed 'capillarity
 *** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
 You MUST generate the "justification" BEFORE the "marks_awarded" to prevent hallucinations. Output ONLY valid JSON. No markdown formatting. Return the evaluation for this ONE student.
 
-{ "studentName": "Extracted Name or 'Unknown'", "registrationNumber": "Extracted ID or 'Unknown'", "maxScore": 100, "questions": [ { "questionId": "1a", "questionTitle": "Brief title", "answer_status": "Answered | Skipped", "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.", "marks_awarded": 2, "max_marks": 5, "constructive_feedback": "The strict Micro-Lesson feedback as defined above." } ] }
+{ "studentName": "Extracted Name or 'Unknown'", "registrationNumber": "Extracted ID or 'Unknown'", "maxScore": 100, "questions": [ { "questionId": "1a", "questionTitle": "Brief title", "answer_status": "Answered | Skipped | Illegible", "evidence_quote": "Exact quote from student's handwritten answer. If illegible, state 'Illegible'.", "rubric_match": "Exact criteria matched from the marking scheme.", "justification": "Detailed reasoning comparing the evidence to the rubric.", "marks_awarded": 2, "max_marks": 5, "constructive_feedback": "Strict Micro-Lesson feedback..." } ] }
 `;
 
 async function getSecureKey() {
@@ -113,6 +113,23 @@ async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
 
             const parsedData = JSON.parse(content);
 
+            // Post-Processing Validation
+            if (parsedData.questions && Array.isArray(parsedData.questions)) {
+                parsedData.questions.forEach(q => {
+                    if (typeof q.marks_awarded !== 'number') q.marks_awarded = 0;
+                    if (q.marks_awarded > q.max_marks) q.marks_awarded = q.max_marks;
+                    if (q.marks_awarded < 0) q.marks_awarded = 0;
+
+                    if (q.answer_status === 'Skipped' || q.answer_status === 'Illegible') {
+                        q.marks_awarded = 0;
+                    }
+                });
+
+                // Calculate totals programmatically
+                parsedData.totalScore = parsedData.questions.reduce((sum, q) => sum + (q.marks_awarded || 0), 0);
+                parsedData.maxScore = parsedData.questions.reduce((sum, q) => sum + (Number(q.max_marks) || 0), 0);
+            }
+
             // Handle backward compatibility: If AI hallucinated a 'students' array wrapper despite the single-student prompt
             if (parsedData.students && Array.isArray(parsedData.students)) {
                 return parsedData.students;
@@ -141,24 +158,33 @@ async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
 
         // Optimization Prompt for Pre-processing
         const OPTIMIZE_PROMPT = `
-You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
+You are an elite educational engineer. Rewrite this raw marking scheme into a strict JSON array.
 
 CRITICAL MANDATES:
 
 NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
-STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
-Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+STRICT HIERARCHY: Every single question/sub-question MUST have its own object in the array. Do not merge sub-questions.
+Output ONLY valid JSON. No markdown block wrapping (\`\`\`).
 === PLAYBOOK STANDARD FORMAT EXAMPLE ===
-Question 1a: Definition (Max: 3 marks)
-
-Award [1 mark] for stating "conversion of light energy to chemical energy".
-Award [1 mark] for explicitly writing "Chlorophyll".
-Award [1 mark] for mentioning "Water".
-
-Question 1b: Diagram (Max: 2 marks)
-
-Award [1 mark] if a leaf shape is clearly drawn.
-Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "Sunlight".
+[
+  {
+    "questionId": "1a",
+    "max_marks": 3,
+    "criteria": [
+      {"mark": 1, "condition": "stating 'conversion of light energy to chemical energy'"},
+      {"mark": 1, "condition": "explicitly writing 'Chlorophyll'"},
+      {"mark": 1, "condition": "mentioning 'Water'"}
+    ]
+  },
+  {
+    "questionId": "1b",
+    "max_marks": 2,
+    "criteria": [
+      {"mark": 1, "condition": "leaf shape is clearly drawn"},
+      {"mark": 1, "condition": "ONLY IF an arrow is drawn pointing into the leaf and is labeled 'Sunlight'"}
+    ]
+  }
+]
 =========================================
 `;
 
