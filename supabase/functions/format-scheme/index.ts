@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const OPTIMIZE_PROMPT = `
 You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
@@ -73,25 +73,26 @@ serve(async (req) => {
     // Fetch the Institution's API Key securely
     const { data: secretData, error: secretError } = await supabaseClient
       .from('institution_secrets')
-      .select('deepseek_api_key')
+      .select('openrouter_api_key')
       .eq('institution_id', userData.institution_id)
       .single();
 
-    if (secretError || !secretData?.deepseek_api_key) {
-        throw new Error("No DeepSeek API key configured for this institution.");
+    if (secretError || !secretData?.openrouter_api_key) {
+        throw new Error("No OpenRouter API key configured for this institution.");
     }
 
-    const deepseekKey = secretData.deepseek_api_key;
+    const apiKey = secretData.openrouter_api_key;
 
-    const deepseekReq = await fetch(DEEPSEEK_API_URL, {
+    const openRouterReq = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${deepseekKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: 'openai/gpt-4o',
         temperature: 0.0,
+        seed: 42,
         messages: [
           { role: 'system', content: OPTIMIZE_PROMPT },
           { role: 'user', content: raw_scheme }
@@ -99,12 +100,12 @@ serve(async (req) => {
       })
     });
 
-    if (!deepseekReq.ok) {
-        const errorText = await deepseekReq.text();
-        throw new Error(`DeepSeek API error: ${deepseekReq.status} ${errorText}`);
+    if (!openRouterReq.ok) {
+        const errorText = await openRouterReq.text();
+        throw new Error(`OpenRouter API error: ${openRouterReq.status} ${errorText}`);
     }
 
-    const aiResponse = await deepseekReq.json();
+    const aiResponse = await openRouterReq.json();
     let content = aiResponse.choices[0].message.content;
 
     if (content.startsWith('```')) {

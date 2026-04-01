@@ -39,20 +39,14 @@
         <!-- API Configuration Card -->
         <section class="card mb-2">
             <h2 class="mb-1">Global AI Configuration</h2>
-            <p class="mb-2" style="color: var(--text-secondary);">Configure OpenRouter (for free OCR Vision) and DeepSeek (for logical Grading) API credentials for your entire institution. Teachers will automatically use these keys for grading and will not need to manage their own.</p>
+            <p class="mb-2" style="color: var(--text-secondary);">Configure the OpenRouter API Key for your entire institution. Teachers will automatically use this key for grading and will not need to manage their own.</p>
 
             <form id="admin-api-form">
-                <div class="form-group mb-1">
-                    <label class="form-label">Institution OpenRouter API Key (For OCR)</label>
-                    <div class="flex gap-1 items-center">
-                        <input type="password" id="admin-openrouter-key" class="form-control" placeholder="sk-or-v1-..." style="max-width: 400px;" required>
-                    </div>
-                </div>
                 <div class="form-group">
-                    <label class="form-label">Institution DeepSeek API Key (For Grading)</label>
+                    <label class="form-label">Institution OpenRouter API Key</label>
                     <div class="flex gap-1 items-center">
-                        <input type="password" id="admin-deepseek-key" class="form-control" placeholder="sk-..." style="max-width: 400px;" required>
-                        <button type="submit" class="btn" style="width: auto;">Save Global Keys</button>
+                        <input type="password" id="admin-api-key" class="form-control" placeholder="sk-or-v1-..." style="max-width: 400px;" required>
+                        <button type="submit" class="btn" style="width: auto;">Save Global Key</button>
                     </div>
                 </div>
                 <div id="api-status" style="margin-top: var(--spacing-xs); font-size: 0.9rem; font-weight: 600;"></div>
