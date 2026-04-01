@@ -1,7 +1,7 @@
 // js/ai.js
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
-const GOOGLE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 const SYSTEM_PROMPT = `
@@ -40,10 +40,10 @@ async function getSecureKeys() {
         const userProfile = await window.PlaybookDB.getUserById(session.user.id);
         const secret = await window.PlaybookDB.getInstitutionSecret(userProfile.institution_id);
 
-        if (!secret || !secret.google_ai_key || !secret.deepseek_api_key) {
-            throw new Error("Missing Google AI or DeepSeek API key in the secure vault. Ask an Admin to configure them.");
+        if (!secret || !secret.groq_api_key || !secret.deepseek_api_key) {
+            throw new Error("Missing Groq or DeepSeek API key in the secure vault. Ask an Admin to configure them.");
         }
-        return { googleKey: secret.google_ai_key, deepseekKey: secret.deepseek_api_key };
+        return { groqKey: secret.groq_api_key, deepseekKey: secret.deepseek_api_key };
     } catch (e) {
         throw new Error(`Authorization failed: ${e.message}`);
     }
@@ -52,37 +52,38 @@ async function getSecureKeys() {
 // Helper function for exponential backoff delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// Helper to call Google AI Studio (Gemini) for OCR
-async function callGeminiVision(images, prompt, apiKey) {
-    const parts = [{ text: prompt }];
+// Helper to call Groq (Llama 3.2 Vision) for OCR
+async function callGroqVision(images, prompt, apiKey) {
+    const userContent = [{ type: 'text', text: prompt }];
 
     for (const dataUrl of images) {
-        // data:image/jpeg;base64,...
-        const [meta, base64] = dataUrl.split(',');
-        const mimeType = meta.split(':')[1].split(';')[0];
-        parts.push({
-            inline_data: {
-                mime_type: mimeType,
-                data: base64
-            }
+        userContent.push({
+            type: 'image_url',
+            image_url: { url: dataUrl }
         });
     }
 
-    const response = await fetch(`${GOOGLE_API_URL}?key=${apiKey}`, {
+    const response = await fetch(GROQ_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { temperature: 0.0 }
+            model: "llama-3.2-90b-vision-preview",
+            temperature: 0.0,
+            messages: [
+                { role: 'user', content: userContent }
+            ]
         })
     });
 
     if (!response.ok) {
         const err = await response.text();
-        throw new Error(`Google AI API error: ${response.status} ${err}`);
+        throw new Error(`Groq API error: ${response.status} ${err}`);
     }
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+    return data.choices[0].message.content;
 }
 
 // Helper to call DeepSeek API
@@ -120,11 +121,11 @@ async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
-            const { googleKey, deepseekKey } = await getSecureKeys();
+            const { groqKey, deepseekKey } = await getSecureKeys();
 
-            // STEP 1: OCR via Google AI Studio
+            // STEP 1: OCR via Groq
             const ocrPrompt = "Extract all handwritten text, drawn diagrams descriptions, and answers from this exam paper accurately. Maintain the structure and question numbers.";
-            const extractedText = await callGeminiVision(base64PDF, ocrPrompt, googleKey);
+            const extractedText = await callGroqVision(base64PDF, ocrPrompt, groqKey);
 
             // STEP 2: Grading via DeepSeek
             const gradingPrompt = `Here is the marking scheme:\n${markingSchemeText}\n\nHere is the extracted text from the single student's exam:\n${extractedText}`;
@@ -187,13 +188,13 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
             let attempt = 0;
             while (attempt < maxRetries) {
                 try {
-                    const { googleKey, deepseekKey } = await getSecureKeys();
+                    const { groqKey, deepseekKey } = await getSecureKeys();
 
                     let textToProcess = rawText;
 
                     if (Array.isArray(rawText)) {
                         const ocrPrompt = "Extract all text from this marking scheme document. Preserve its structure.";
-                        textToProcess = await callGeminiVision(rawText, ocrPrompt, googleKey);
+                        textToProcess = await callGroqVision(rawText, ocrPrompt, groqKey);
                     }
 
                     let content = await callDeepSeek(textToProcess, OPTIMIZE_PROMPT, deepseekKey, false);

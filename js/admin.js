@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. Display Current API Key Status
-    const googleInput = document.getElementById('admin-google-key');
+    const groqInput = document.getElementById('admin-groq-key');
     const deepseekInput = document.getElementById('admin-deepseek-key');
     const statusDiv = document.getElementById('api-status');
 
@@ -33,8 +33,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
-    if (institutionSecret && institutionSecret.google_ai_key && institutionSecret.deepseek_api_key) {
-        googleInput.value = institutionSecret.google_ai_key;
+    if (institutionSecret && institutionSecret.groq_api_key && institutionSecret.deepseek_api_key) {
+        groqInput.value = institutionSecret.groq_api_key;
         deepseekInput.value = institutionSecret.deepseek_api_key;
         statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
         statusDiv.style.color = 'var(--success-color)';
@@ -47,27 +47,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiForm = document.getElementById('admin-api-form');
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const googleKey = googleInput.value.trim();
+        const groqKey = groqInput.value.trim();
         const deepseekKey = deepseekInput.value.trim();
 
-        if (googleKey && deepseekKey) {
+        if (groqKey && deepseekKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, googleKey, deepseekKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, groqKey, deepseekKey);
 
                 statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
                 statusDiv.style.color = 'var(--success-color)';
 
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
-                localStorage.setItem('PLAYBOOK_GOOGLE_KEY', googleKey);
+                localStorage.setItem('PLAYBOOK_GROQ_KEY', groqKey);
                 localStorage.setItem('PLAYBOOK_DEEPSEEK_KEY', deepseekKey);
                 localStorage.removeItem('PLAYBOOK_API_KEY');
 
                 alert("Global Institution Key saved securely to the encrypted vault.");
             } catch (err) {
                 console.error("Error saving keys:", err);
-                alert("Failed to save the global API keys to the secure database vault. Check your Supabase database schema to ensure `google_ai_key` and `deepseek_api_key` exist.");
+                alert("Failed to save the global API keys to the secure database vault. Check your Supabase database schema to ensure `groq_api_key` and `deepseek_api_key` exist.");
             }
         }
     });

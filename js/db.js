@@ -32,7 +32,7 @@ const PlaybookDB = {
         // Only admins can query this table directly due to RLS.
         const { data, error } = await supabaseClient
             .from('institution_secrets')
-            .select('google_ai_key, deepseek_api_key')
+            .select('groq_api_key, deepseek_api_key')
             .eq('institution_id', institutionId)
             .single();
 
@@ -45,10 +45,10 @@ const PlaybookDB = {
         return data;
     },
 
-    async saveInstitutionSecret(institutionId, googleKey, deepseekKey) {
+    async saveInstitutionSecret(institutionId, groqKey, deepseekKey) {
         const { error } = await supabaseClient
             .from('institution_secrets')
-            .upsert({ institution_id: institutionId, google_ai_key: googleKey, deepseek_api_key: deepseekKey });
+            .upsert({ institution_id: institutionId, groq_api_key: groqKey, deepseek_api_key: deepseekKey });
         if (error) throw error;
     },
 

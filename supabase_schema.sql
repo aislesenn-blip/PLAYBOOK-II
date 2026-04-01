@@ -15,7 +15,7 @@ CREATE TABLE public.institutions (
 -- Separate vault for the API key to prevent frontend exposure
 CREATE TABLE public.institution_secrets (
     institution_id UUID PRIMARY KEY REFERENCES public.institutions(id) ON DELETE CASCADE,
-    google_ai_key TEXT,
+    groq_api_key TEXT,
     deepseek_api_key TEXT,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

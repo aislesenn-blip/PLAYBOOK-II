@@ -11,7 +11,7 @@ The system will strictly separate the Educator experience from the Student exper
 
 *   **Teacher Dashboard (Authenticated & Secure):**
     *   **Auth:** Supabase Auth (Email/Password, OAuth via Google/Microsoft for educators).
-    *   **Role:** The command center. Teachers authenticate here to create sessions (Assignments), configure Marking Schemes, store their Google AI Studio and DeepSeek API Keys (BYOK) securely in the database, view Analytics, and review/override AI decisions.
+    *   **Role:** The command center. Teachers authenticate here to create sessions (Assignments), configure Marking Schemes, store their Groq and DeepSeek API Keys (BYOK) securely in the database, view Analytics, and review/override AI decisions.
 *   **Student Submission Portal (Frictionless "Digital Drop"):**
     *   **Auth:** Anonymous/Lightweight. No account creation required.
     *   **Role:** A streamlined frontend where students enter a 6-digit alphanumeric "Join Code" (e.g., `HIST202-A`), their Name, and Registration Number. Upon validation of the code against the database, they upload their PDF.
@@ -27,7 +27,7 @@ The system will strictly separate the Educator experience from the Student exper
 
 ## 3. The BYOK Security Proxy (Crucial)
 
-To execute grading without exposing the Teacher's Google AI Studio and DeepSeek API keys to the student-facing frontend, we must route all AI requests through a secure backend proxy.
+To execute grading without exposing the Teacher's Groq and DeepSeek API keys to the student-facing frontend, we must route all AI requests through a secure backend proxy.
 
 *   **Architecture:** Supabase Edge Functions.
 *   **The Flow:**
@@ -35,7 +35,7 @@ To execute grading without exposing the Teacher's Google AI Studio and DeepSeek 
     2.  The Edge Function queries the `users` table (bypassing RLS via a Service Role key internally) to look up the `api_key` associated with the `teacher_id` linked to that `assignment_id`.
     3.  The Edge Function encrypts/decrypts the key at rest using a master vault key or Supabase Vault.
     4.  The Edge Function constructs the payload (fetching the Marking Scheme and the Student's PDF from Supabase Storage).
-    5.  The Edge Function first calls Google AI Studio (Gemini) for OCR/Vision extraction.
+    5.  The Edge Function first calls Groq (Llama 3.2 Vision) for OCR/Vision extraction.
     6.  The Edge Function then passes the extracted text to DeepSeek for rigorous, deterministic grading.
     6.  The result is written back to the `submissions` table.
 *   **Result:** The student's browser *never* touches the APIs or the Teacher's API key.
@@ -78,6 +78,6 @@ To guarantee deterministic grading and zero hallucinations across both scanned i
 
 *   **Database Schema (JSONB):** The `submissions` table will have a `grading_result` column of type `JSONB`. This strictly enforces the storage of our Four-Tier evaluation schema (Sub-question ID, Marks Awarded, Max Marks, Answer Status, Justification, Constructive Feedback).
 *   **Prompt Engineering Lock-in:** The `SYSTEM_PROMPT` (containing the Semantic Equivalence, Sandwich Method, and missing/skipped rules) is stored as a version-controlled constant in the Edge Function.
-*   **Temperature Control:** The Gemini payload will remain hardcoded to `temperature: 0.0` inside the Edge Function and Client to prevent creative hallucinations. Due to API constraints, `deepseek-reasoner` relies solely on prompt engineering since temperature overrides and strict JSON structure constraints aren't supported.
-*   **Two-Step Pipeline:** The input is converted to text by Gemini (OCR/Vision), guaranteeing that DeepSeek only operates on pure text data for reasoning.
+*   **Temperature Control:** The Groq Vision payload will remain hardcoded to `temperature: 0.0` inside the Edge Function and Client to prevent creative hallucinations. Due to API constraints, `deepseek-reasoner` relies solely on prompt engineering since temperature overrides and strict JSON structure constraints aren't supported.
+*   **Two-Step Pipeline:** The input is converted to text by Groq (Llama 3.2 OCR/Vision), guaranteeing that DeepSeek only operates on pure text data for reasoning.
 *   **Single Source of Truth:** The backend explicitly ignores any `totalScore` hallucinated by the LLM. Before the Edge Function writes to the database, a strict Postgres function (or Edge Function logic) executes a programmatic `Array.reduce` over the `JSONB` array to mathematically calculate and lock in the final score.
