@@ -71,9 +71,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const parsedQuestions = student.questions || student.evaluations || student.results || [];
                     if (parsedQuestions && Array.isArray(parsedQuestions)) {
                         parsedQuestions.forEach(q => {
-                            const qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            let qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            // Clamp individual question score to its max possible marks (if provided by AI)
+                            const qMax = parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
+                            if (!isNaN(qMax) && qMax > 0 && qScore > qMax) {
+                                qScore = qMax;
+                                q.score = qScore; // Update the object so review UI reflects the clamped score
+                            }
                             studentTotal += qScore;
                         });
+                    }
+
+                    // Global clamp: Student total cannot exceed the explicit maximum marks for the entire exam
+                    if (studentTotal > explicitMaxMarks) {
+                        studentTotal = explicitMaxMarks;
                     }
 
                     await window.supabaseClient.from('exam_submissions').insert({
