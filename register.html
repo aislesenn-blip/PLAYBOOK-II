@@ -29,6 +29,10 @@
             margin-bottom: var(--spacing-sm);
             letter-spacing: -0.02em;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
         }
         .auth-nav {
             display: flex;
@@ -52,7 +56,7 @@
 </head>
 <body>
     <div class="register-card">
-        <div class="register-logo">Playbook Enterprise</div>
+        <div class="register-logo"><img src="images/logo.png" alt="Playbook Logo" class="logo-img-large"></div>
         <p class="mb-2 text-center" style="color: var(--text-secondary);">Start scaling your grading engine today.</p>
 
         <div class="auth-nav" id="auth-tabs">

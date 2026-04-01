@@ -128,7 +128,9 @@ a:hover {
     color: var(--accent-color);
     margin-bottom: var(--spacing-lg);
     letter-spacing: -0.02em;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .sidebar-nav {
@@ -175,6 +177,19 @@ a:hover {
     color: #0f172a; /* text-slate-900 */
     letter-spacing: -0.03em;
     margin-right: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo-img {
+    height: 32px;
+    width: auto;
+}
+
+.logo-img-large {
+    height: 48px;
+    width: auto;
 }
 
 .hamburger-menu {
