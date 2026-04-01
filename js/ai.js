@@ -10,6 +10,8 @@ CRITICAL EVALUATION MANDATE: The images provided represent exactly ONE student's
 
 THE "NO GHOST GRADING" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from skipping any question. Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped", "marks_awarded": 0, and "constructive_feedback": "You did not attempt this question."
 
+THE "HARD CEILING" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from hallucinating marks. Under NO CIRCUMSTANCES can the \`marks_awarded\` for a question exceed the \`max_marks\` defined for that specific question in the marking scheme. If a question is worth 5 marks, the maximum you can award is 5.
+
 *** THE 4 TIERS OF EVALUATION ***
 
 SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. Award full marks for correct concepts.
