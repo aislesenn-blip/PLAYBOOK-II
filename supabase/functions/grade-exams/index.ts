@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { TextractClient, DetectDocumentTextCommand } from "https://esm.sh/@aws-sdk/client-textract@3.370.0";
 import { getDocument } from "https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.js";
 
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 const SYSTEM_PROMPT = `
@@ -99,18 +99,16 @@ serve(async (req) => {
     const institutionId = session.users.institution_id;
     const { data: secretData, error: secretError } = await supabaseClient
       .from('institution_secrets')
-      .select('aws_access_key, aws_secret_key, aws_region, deepseek_api_key')
+      .select('openrouter_api_key, deepseek_api_key')
       .eq('institution_id', institutionId)
       .single();
 
-    if (secretError || !secretData?.aws_access_key || !secretData?.aws_secret_key || !secretData?.aws_region || !secretData?.deepseek_api_key) {
-        throw new Error("Missing AWS Textract credentials or DeepSeek API key in the secure vault.");
+    if (secretError || !secretData?.openrouter_api_key || !secretData?.deepseek_api_key) {
+        throw new Error("Missing OpenRouter or DeepSeek API key in the secure vault.");
     }
 
+    const openrouterKey = secretData.openrouter_api_key;
     const deepseekKey = secretData.deepseek_api_key;
-    const awsAccessKey = secretData.aws_access_key;
-    const awsSecretKey = secretData.aws_secret_key;
-    const awsRegion = secretData.aws_region;
 
     // 3. Download the PDF from Storage
     const { data: fileData, error: fileError } = await supabaseClient
@@ -120,11 +118,9 @@ serve(async (req) => {
 
     if (fileError) throw fileError;
 
-    // 4. Load the PDF using pdf.js to extract text natively, bypassing Textract limits for multi-page PDFs
-    // AWS Textract sync APIs only accept single-page PDFs. Rather than complex Deno canvas/image conversion
-    // (which lacks native canvas support), we can use pdf.js to extract the raw text directly if the exams are digital.
-    // If they are scanned images, AWS Textract Async APIs (S3 requirement) or returning an error is required on the backend.
-    // Given the constraints of the edge environment without a canvas API, we will extract pure text via pdf.js.
+    // 4. Extract text natively using pdf.js, as OpenRouter vision models do not accept raw PDF payloads in the image_url array.
+    // If the PDF contains purely scanned handwritten images without digital text layers, the user MUST use the Teacher Dashboard (Frontend)
+    // where the browser's native <canvas> can slice the PDF into JPEG images for OCR.
     const arrayBuffer = await fileData.arrayBuffer();
     const pdfBytes = new Uint8Array(arrayBuffer);
 

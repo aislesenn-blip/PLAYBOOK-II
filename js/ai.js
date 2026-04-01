@@ -1,6 +1,7 @@
 // js/ai.js
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 const SYSTEM_PROMPT = `
@@ -39,13 +40,11 @@ async function getSecureKeys() {
         const userProfile = await window.PlaybookDB.getUserById(session.user.id);
         const secret = await window.PlaybookDB.getInstitutionSecret(userProfile.institution_id);
 
-        if (!secret || !secret.aws_access_key || !secret.aws_secret_key || !secret.aws_region || !secret.deepseek_api_key) {
-            throw new Error("Missing AWS Textract credentials or DeepSeek API key in the secure vault. Ask an Admin to configure them.");
+        if (!secret || !secret.openrouter_api_key || !secret.deepseek_api_key) {
+            throw new Error("Missing OpenRouter or DeepSeek API key in the secure vault. Ask an Admin to configure them.");
         }
         return {
-            awsAccessKeyId: secret.aws_access_key,
-            awsSecretAccessKey: secret.aws_secret_key,
-            awsRegion: secret.aws_region,
+            openrouterKey: secret.openrouter_api_key,
             deepseekKey: secret.deepseek_api_key
         };
     } catch (e) {
@@ -56,48 +55,39 @@ async function getSecureKeys() {
 // Helper function for exponential backoff delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// Helper to call AWS Textract for OCR
-async function callTextractVision(images, credentials) {
-    if (!window.AWS) {
-        throw new Error("AWS SDK is not loaded. Ensure the AWS SDK script is included in the HTML.");
-    }
-
-    // Configure AWS with the provided credentials
-    window.AWS.config.update({
-        accessKeyId: credentials.awsAccessKeyId,
-        secretAccessKey: credentials.awsSecretAccessKey,
-        region: credentials.awsRegion
-    });
-
-    const textract = new window.AWS.Textract();
-    let fullText = "";
+// Helper to call OpenRouter for OCR/Vision
+async function callOpenRouterVision(images, prompt, apiKey) {
+    const userContent = [{ type: 'text', text: prompt }];
 
     for (const dataUrl of images) {
-        // Convert base64 data URL to raw binary Uint8Array
-        const base64Data = dataUrl.split(',')[1];
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        const params = {
-            Document: {
-                Bytes: bytes
-            }
-        };
-
-        try {
-            const result = await textract.detectDocumentText(params).promise();
-            // Extract the LINE blocks from the result
-            const lines = result.Blocks.filter(block => block.BlockType === 'LINE').map(block => block.Text);
-            fullText += lines.join('\n') + '\n\n---PAGE_BREAK---\n\n';
-        } catch (err) {
-            throw new Error(`AWS Textract error: ${err.message}`);
-        }
+        userContent.push({
+            type: 'image_url',
+            image_url: { url: dataUrl }
+        });
     }
 
-    return fullText;
+    const response = await fetch(OPENROUTER_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            // Using a free, highly capable vision model on OpenRouter
+            model: "meta-llama/llama-3.2-90b-vision-instruct:free",
+            temperature: 0.0,
+            messages: [
+                { role: 'user', content: userContent }
+            ]
+        })
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`OpenRouter Vision API error: ${response.status} ${err}`);
+    }
+    const data = await response.json();
+    return data.choices[0].message.content;
 }
 
 // Helper to call DeepSeek API
@@ -135,14 +125,15 @@ async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
-            const keys = await getSecureKeys();
+            const { openrouterKey, deepseekKey } = await getSecureKeys();
 
-            // STEP 1: OCR via AWS Textract
-            const extractedText = await callTextractVision(base64PDF, keys);
+            // STEP 1: OCR via OpenRouter (Vision)
+            const ocrPrompt = "Extract all handwritten text, drawn diagrams descriptions, and answers from this exam paper accurately. Maintain the structure and question numbers.";
+            const extractedText = await callOpenRouterVision(base64PDF, ocrPrompt, openrouterKey);
 
             // STEP 2: Grading via DeepSeek
             const gradingPrompt = `Here is the marking scheme:\n${markingSchemeText}\n\nHere is the extracted text from the single student's exam:\n${extractedText}`;
-            let content = await callDeepSeek(gradingPrompt, SYSTEM_PROMPT, keys.deepseekKey, true);
+            let content = await callDeepSeek(gradingPrompt, SYSTEM_PROMPT, deepseekKey, true);
 
             if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
             else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
@@ -201,15 +192,16 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
             let attempt = 0;
             while (attempt < maxRetries) {
                 try {
-                    const keys = await getSecureKeys();
+                    const { openrouterKey, deepseekKey } = await getSecureKeys();
 
                     let textToProcess = rawText;
 
                     if (Array.isArray(rawText)) {
-                        textToProcess = await callTextractVision(rawText, keys);
+                        const ocrPrompt = "Extract all text from this marking scheme document. Preserve its structure.";
+                        textToProcess = await callOpenRouterVision(rawText, ocrPrompt, openrouterKey);
                     }
 
-                    let content = await callDeepSeek(textToProcess, OPTIMIZE_PROMPT, keys.deepseekKey, false);
+                    let content = await callDeepSeek(textToProcess, OPTIMIZE_PROMPT, deepseekKey, false);
 
                     if (content.startsWith('```')) {
                         content = content.replace(/^```[^\n]*\n|\n```$/g, '');
