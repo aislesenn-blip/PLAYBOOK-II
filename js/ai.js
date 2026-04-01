@@ -1,7 +1,8 @@
 // js/ai.js
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const GOOGLE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 const SYSTEM_PROMPT = `
 You are the Chief Examiner for a World-Class International Examination Board. Your mandate is to evaluate a handwritten student exam against a strict marking scheme with absolute fairness, deterministic logic, and zero hallucinations.
@@ -31,7 +32,7 @@ You MUST generate the "justification" BEFORE the "marks_awarded" to prevent hall
 { "studentName": "Extracted Name or 'Unknown'", "registrationNumber": "Extracted ID or 'Unknown'", "maxScore": 100, "questions": [ { "questionId": "1a", "questionTitle": "Brief title", "answer_status": "Answered | Skipped", "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.", "marks_awarded": 2, "max_marks": 5, "constructive_feedback": "The strict Micro-Lesson feedback as defined above." } ] }
 `;
 
-async function getSecureKey() {
+async function getSecureKeys() {
     try {
         const { data: { session } } = await window.supabaseClient.auth.getSession();
         if (!session) throw new Error("No active session.");
@@ -39,10 +40,10 @@ async function getSecureKey() {
         const userProfile = await window.PlaybookDB.getUserById(session.user.id);
         const secret = await window.PlaybookDB.getInstitutionSecret(userProfile.institution_id);
 
-        if (!secret || !secret.openrouter_api_key) {
-            throw new Error("No OpenRouter API key found in the secure vault. Ask an Admin to configure it.");
+        if (!secret || !secret.google_ai_key || !secret.deepseek_api_key) {
+            throw new Error("Missing Google AI or DeepSeek API key in the secure vault. Ask an Admin to configure them.");
         }
-        return secret.openrouter_api_key;
+        return { googleKey: secret.google_ai_key, deepseekKey: secret.deepseek_api_key };
     } catch (e) {
         throw new Error(`Authorization failed: ${e.message}`);
     }
@@ -51,87 +52,107 @@ async function getSecureKey() {
 // Helper function for exponential backoff delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
+// Helper to call Google AI Studio (Gemini) for OCR
+async function callGeminiVision(images, prompt, apiKey) {
+    const parts = [{ text: prompt }];
+
+    for (const dataUrl of images) {
+        // data:image/jpeg;base64,...
+        const [meta, base64] = dataUrl.split(',');
+        const mimeType = meta.split(':')[1].split(';')[0];
+        parts.push({
+            inline_data: {
+                mime_type: mimeType,
+                data: base64
+            }
+        });
+    }
+
+    const response = await fetch(`${GOOGLE_API_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { temperature: 0.0 }
+        })
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Google AI API error: ${response.status} ${err}`);
+    }
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+// Helper to call DeepSeek API
+async function callDeepSeek(userContent, systemPrompt, apiKey, isJson = false) {
+    const body = {
+        model: 'deepseek-reasoner',
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent }
+        ]
+    };
+
+    // deepseek-reasoner does not support temperature=0.0 or response_format: json_object
+    // So we just rely on prompt engineering to return valid JSON
+
+    const response = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`DeepSeek API error: ${response.status} ${err}`);
+    }
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
+
 // Client-Side Distributed Grading Engine
 async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
-            const apiKey = await getSecureKey();
+            const { googleKey, deepseekKey } = await getSecureKeys();
 
-            // Ensure backwards compatibility and dynamic context building
-            // We now accept an array of image data URLs directly from the browser's PDF parser
-            // This is 100% compatible with GPT-4o's vision capabilities and completely avoids PDF parsing errors.
-            const userContent = [
-                {
-                    type: "text",
-                    text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the scanned pages of this single student's exam:`
-                }
-            ];
+            // STEP 1: OCR via Google AI Studio
+            const ocrPrompt = "Extract all handwritten text, drawn diagrams descriptions, and answers from this exam paper accurately. Maintain the structure and question numbers.";
+            const extractedText = await callGeminiVision(base64PDF, ocrPrompt, googleKey);
 
-            // Ensure base64PDF is treated as an array of image URLs (handled by upload.js)
-            base64PDF.forEach(imageUrl => {
-                userContent.push({
-                    type: "image_url",
-                    image_url: { url: imageUrl }
-                });
-            });
-
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-001', // Required model: Guaranteed massive context window support on OpenRouter
-                    temperature: 0.0,
-                    seed: 42,
-                    max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
-                    messages: [
-                        { role: 'system', content: SYSTEM_PROMPT },
-                        { role: 'user', content: userContent }
-                    ],
-                    response_format: { type: "json_object" }
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
-            }
-
-            const data = await response.json();
-            let content = data.choices[0].message.content;
+            // STEP 2: Grading via DeepSeek
+            const gradingPrompt = `Here is the marking scheme:\n${markingSchemeText}\n\nHere is the extracted text from the single student's exam:\n${extractedText}`;
+            let content = await callDeepSeek(gradingPrompt, SYSTEM_PROMPT, deepseekKey, true);
 
             if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
             else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
 
-            // JSON Sanitizer: Robustly double-escape unescaped backslashes to prevent "Bad escaped character" JSON.parse errors.
-            // This safely preserves valid JSON structure escapes (\", \\, \/, \n) but double-escapes everything else (e.g. \frac, \sin, \theta)
-            // by matching any backslash NOT preceded by a backslash AND NOT followed by ", \, /, or n.
+            // JSON Sanitizer
             content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
 
             const parsedData = JSON.parse(content);
 
-            // Handle backward compatibility: If AI hallucinated a 'students' array wrapper despite the single-student prompt
             if (parsedData.students && Array.isArray(parsedData.students)) {
                 return parsedData.students;
             }
 
-            // Standard Single Student Object mapping
             return [parsedData];
 
         } catch (error) {
             attempt++;
             console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
 
-            // If we've exhausted all retries, throw the error to halt the queue
             if (attempt >= maxRetries) {
                 console.error("Error in Playbook grading engine (All retries exhausted):", error);
                 throw error;
             }
 
-            // Exponential backoff: Wait 3s, then 6s, before retrying
             const backoffTime = attempt * 3000;
             console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
             await delay(backoffTime);
@@ -166,55 +187,16 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
             let attempt = 0;
             while (attempt < maxRetries) {
                 try {
-                    const apiKey = await getSecureKey();
+                    const { googleKey, deepseekKey } = await getSecureKeys();
 
-                    let userContent = rawText;
+                    let textToProcess = rawText;
 
                     if (Array.isArray(rawText)) {
-                        userContent = [
-                            {
-                                type: "text",
-                                text: `Here are the scanned pages of a marking scheme. Please transcribe and rewrite them into the strict "Playbook Standard Format".`
-                            }
-                        ];
-                        rawText.forEach(imageUrl => {
-                            userContent.push({
-                                type: "image_url",
-                                image_url: { url: imageUrl }
-                            });
-                        });
+                        const ocrPrompt = "Extract all text from this marking scheme document. Preserve its structure.";
+                        textToProcess = await callGeminiVision(rawText, ocrPrompt, googleKey);
                     }
 
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${apiKey}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model: 'google/gemini-2.0-flash-001',
-                            temperature: 0.0,
-                            seed: 42,
-                            messages: [
-                                {
-                                    role: 'system',
-                                    content: OPTIMIZE_PROMPT
-                                },
-                                {
-                                    role: 'user',
-                                    content: userContent
-                                }
-                            ]
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
-                    }
-
-                    const data = await response.json();
-                    let content = data.choices[0].message.content;
+                    let content = await callDeepSeek(textToProcess, OPTIMIZE_PROMPT, deepseekKey, false);
 
                     if (content.startsWith('```')) {
                         content = content.replace(/^```[^\n]*\n|\n```$/g, '');
