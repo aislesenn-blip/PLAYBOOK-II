@@ -161,11 +161,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawTextarea = document.getElementById('raw-scheme-text');
     const optimizedTextarea = document.getElementById('optimized-scheme-text');
 
-    // Handle .txt / .pdf upload and dump into textarea
+    // Handle .txt, .pdf, .docx, and image uploads and dump into textarea
     schemeFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            const fileType = file.type;
+            const fileName = file.name.toLowerCase();
+
+            if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
                 try {
                     const arrayBuffer = await file.arrayBuffer();
                     const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
@@ -185,12 +188,86 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const pageText = textContent.items.map(item => item.str).join(" ");
                         fullText += pageText + "\n";
                     }
+
+                    // OCR Fallback for Scanned Marking Schemes
+                    if (fullText.trim().length < 50) {
+                        const originalBtnText = schemeFileInput.parentElement.innerText;
+                        schemeFileInput.parentElement.innerText = 'Running OCR...';
+
+                        let base64Images = [];
+                        for (let i = 1; i <= pdfDoc.numPages; i++) {
+                            const page = await pdfDoc.getPage(i);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                            base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                        }
+
+                        try {
+                            fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from scanned PDF via OCR.");
+                        } finally {
+                            schemeFileInput.parentElement.innerText = 'Upload Document';
+                            schemeFileInput.parentElement.appendChild(schemeFileInput);
+                        }
+                    }
+
                     rawTextarea.value = fullText;
                 } catch (error) {
                     console.error("Error reading PDF:", error);
                     alert("Failed to read PDF file.");
                 }
+            } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
+                // Handle .docx using Mammoth.js
+                try {
+                    const originalBtnText = schemeFileInput.parentElement.innerText;
+                    schemeFileInput.parentElement.innerText = 'Extracting Word Doc...';
+
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    rawTextarea.value = result.value;
+
+                } catch (error) {
+                    console.error("Error reading Word document:", error);
+                    alert("Failed to read Word document. Try saving as PDF instead.");
+                } finally {
+                    schemeFileInput.parentElement.innerText = 'Upload Document';
+                    schemeFileInput.parentElement.appendChild(schemeFileInput);
+                }
+            } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+                // Handle Images via OCR Fallback logic natively
+                try {
+                    schemeFileInput.parentElement.innerText = 'Running OCR on Image...';
+
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const base64Image = event.target.result;
+                        try {
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from image via OCR.");
+                        } finally {
+                            schemeFileInput.parentElement.innerText = 'Upload Document';
+                            schemeFileInput.parentElement.appendChild(schemeFileInput);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+
+                } catch (error) {
+                    console.error("Error reading image:", error);
+                    alert("Failed to process image.");
+                }
             } else {
+                // Default handling for .txt or other text files
                 const text = await file.text();
                 rawTextarea.value = text;
             }
