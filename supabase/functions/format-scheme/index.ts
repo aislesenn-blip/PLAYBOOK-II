@@ -83,7 +83,6 @@ serve(async (req) => {
 
     const deepseekKey = secretData.deepseek_api_key;
 
-    // deepseek-reasoner does not support temperature=0.0
     const deepseekReq = await fetch(DEEPSEEK_API_URL, {
       method: 'POST',
       headers: {
@@ -91,7 +90,8 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek-reasoner',
+        model: 'deepseek-chat',
+        temperature: 0.0,
         messages: [
           { role: 'system', content: OPTIMIZE_PROMPT },
           { role: 'user', content: raw_scheme }

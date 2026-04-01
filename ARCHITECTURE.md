@@ -35,7 +35,7 @@ To execute grading without exposing the Teacher's OpenRouter and DeepSeek API ke
     2.  The Edge Function queries the `users` table (bypassing RLS via a Service Role key internally) to look up the keys associated with the `teacher_id` linked to that `assignment_id`.
     3.  The Edge Function encrypts/decrypts the keys at rest using a master vault key or Supabase Vault.
     4.  The Edge Function constructs the payload (fetching the Marking Scheme and the Student's PDF from Supabase Storage).
-    5.  The Edge Function first uses OpenRouter (Llama 3.2 Vision) to extract pure text from the PDF.
+    5.  The Edge Function first uses OpenRouter (Gemma 3 Multimodal) to extract pure text from the PDF.
     6.  The Edge Function then passes the extracted text to DeepSeek for rigorous, deterministic grading.
     7.  The result is written back to the `submissions` table.
 *   **Result:** The student's browser *never* touches the APIs or the Teacher's API keys.
@@ -78,6 +78,6 @@ To guarantee deterministic grading and zero hallucinations across both scanned i
 
 *   **Database Schema (JSONB):** The `submissions` table will have a `grading_result` column of type `JSONB`. This strictly enforces the storage of our Four-Tier evaluation schema (Sub-question ID, Marks Awarded, Max Marks, Answer Status, Justification, Constructive Feedback).
 *   **Prompt Engineering Lock-in:** The `SYSTEM_PROMPT` (containing the Semantic Equivalence, Sandwich Method, and missing/skipped rules) is stored as a version-controlled constant in the Edge Function.
-*   **Temperature Control:** Due to API constraints, `deepseek-reasoner` relies solely on prompt engineering since temperature overrides and strict JSON structure constraints aren't supported natively on that specific model variant.
-*   **Two-Step Pipeline:** The input is converted to text by OpenRouter (Llama 3.2 Vision), guaranteeing that DeepSeek only operates on pure text data for reasoning.
+*   **Temperature Control:** The DeepSeek payload will remain hardcoded to `temperature: 0.0` inside the Edge Function and Client to prevent creative hallucinations. We utilize `deepseek-chat` to ensure strict JSON formatting enforcement.
+*   **Two-Step Pipeline:** The input is converted to text by OpenRouter (Gemma 3 Multimodal), guaranteeing that DeepSeek only operates on pure text data for reasoning.
 *   **Single Source of Truth:** The backend explicitly ignores any `totalScore` hallucinated by the LLM. Before the Edge Function writes to the database, a strict Postgres function (or Edge Function logic) executes a programmatic `Array.reduce` over the `JSONB` array to mathematically calculate and lock in the final score.

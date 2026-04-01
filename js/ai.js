@@ -73,8 +73,8 @@ async function callOpenRouterVision(images, prompt, apiKey) {
             'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            // Using openrouter/free automatically selects the best available free vision model without hitting 404s
-            model: "openrouter/free",
+            // Using google/gemma-3-12b-it:free since it has native vision support and avoids the random router selecting a text-only model.
+            model: "google/gemma-3-12b-it:free",
             temperature: 0.0,
             messages: [
                 { role: 'user', content: userContent }
@@ -93,15 +93,17 @@ async function callOpenRouterVision(images, prompt, apiKey) {
 // Helper to call DeepSeek API
 async function callDeepSeek(userContent, systemPrompt, apiKey, isJson = false) {
     const body = {
-        model: 'deepseek-reasoner',
+        model: 'deepseek-chat', // DeepSeek-V3 is the correct model for structured output and JSON extraction
+        temperature: 0.0,
         messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
         ]
     };
 
-    // deepseek-reasoner does not support temperature=0.0 or response_format: json_object
-    // So we just rely on prompt engineering to return valid JSON
+    if (isJson) {
+        body.response_format = { type: 'json_object' };
+    }
 
     const response = await fetch(DEEPSEEK_API_URL, {
         method: 'POST',
