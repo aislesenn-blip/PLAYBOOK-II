@@ -16,7 +16,6 @@ CREATE TABLE public.institutions (
 CREATE TABLE public.institution_secrets (
     institution_id UUID PRIMARY KEY REFERENCES public.institutions(id) ON DELETE CASCADE,
     openrouter_api_key TEXT,
-    deepseek_api_key TEXT,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

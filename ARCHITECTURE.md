@@ -11,7 +11,7 @@ The system will strictly separate the Educator experience from the Student exper
 
 *   **Teacher Dashboard (Authenticated & Secure):**
     *   **Auth:** Supabase Auth (Email/Password, OAuth via Google/Microsoft for educators).
-    *   **Role:** The command center. Teachers authenticate here to create sessions (Assignments), configure Marking Schemes, store their OpenRouter (Vision) and DeepSeek API Keys (BYOK) securely in the database, view Analytics, and review/override AI decisions.
+    *   **Role:** The command center. Teachers authenticate here to create sessions (Assignments), configure Marking Schemes, store their OpenRouter API Key (BYOK) securely in the database, view Analytics, and review/override AI decisions.
 *   **Student Submission Portal (Frictionless "Digital Drop"):**
     *   **Auth:** Anonymous/Lightweight. No account creation required.
     *   **Role:** A streamlined frontend where students enter a 6-digit alphanumeric "Join Code" (e.g., `HIST202-A`), their Name, and Registration Number. Upon validation of the code against the database, they upload their PDF.
@@ -27,18 +27,17 @@ The system will strictly separate the Educator experience from the Student exper
 
 ## 3. The BYOK Security Proxy (Crucial)
 
-To execute grading without exposing the Teacher's OpenRouter and DeepSeek API keys to the student-facing frontend, we must route all AI requests through a secure backend proxy.
+To execute grading without exposing the Teacher's OpenRouter API key to the student-facing frontend, we must route all AI requests through a secure backend proxy.
 
 *   **Architecture:** Supabase Edge Functions.
 *   **The Flow:**
     1.  When a student submits a paper, the Edge Function is triggered.
-    2.  The Edge Function queries the `users` table (bypassing RLS via a Service Role key internally) to look up the keys associated with the `teacher_id` linked to that `assignment_id`.
-    3.  The Edge Function encrypts/decrypts the keys at rest using a master vault key or Supabase Vault.
+    2.  The Edge Function queries the `users` table (bypassing RLS via a Service Role key internally) to look up the `api_key` associated with the `teacher_id` linked to that `assignment_id`.
+    3.  The Edge Function encrypts/decrypts the key at rest using a master vault key or Supabase Vault.
     4.  The Edge Function constructs the payload (fetching the Marking Scheme and the Student's PDF from Supabase Storage).
-    5.  The Edge Function first uses OpenRouter (Gemma 3 Multimodal) to extract pure text from the PDF.
-    6.  The Edge Function then passes the extracted text to DeepSeek for rigorous, deterministic grading.
-    7.  The result is written back to the `submissions` table.
-*   **Result:** The student's browser *never* touches the APIs or the Teacher's API keys.
+    5.  The Edge Function makes the HTTP call to OpenRouter (`gpt-4o`).
+    6.  The result is written back to the `submissions` table.
+*   **Result:** The student's browser *never* touches the OpenRouter API or the Teacher's API key.
 
 ## 4. The "Offline" Grading Engine
 
@@ -62,15 +61,15 @@ Processing hundreds of physical scans or simultaneous digital drops requires mas
 
 ## 6. The BYOK Rate Limit Challenge (Intelligent Queueing)
 
-Concurrency is great, but API rate limits (e.g., "Tier 1: 20 RPM") will reject 200 simultaneous calls from the same API key.
+Concurrency is great, but OpenRouter rate limits (e.g., "Tier 1: 20 RPM") will reject 200 simultaneous calls from the same API key.
 
 *   **Architecture:** Distributed Task Queue with Concurrency Limits (e.g., Upstash Redis + Supabase, or a queueing service like BullMQ/Trigger.dev).
 *   **The Strategy:**
     1.  Instead of triggering 200 Edge Functions immediately, the `INSERT` webhook pushes the grading jobs into a Redis-backed Queue.
     2.  The Queue is partitioned by `teacher_api_key` (or `teacher_id`).
     3.  We enforce a strict **Concurrency Limit per Queue Partition** (e.g., Max 5 concurrent active jobs per Teacher).
-    4.  **Exponential Backoff & Jitter:** If the APIs returns a `429 Too Many Requests`, the worker catches the error, delays the job (e.g., waits 10 seconds, then 20, then 40), and safely retries without failing the student's submission.
-*   **Result:** 200 students can submit at 11:59 PM. The system accepts all of them instantly (UI shows "Submitted - Grading in Progress"), but the queue strictly drips them to the APIs at a safe rate of 5 at a time, protecting the Teacher's key.
+    4.  **Exponential Backoff & Jitter:** If OpenRouter returns a `429 Too Many Requests`, the worker catches the error, delays the job (e.g., waits 10 seconds, then 20, then 40), and safely retries without failing the student's submission.
+*   **Result:** 200 students can submit at 11:59 PM. The system accepts all of them instantly (UI shows "Submitted - Grading in Progress"), but the queue strictly drips them to OpenRouter at a safe rate of 5 at a time, protecting the Teacher's key.
 
 ## 7. 100% Accuracy & Storage
 
@@ -78,6 +77,6 @@ To guarantee deterministic grading and zero hallucinations across both scanned i
 
 *   **Database Schema (JSONB):** The `submissions` table will have a `grading_result` column of type `JSONB`. This strictly enforces the storage of our Four-Tier evaluation schema (Sub-question ID, Marks Awarded, Max Marks, Answer Status, Justification, Constructive Feedback).
 *   **Prompt Engineering Lock-in:** The `SYSTEM_PROMPT` (containing the Semantic Equivalence, Sandwich Method, and missing/skipped rules) is stored as a version-controlled constant in the Edge Function.
-*   **Temperature Control:** The DeepSeek payload will remain hardcoded to `temperature: 0.0` inside the Edge Function and Client to prevent creative hallucinations. We utilize `deepseek-chat` to ensure strict JSON formatting enforcement.
-*   **Two-Step Pipeline:** The input is converted to text by OpenRouter (Gemma 3 Multimodal), guaranteeing that DeepSeek only operates on pure text data for reasoning.
+*   **Temperature Control:** The OpenRouter payload will remain hardcoded to `temperature: 0.0` and `top_p: 0.1` inside the Edge Function to prevent creative hallucinations.
+*   **Multi-Modal Pipeline:** Whether the input is a scanned image (Vision payload) or a digital Word Doc (converted to markdown text by the Edge Function before sending to AI), the AI is forced through the exact same JSON extraction schema, guaranteeing uniform output.
 *   **Single Source of Truth:** The backend explicitly ignores any `totalScore` hallucinated by the LLM. Before the Edge Function writes to the database, a strict Postgres function (or Edge Function logic) executes a programmatic `Array.reduce` over the `JSONB` array to mathematically calculate and lock in the final score.

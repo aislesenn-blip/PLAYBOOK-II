@@ -1,9 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getDocument } from "https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.js";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 const SYSTEM_PROMPT = `
 You are the Chief Examiner for a World-Class International Examination Board grading MULTIPLE student exams contained in a single document.
@@ -99,16 +97,15 @@ serve(async (req) => {
     const institutionId = session.users.institution_id;
     const { data: secretData, error: secretError } = await supabaseClient
       .from('institution_secrets')
-      .select('openrouter_api_key, deepseek_api_key')
+      .select('openrouter_api_key')
       .eq('institution_id', institutionId)
       .single();
 
-    if (secretError || !secretData?.openrouter_api_key || !secretData?.deepseek_api_key) {
-        throw new Error("Missing OpenRouter or DeepSeek API key in the secure vault.");
+    if (secretError || !secretData?.openrouter_api_key) {
+        throw new Error("No OpenRouter API key configured for this institution.");
     }
 
-    const openrouterKey = secretData.openrouter_api_key;
-    const deepseekKey = secretData.deepseek_api_key;
+    const apiKey = secretData.openrouter_api_key;
 
     // 3. Download the PDF from Storage
     const { data: fileData, error: fileError } = await supabaseClient
@@ -118,54 +115,52 @@ serve(async (req) => {
 
     if (fileError) throw fileError;
 
-    // 4. Extract text natively using pdf.js, as OpenRouter vision models do not accept raw PDF payloads in the image_url array.
-    // If the PDF contains purely scanned handwritten images without digital text layers, the user MUST use the Teacher Dashboard (Frontend)
-    // where the browser's native <canvas> can slice the PDF into JPEG images for OCR.
+    // 4. Safely convert large PDF Blob to base64
     const arrayBuffer = await fileData.arrayBuffer();
     const pdfBytes = new Uint8Array(arrayBuffer);
 
-    const pdf = await getDocument({ data: pdfBytes, useSystemFonts: true }).promise;
-    let extractedText = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(" ");
-        extractedText += pageText + "\n\n---PAGE_BREAK---\n\n";
+    let binary = '';
+    const len = pdfBytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(pdfBytes[i]);
     }
-
-    if (!extractedText.trim()) {
-         throw new Error("Could not extract text from this PDF. If this is a purely scanned handwritten document, the backend Edge Function requires digital text extraction. Please use the Teacher Dashboard (Frontend) to grade handwritten exams via OCR.");
-    }
+    const base64PDF = btoa(binary);
 
     let sessionTotalScore = 0;
     let successfulStudentsCount = 0;
 
-    // 6. Grading via DeepSeek
-    const gradingPrompt = `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the extracted text from the bulk exam document containing multiple students:\n${extractedText}`;
-
-    const deepseekReq = await fetch(DEEPSEEK_API_URL, {
+    // 5. Grade the ENTIRE batch PDF via Gemini 2.0 Flash natively
+    const openRouterReq = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${deepseekKey}`,
-            'Content-Type': 'application/json'
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'deepseek-chat',
+            model: 'google/gemini-2.0-flash-001', // Required model: Massive context window native PDF handling
             temperature: 0.0,
+            seed: 42,
+            max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
-                { role: 'user', content: gradingPrompt }
+                {
+                    role: 'user',
+                    content: [
+                        { type: "text", text: `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the bulk exam document containing multiple students:` },
+                        { type: "image_url", image_url: { url: `data:application/pdf;base64,${base64PDF}` } }
+                    ]
+                }
             ],
-            response_format: { type: 'json_object' }
+            response_format: { type: "json_object" }
         })
     });
 
-    if (!deepseekReq.ok) {
-        const errorText = await deepseekReq.text();
-        throw new Error(`DeepSeek API error: ${deepseekReq.status} ${errorText}`);
+    if (!openRouterReq.ok) {
+        const errorText = await openRouterReq.text();
+        throw new Error(`OpenRouter API error: ${openRouterReq.status} ${errorText}`);
     }
 
-    const aiResponse = await deepseekReq.json();
+    const aiResponse = await openRouterReq.json();
     let content = aiResponse.choices[0].message.content;
 
     if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');

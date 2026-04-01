@@ -32,7 +32,7 @@ const PlaybookDB = {
         // Only admins can query this table directly due to RLS.
         const { data, error } = await supabaseClient
             .from('institution_secrets')
-            .select('openrouter_api_key, deepseek_api_key')
+            .select('openrouter_api_key')
             .eq('institution_id', institutionId)
             .single();
 
@@ -45,14 +45,10 @@ const PlaybookDB = {
         return data;
     },
 
-    async saveInstitutionSecret(institutionId, openrouterKey, deepseekKey) {
+    async saveInstitutionSecret(institutionId, apiKey) {
         const { error } = await supabaseClient
             .from('institution_secrets')
-            .upsert({
-                institution_id: institutionId,
-                openrouter_api_key: openrouterKey,
-                deepseek_api_key: deepseekKey
-            });
+            .upsert({ institution_id: institutionId, openrouter_api_key: apiKey });
         if (error) throw error;
     },
 

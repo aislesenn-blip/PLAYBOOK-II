@@ -22,8 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. Display Current API Key Status
-    const openrouterInput = document.getElementById('admin-openrouter-key');
-    const deepseekInput = document.getElementById('admin-deepseek-key');
+    const apiInput = document.getElementById('admin-api-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -33,13 +32,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
-    if (institutionSecret && institutionSecret.openrouter_api_key && institutionSecret.deepseek_api_key) {
-        openrouterInput.value = institutionSecret.openrouter_api_key;
-        deepseekInput.value = institutionSecret.deepseek_api_key;
+    if (institutionSecret && institutionSecret.openrouter_api_key && institutionSecret.openrouter_api_key !== '') {
+        apiInput.value = institutionSecret.openrouter_api_key;
         statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
         statusDiv.style.color = 'var(--success-color)';
     } else {
-        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until both keys are configured)';
+        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until configured)';
         statusDiv.style.color = 'var(--error-color)';
     }
 
@@ -47,27 +45,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiForm = document.getElementById('admin-api-form');
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const openrouterKey = openrouterInput.value.trim();
-        const deepseekKey = deepseekInput.value.trim();
+        const newKey = apiInput.value.trim();
 
-        if (openrouterKey && deepseekKey) {
+        if (newKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, openrouterKey, deepseekKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey);
 
-                statusDiv.textContent = 'Status: Active ✔️ (Keys updated successfully)';
+                statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
                 statusDiv.style.color = 'var(--success-color)';
 
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
-                localStorage.setItem('PLAYBOOK_OPENROUTER_KEY', openrouterKey);
-                localStorage.setItem('PLAYBOOK_DEEPSEEK_KEY', deepseekKey);
-                localStorage.removeItem('PLAYBOOK_API_KEY');
+                localStorage.setItem('PLAYBOOK_API_KEY', newKey);
 
-                alert("Global Institution Keys saved securely to the encrypted vault.");
+                alert("Global Institution Key saved securely to the encrypted vault.");
             } catch (err) {
-                console.error("Error saving keys:", err);
-                alert("Failed to save the global API keys to the secure database vault. Check your Supabase database schema to ensure `openrouter_api_key` and `deepseek_api_key` exist.");
+                console.error("Error saving key:", err);
+                alert("Failed to save the global API key to the secure database vault.");
             }
         }
     });
