@@ -131,61 +131,38 @@ serve(async (req) => {
     let sessionTotalScore = 0;
     let successfulStudentsCount = 0;
 
-    // 5. OCR via Google AI Studio
-    const ocrPrompt = "Extract all handwritten text, drawn diagrams descriptions, and answers from this bulk exam paper accurately. Identify where each new student begins.";
-
-    const googleReq = await fetch(`${GOOGLE_API_URL}?key=${googleKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{
-                parts: [
-                    { text: ocrPrompt },
-                    {
-                        inline_data: {
-                            mime_type: "application/pdf",
-                            data: base64PDF
-                        }
-                    }
-                ]
-            }],
-            generationConfig: { temperature: 0.0 }
-        })
-    });
-
-    if (!googleReq.ok) {
-        const errorText = await googleReq.text();
-        throw new Error(`Google AI error: ${googleReq.status} ${errorText}`);
-    }
-
-    const googleRes = await googleReq.json();
-    const extractedText = googleRes.candidates[0].content.parts[0].text;
-
-    // 6. Grading via DeepSeek
-    const gradingPrompt = `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the extracted text from the bulk exam document containing multiple students:\n${extractedText}`;
-
-    // deepseek-reasoner does not support temperature=0.0 or response_format: json_object
-    const deepseekReq = await fetch(DEEPSEEK_API_URL, {
+    // 5. Grade the ENTIRE batch PDF via Gemini 2.0 Flash natively
+    const openRouterReq = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${deepseekKey}`,
-            'Content-Type': 'application/json'
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'deepseek-reasoner',
+            model: 'google/gemini-2.0-flash-001', // Required model: Massive context window native PDF handling
+            temperature: 0.0,
+            seed: 42,
+            max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
-                { role: 'user', content: gradingPrompt }
-            ]
+                {
+                    role: 'user',
+                    content: [
+                        { type: "text", text: `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the bulk exam document containing multiple students:` },
+                        { type: "image_url", image_url: { url: `data:application/pdf;base64,${base64PDF}` } }
+                    ]
+                }
+            ],
+            response_format: { type: "json_object" }
         })
     });
 
-    if (!deepseekReq.ok) {
-        const errorText = await deepseekReq.text();
-        throw new Error(`DeepSeek API error: ${deepseekReq.status} ${errorText}`);
+    if (!openRouterReq.ok) {
+        const errorText = await openRouterReq.text();
+        throw new Error(`OpenRouter API error: ${openRouterReq.status} ${errorText}`);
     }
 
-    const aiResponse = await deepseekReq.json();
+    const aiResponse = await openRouterReq.json();
     let content = aiResponse.choices[0].message.content;
 
     if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');

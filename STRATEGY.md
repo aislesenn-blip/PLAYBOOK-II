@@ -25,4 +25,4 @@ The AI engine in Playbook operates in a highly constrained environment to ensure
 
 ## Implementation Details
 
-These architectural rules are embedded deep within the `SYSTEM_PROMPT` in `js/ai.js`, ensuring that every request to the OpenRouter API is bounded by these constraints. The prompt heavily emphasizes keywords like "ZERO TOLERANCE," "FORBIDDEN," and "STRICTLY." By combining prompt engineering with strict JSON schema enforcement and frontend visual cues, Playbook guarantees a highly reliable, deterministic grading process.
+These architectural rules are embedded deep within the `SYSTEM_PROMPT` in `js/ai.js`, ensuring that every request to the DeepSeek API is bounded by these constraints. The prompt heavily emphasizes keywords like "ZERO TOLERANCE," "FORBIDDEN," and "STRICTLY." By combining prompt engineering with strict JSON schema enforcement and frontend visual cues, Playbook guarantees a highly reliable, deterministic grading process.

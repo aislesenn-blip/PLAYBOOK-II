@@ -22,7 +22,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. Display Current API Key Status
-    const apiInput = document.getElementById('admin-api-key');
+    const googleInput = document.getElementById('admin-google-key');
+    const deepseekInput = document.getElementById('admin-deepseek-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -32,12 +33,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
-    if (institutionSecret && institutionSecret.openrouter_api_key && institutionSecret.openrouter_api_key !== '') {
-        apiInput.value = institutionSecret.openrouter_api_key;
+    if (institutionSecret && institutionSecret.google_ai_key && institutionSecret.deepseek_api_key) {
+        googleInput.value = institutionSecret.google_ai_key;
+        deepseekInput.value = institutionSecret.deepseek_api_key;
         statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
         statusDiv.style.color = 'var(--success-color)';
     } else {
-        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until configured)';
+        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until both keys are configured)';
         statusDiv.style.color = 'var(--error-color)';
     }
 
@@ -45,19 +47,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiForm = document.getElementById('admin-api-form');
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const newKey = apiInput.value.trim();
+        const googleKey = googleInput.value.trim();
+        const deepseekKey = deepseekInput.value.trim();
 
-        if (newKey) {
+        if (googleKey && deepseekKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, googleKey, deepseekKey);
 
                 statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
                 statusDiv.style.color = 'var(--success-color)';
 
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
-                localStorage.setItem('PLAYBOOK_API_KEY', newKey);
+                localStorage.setItem('PLAYBOOK_GOOGLE_KEY', googleKey);
+                localStorage.setItem('PLAYBOOK_DEEPSEEK_KEY', deepseekKey);
+                localStorage.removeItem('PLAYBOOK_API_KEY');
 
                 alert("Global Institution Key saved securely to the encrypted vault.");
             } catch (err) {
