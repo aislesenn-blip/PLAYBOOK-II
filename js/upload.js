@@ -178,10 +178,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (file) {
             const fileType = file.type;
             const fileName = file.name.toLowerCase();
+            const parentLabel = schemeFileInput.parentElement; // Cache reference
 
             if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
                 try {
-                    schemeFileInput.parentElement.innerText = 'Analyzing Layout...';
+                    parentLabel.innerText = 'Analyzing Layout...';
                     const arrayBuffer = await file.arrayBuffer();
                     const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
 
@@ -190,39 +191,56 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
 
                     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let base64Images = [];
+                    let extractedText = "";
 
-                    // Mirroring Exam Extraction: Convert pages to Canvas to preserve complete structural layout via AI
+                    // First, attempt to extract native text if the PDF is digital
                     for (let i = 1; i <= pdfDoc.numPages; i++) {
                         const page = await pdfDoc.getPage(i);
-                        const viewport = page.getViewport({ scale: 1.5 });
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-                        ctx.fillStyle = '#FFFFFF';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                        base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        extractedText += pageText + "\n";
                     }
 
-                    try {
-                        schemeFileInput.parentElement.innerText = 'Running AI Vision...';
-                        const fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
-                        rawTextarea.value = fullText;
-                    } catch (ocrError) {
-                        console.error("OCR Failed:", ocrError);
-                        alert("Failed to extract text from PDF via AI Vision.");
-                    } finally {
-                        schemeFileInput.parentElement.innerText = 'Upload Document';
-                        schemeFileInput.parentElement.appendChild(schemeFileInput);
+                    // If we extracted a meaningful amount of text, use it. Otherwise, assume it's a scanned PDF and fall back to OCR.
+                    if (extractedText.trim().length > 50) {
+                        rawTextarea.value = extractedText;
+                        parentLabel.innerText = 'Upload Document';
+                        parentLabel.appendChild(schemeFileInput);
+                    } else {
+                        let base64Images = [];
+
+                        // Mirroring Exam Extraction: Convert pages to Canvas to preserve complete structural layout via AI
+                        for (let i = 1; i <= pdfDoc.numPages; i++) {
+                            const page = await pdfDoc.getPage(i);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                            base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                        }
+
+                        try {
+                            parentLabel.innerText = 'Running AI Vision...';
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from PDF via AI Vision.");
+                        } finally {
+                            parentLabel.innerText = 'Upload Document';
+                            parentLabel.appendChild(schemeFileInput);
+                        }
                     }
 
                 } catch (error) {
                     console.error("Error reading PDF:", error);
                     alert("Failed to read PDF file.");
-                    schemeFileInput.parentElement.innerText = 'Upload Document';
-                    schemeFileInput.parentElement.appendChild(schemeFileInput);
+                    parentLabel.innerText = 'Upload Document';
+                    parentLabel.appendChild(schemeFileInput);
                 }
             } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
                 // Handle .docx using Mammoth.js
