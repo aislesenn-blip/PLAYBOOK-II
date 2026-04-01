@@ -219,9 +219,70 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
             }
         }
 
+// OCR Fallback for Scanned Marking Schemes
+async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+        try {
+            const apiKey = await getSecureKey();
+
+            const userContent = [
+                {
+                    type: "text",
+                    text: "Extract all text from these marking scheme images. Preserve the exact layout, question numbers, and point values. Do not add any conversational text, just output the extracted text."
+                }
+            ];
+
+            base64Images.forEach(imageUrl => {
+                userContent.push({
+                    type: "image_url",
+                    image_url: { url: imageUrl }
+                });
+            });
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.0-flash-001',
+                    temperature: 0.0,
+                    seed: 42,
+                    messages: [
+                        { role: 'user', content: userContent }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content;
+
+        } catch (error) {
+            attempt++;
+            console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
+
+            if (attempt >= maxRetries) {
+                console.error("Error in Playbook OCR engine (All retries exhausted):", error);
+                throw error;
+            }
+
+            const backoffTime = attempt * 3000;
+            console.log(`Self-Healing Loop activated for OCR: Retrying in ${backoffTime / 1000} seconds...`);
+            await delay(backoffTime);
+        }
+    }
+}
+
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 } else {
-            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 }
