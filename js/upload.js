@@ -316,9 +316,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const numPages = pdfDoc.numPages;
 
             // Helper function to detect if a page is mostly blank (using simple pixel variance)
+            // Includes a Safe-Zone Crop to ignore edge watermarks (like CamScanner) and scanner shadows
             function isCanvasBlank(canvas, ctx) {
-                const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+                // Define Safe-Zone (ignore outer 15% margins)
+                const marginX = Math.floor(canvas.width * 0.15);
+                const marginY = Math.floor(canvas.height * 0.15);
+                const safeWidth = canvas.width - (2 * marginX);
+                const safeHeight = canvas.height - (2 * marginY);
+
+                // Only get image data from the safe central zone
+                const pixelBuffer = new Uint32Array(ctx.getImageData(marginX, marginY, safeWidth, safeHeight).data.buffer);
                 let nonWhitePixels = 0;
+
                 // Sample every 10th pixel for performance
                 for (let i = 0; i < pixelBuffer.length; i += 10) {
                     const pixel = pixelBuffer[i];
@@ -334,7 +343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
                 const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
-                return inkCoverage < 0.005; // Less than 0.5% dark pixels means blank
+                return inkCoverage < 0.01; // Less than 1% dark pixels in the center means blank
             }
 
             let sessionTotalScore = 0;
