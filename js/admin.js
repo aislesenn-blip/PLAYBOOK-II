@@ -22,7 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. Display Current API Key Status
-    const groqInput = document.getElementById('admin-groq-key');
+    const awsAccessInput = document.getElementById('admin-aws-access');
+    const awsSecretInput = document.getElementById('admin-aws-secret');
+    const awsRegionInput = document.getElementById('admin-aws-region');
     const deepseekInput = document.getElementById('admin-deepseek-key');
     const statusDiv = document.getElementById('api-status');
 
@@ -33,13 +35,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
-    if (institutionSecret && institutionSecret.groq_api_key && institutionSecret.deepseek_api_key) {
-        groqInput.value = institutionSecret.groq_api_key;
+    if (institutionSecret && institutionSecret.aws_access_key && institutionSecret.aws_secret_key && institutionSecret.aws_region && institutionSecret.deepseek_api_key) {
+        awsAccessInput.value = institutionSecret.aws_access_key;
+        awsSecretInput.value = institutionSecret.aws_secret_key;
+        awsRegionInput.value = institutionSecret.aws_region;
         deepseekInput.value = institutionSecret.deepseek_api_key;
         statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
         statusDiv.style.color = 'var(--success-color)';
     } else {
-        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until both keys are configured)';
+        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until all keys are configured)';
         statusDiv.style.color = 'var(--error-color)';
     }
 
@@ -47,27 +51,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiForm = document.getElementById('admin-api-form');
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const groqKey = groqInput.value.trim();
+        const awsAccess = awsAccessInput.value.trim();
+        const awsSecret = awsSecretInput.value.trim();
+        const awsRegion = awsRegionInput.value.trim();
         const deepseekKey = deepseekInput.value.trim();
 
-        if (groqKey && deepseekKey) {
+        if (awsAccess && awsSecret && awsRegion && deepseekKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, groqKey, deepseekKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, awsAccess, awsSecret, awsRegion, deepseekKey);
 
-                statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
+                statusDiv.textContent = 'Status: Active ✔️ (Keys updated successfully)';
                 statusDiv.style.color = 'var(--success-color)';
 
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
-                localStorage.setItem('PLAYBOOK_GROQ_KEY', groqKey);
+                localStorage.setItem('PLAYBOOK_AWS_ACCESS', awsAccess);
+                localStorage.setItem('PLAYBOOK_AWS_SECRET', awsSecret);
+                localStorage.setItem('PLAYBOOK_AWS_REGION', awsRegion);
                 localStorage.setItem('PLAYBOOK_DEEPSEEK_KEY', deepseekKey);
                 localStorage.removeItem('PLAYBOOK_API_KEY');
 
-                alert("Global Institution Key saved securely to the encrypted vault.");
+                alert("Global Institution Keys saved securely to the encrypted vault.");
             } catch (err) {
                 console.error("Error saving keys:", err);
-                alert("Failed to save the global API keys to the secure database vault. Check your Supabase database schema to ensure `groq_api_key` and `deepseek_api_key` exist.");
+                alert("Failed to save the global API keys to the secure database vault. Check your Supabase database schema to ensure `aws_access_key`, `aws_secret_key`, `aws_region` and `deepseek_api_key` exist.");
             }
         }
     });

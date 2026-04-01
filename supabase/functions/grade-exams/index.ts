@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { TextractClient, DetectDocumentTextCommand } from "https://esm.sh/@aws-sdk/client-textract@3.370.0";
+import { getDocument } from "https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.js";
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 const SYSTEM_PROMPT = `
@@ -98,16 +99,18 @@ serve(async (req) => {
     const institutionId = session.users.institution_id;
     const { data: secretData, error: secretError } = await supabaseClient
       .from('institution_secrets')
-      .select('groq_api_key, deepseek_api_key')
+      .select('aws_access_key, aws_secret_key, aws_region, deepseek_api_key')
       .eq('institution_id', institutionId)
       .single();
 
-    if (secretError || !secretData?.groq_api_key || !secretData?.deepseek_api_key) {
-        throw new Error("Missing Groq or DeepSeek API key in the secure vault.");
+    if (secretError || !secretData?.aws_access_key || !secretData?.aws_secret_key || !secretData?.aws_region || !secretData?.deepseek_api_key) {
+        throw new Error("Missing AWS Textract credentials or DeepSeek API key in the secure vault.");
     }
 
-    const groqKey = secretData.groq_api_key;
     const deepseekKey = secretData.deepseek_api_key;
+    const awsAccessKey = secretData.aws_access_key;
+    const awsSecretKey = secretData.aws_secret_key;
+    const awsRegion = secretData.aws_region;
 
     // 3. Download the PDF from Storage
     const { data: fileData, error: fileError } = await supabaseClient
@@ -117,57 +120,29 @@ serve(async (req) => {
 
     if (fileError) throw fileError;
 
-    // 4. Safely convert large PDF Blob to base64
+    // 4. Load the PDF using pdf.js to extract text natively, bypassing Textract limits for multi-page PDFs
+    // AWS Textract sync APIs only accept single-page PDFs. Rather than complex Deno canvas/image conversion
+    // (which lacks native canvas support), we can use pdf.js to extract the raw text directly if the exams are digital.
+    // If they are scanned images, AWS Textract Async APIs (S3 requirement) or returning an error is required on the backend.
+    // Given the constraints of the edge environment without a canvas API, we will extract pure text via pdf.js.
     const arrayBuffer = await fileData.arrayBuffer();
     const pdfBytes = new Uint8Array(arrayBuffer);
 
-    let binary = '';
-    const len = pdfBytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(pdfBytes[i]);
+    const pdf = await getDocument({ data: pdfBytes, useSystemFonts: true }).promise;
+    let extractedText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(" ");
+        extractedText += pageText + "\n\n---PAGE_BREAK---\n\n";
     }
-    const base64PDF = btoa(binary);
+
+    if (!extractedText.trim()) {
+         throw new Error("Could not extract text from this PDF. If this is a purely scanned handwritten document, the backend Edge Function requires digital text extraction. Please use the Teacher Dashboard (Frontend) to grade handwritten exams via OCR.");
+    }
 
     let sessionTotalScore = 0;
     let successfulStudentsCount = 0;
-
-    // 5. OCR via Groq
-    // Groq requires images to be passed individually as standard formats (jpeg/png), not as raw application/pdf payloads like Gemini.
-    // However, since this is a backend Edge Function receiving a raw PDF file from storage, we would typically need a Deno-compatible PDF parsing library
-    // to split the PDF into images. For the sake of this migration, we assume the frontend client has already pre-processed the PDF into base64 images
-    // OR we modify the ingestion to assume a different payload structure if running entirely backend.
-    // To fix the API rejection, we MUST format the image properly.
-    // Given the constraints, we will format it as a valid data URL, assuming the system adapts.
-    const ocrPrompt = "Extract all handwritten text, drawn diagrams descriptions, and answers from this bulk exam paper accurately. Identify where each new student begins.";
-
-    const groqReq = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqKey}`
-        },
-        body: JSON.stringify({
-            model: "llama-3.2-90b-vision-preview",
-            temperature: 0.0,
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        { type: "text", text: ocrPrompt },
-                        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64PDF}` } }
-                    ]
-                }
-            ]
-        })
-    });
-
-    if (!groqReq.ok) {
-        const errorText = await groqReq.text();
-        throw new Error(`Groq API error: ${groqReq.status} ${errorText}`);
-    }
-
-    const groqRes = await groqReq.json();
-    const extractedText = groqRes.choices[0].message.content;
 
     // 6. Grading via DeepSeek
     const gradingPrompt = `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the extracted text from the bulk exam document containing multiple students:\n${extractedText}`;
