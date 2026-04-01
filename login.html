@@ -28,12 +28,16 @@
             color: var(--accent-color);
             margin-bottom: var(--spacing-sm);
             letter-spacing: -0.02em;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
         }
     </style>
 </head>
 <body>
     <div class="login-card">
-        <div class="login-logo">Playbook</div>
+        <div class="login-logo"><img src="images/logo.png" alt="Playbook Logo" class="logo-img-large"></div>
         <p class="mb-2" style="color: var(--text-secondary);">Enterprise SSO Login</p>
 
         <form id="login-form">
