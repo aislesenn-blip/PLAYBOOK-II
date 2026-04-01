@@ -73,8 +73,8 @@ async function callOpenRouterVision(images, prompt, apiKey) {
             'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            // Using a free, highly capable vision model on OpenRouter
-            model: "meta-llama/llama-3.2-90b-vision-instruct:free",
+            // Using openrouter/free automatically selects the best available free vision model without hitting 404s
+            model: "openrouter/free",
             temperature: 0.0,
             messages: [
                 { role: 'user', content: userContent }
