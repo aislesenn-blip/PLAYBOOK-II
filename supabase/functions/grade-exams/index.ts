@@ -143,7 +143,6 @@ serve(async (req) => {
     // 6. Grading via DeepSeek
     const gradingPrompt = `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the extracted text from the bulk exam document containing multiple students:\n${extractedText}`;
 
-    // deepseek-reasoner does not support temperature=0.0 or response_format: json_object
     const deepseekReq = await fetch(DEEPSEEK_API_URL, {
         method: 'POST',
         headers: {
@@ -151,11 +150,13 @@ serve(async (req) => {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'deepseek-reasoner',
+            model: 'deepseek-chat',
+            temperature: 0.0,
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
                 { role: 'user', content: gradingPrompt }
-            ]
+            ],
+            response_format: { type: 'json_object' }
         })
     });
 
