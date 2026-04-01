@@ -354,7 +354,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
                 const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
-                return inkCoverage < 0.01; // Less than 1% dark pixels in the center means blank
+                return inkCoverage < 0.02; // Less than 2% dark pixels in the center means blank (tolerate bleed-through)
             }
 
             let sessionTotalScore = 0;
