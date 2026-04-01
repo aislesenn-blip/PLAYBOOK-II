@@ -66,8 +66,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 alert("Global Institution Key saved securely to the encrypted vault.");
             } catch (err) {
-                console.error("Error saving key:", err);
-                alert("Failed to save the global API key to the secure database vault.");
+                console.error("Error saving keys:", err);
+                alert("Failed to save the global API keys to the secure database vault. Check your Supabase database schema to ensure `google_ai_key` and `deepseek_api_key` exist.");
             }
         }
     });
