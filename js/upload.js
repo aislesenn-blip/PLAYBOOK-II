@@ -413,14 +413,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const g = (pixel >> 8) & 0xFF;
                     const b = (pixel >> 16) & 0xFF;
 
-                    // Consider pixels darker than #EBEBEB to be actual ink,
-                    // avoiding false positives from scanned paper artifacts or anti-aliasing.
-                    if (r < 235 || g < 235 || b < 235) {
+                    // Consider pixels darker than #C8C8C8 (200) to be actual ink,
+                    // avoiding false positives from light gray scanner shadows or bleed-through.
+                    if (r < 200 || g < 200 || b < 200) {
                         nonWhitePixels++;
                     }
                 }
                 const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
-                return inkCoverage < 0.01; // Less than 1% dark pixels in the center means blank
+                return inkCoverage < 0.015; // Less than 1.5% dark pixels in the center means blank
             }
 
             let sessionTotalScore = 0;
@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (currentStudentPages.length > 0) {
-                studentChunks.push(currentStudentPages);
+                studentChunks.push([...currentStudentPages]);
             }
 
 
