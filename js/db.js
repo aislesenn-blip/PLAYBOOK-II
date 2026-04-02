@@ -72,6 +72,35 @@ const PlaybookDB = {
         return data;
     },
 
+
+
+    // 2.5 COURSES
+    async getCourses() {
+        // Fetch definitively based on auth token instead of localstorage since RLS depends on auth.uid()
+        const { data: authData, error: authErr } = await supabaseClient.auth.getUser();
+        if (authErr || !authData?.user?.id) return [];
+        const userId = authData.user.id;
+
+        const { data, error } = await supabaseClient
+            .from('courses')
+            .select('*')
+            .eq('professor_id', userId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+
+    async createCourse(course) {
+        const { data, error } = await supabaseClient
+            .from('courses')
+            .insert([course])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+
     // 3. SESSIONS (EXAMS)
     async getSessions() {
         const { data, error } = await supabaseClient
