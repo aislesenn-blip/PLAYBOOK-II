@@ -94,11 +94,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     st.grading.questions.forEach(q => {
                         // Safe parse, handle old db schemas
                         const val = q.score !== undefined ? q.score : q.marks_awarded;
-                        const parsed = parseFloat(val);
+                        let parsed = parseFloat(val);
                         if (!isNaN(parsed)) {
+                            // Enforce strict clamp to max score per question if available
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
+                            const parsedMax = parseFloat(maxVal);
+                            if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
+                                parsed = parsedMax;
+                                q.score = parsed; // Sync object
+                            }
                             sTotal += parsed;
                         }
                     });
+                }
+
+                // Enforce global clamp so score never exceeds maxScore
+                if (sTotal > st.grading.maxScore) {
+                    sTotal = st.grading.maxScore;
                 }
                 st.grading.totalScore = sTotal;
 
@@ -273,9 +285,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     let newTotal = 0;
                     student.grading.questions.forEach(q => {
                         const val = q.score !== undefined ? q.score : q.marks_awarded;
-                        const parsed = parseFloat(val);
-                        if (!isNaN(parsed)) newTotal += parsed;
+                        let parsed = parseFloat(val);
+                        if (!isNaN(parsed)) {
+                            // Enforce clamp on recalculation
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
+                            const parsedMax = parseFloat(maxVal);
+                            if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
+                                parsed = parsedMax;
+                                q.score = parsed;
+                            }
+                            newTotal += parsed;
+                        }
                     });
+
+                    if (newTotal > student.grading.maxScore) {
+                        newTotal = student.grading.maxScore;
+                    }
+
                     student.grading.totalScore = newTotal;
                     document.getElementById('total-score-display').textContent = `${newTotal} / ${student.grading.maxScore}`;
 

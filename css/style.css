@@ -128,7 +128,9 @@ a:hover {
     color: var(--accent-color);
     margin-bottom: var(--spacing-lg);
     letter-spacing: -0.02em;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .sidebar-nav {
@@ -175,6 +177,19 @@ a:hover {
     color: #0f172a; /* text-slate-900 */
     letter-spacing: -0.03em;
     margin-right: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo-icon {
+    height: 24px;
+    width: auto;
+}
+
+.logo-icon-large {
+    height: 36px;
+    width: auto;
 }
 
 .hamburger-menu {
@@ -274,14 +289,15 @@ a:hover {
     font-size: 1rem;
     cursor: pointer;
     border-radius: var(--radius-lg); /* Pill shaped */
-    box-shadow: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* soft drop shadow */
     transition: all var(--transition-speed) ease;
+    min-height: 56px;
 }
 
 .btn:hover {
     background-color: var(--accent-hover);
     transform: none;
-    box-shadow: none;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .btn-secondary {
@@ -324,18 +340,21 @@ a:hover {
 .form-control {
     width: 100%;
     padding: 0.85rem 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    border-radius: 16px;
     font-family: var(--font-sans);
     font-size: 1rem;
     color: var(--text-primary);
-    background-color: var(--surface-color);
+    background-color: var(--neutral-bg); /* Soft light slate background like in screenshot */
     transition: all var(--transition-speed) ease;
+    min-height: 56px;
+    font-weight: 500;
 }
 
 .form-control:focus {
     outline: none;
     border-color: var(--accent-color);
+    background-color: var(--surface-color); /* Lightens on focus for contrast */
 }
 
 /* Tables */
