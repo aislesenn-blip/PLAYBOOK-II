@@ -32,7 +32,6 @@ CREATE TABLE public.courses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     professor_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    join_code TEXT UNIQUE, -- 6-digit alphanumeric code for students to join the class
     academic_year TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -44,7 +43,6 @@ CREATE TABLE public.sessions (
     name TEXT NOT NULL,
     marking_scheme TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'needs_review', 'completed', 'failed')),
-    publish_status TEXT DEFAULT 'draft' CHECK (publish_status IN ('draft', 'published')),
     total_students INT DEFAULT 0,
     average_score NUMERIC DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -56,7 +54,6 @@ CREATE TABLE public.exam_submissions (
     student_name TEXT,
     registration_number TEXT,
     pdf_storage_path TEXT,
-    text_content TEXT, -- For online typed assignments
     total_score NUMERIC DEFAULT 0,
     max_score NUMERIC DEFAULT 100,
     grading_data JSONB,
@@ -64,35 +61,6 @@ CREATE TABLE public.exam_submissions (
     error_log TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE TABLE public.students (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    auth_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- If using real auth later
-    email TEXT UNIQUE NOT NULL,
-    full_name TEXT NOT NULL,
-    registration_number TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE public.class_enrollments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
-    course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
-    enrolled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(student_id, course_id)
-);
-
-CREATE TABLE public.appeals (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    submission_id UUID REFERENCES public.exam_submissions(id) ON DELETE CASCADE,
-    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
-    question_id TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'rejected', 'approved')),
-    teacher_response TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    resolved_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE public.grade_overrides (
@@ -198,103 +166,8 @@ CREATE POLICY "Professors manage submissions" ON public.exam_submissions FOR ALL
 -- OVERRIDES
 CREATE POLICY "Professors log overrides" ON public.grade_overrides FOR ALL USING (changed_by = auth.uid());
 
--- NEW TABLES RLS (Students, Enrollments, Appeals)
-ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.class_enrollments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.appeals ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Students manage own profile" ON public.students FOR ALL USING (auth.uid() = auth_id);
-CREATE POLICY "Students see own enrollments" ON public.class_enrollments FOR SELECT USING (student_id IN (SELECT id FROM public.students WHERE auth_id = auth.uid()));
-CREATE POLICY "Professors view enrollments" ON public.class_enrollments FOR SELECT USING (course_id IN (SELECT id FROM public.courses WHERE professor_id = auth.uid()));
-CREATE POLICY "Students manage own appeals" ON public.appeals FOR ALL USING (student_id IN (SELECT id FROM public.students WHERE auth_id = auth.uid()));
-CREATE POLICY "Professors manage session appeals" ON public.appeals FOR ALL USING (
-    submission_id IN (SELECT id FROM public.exam_submissions WHERE session_id IN (SELECT id FROM public.sessions WHERE professor_id = auth.uid()))
-);
-
-
 -- ==========================================
--- 5. API RPC FUNCTIONS FOR HEADLESS STUDENT PORTAL
--- ==========================================
-
--- Function for a student to join a class via a Join Code
-CREATE OR REPLACE FUNCTION public.api_join_class(p_student_auth_id UUID, p_join_code TEXT)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_course_id UUID;
-    v_student_id UUID;
-BEGIN
-    -- Find the course by join code
-    SELECT id INTO v_course_id FROM public.courses WHERE join_code = p_join_code LIMIT 1;
-
-    IF v_course_id IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'error', 'Invalid join code');
-    END IF;
-
-    SELECT id INTO v_student_id FROM public.students WHERE auth_id = p_student_auth_id LIMIT 1;
-
-    IF v_student_id IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'error', 'Student profile not found');
-    END IF;
-
-    INSERT INTO public.class_enrollments (student_id, course_id)
-    VALUES (v_student_id, v_course_id)
-    ON CONFLICT (student_id, course_id) DO NOTHING;
-
-    RETURN jsonb_build_object('success', true, 'message', 'Joined successfully', 'course_id', v_course_id);
-END;
-$$;
-
-
--- Function for a student to submit work
-CREATE OR REPLACE FUNCTION public.api_submit_work(
-    p_student_auth_id UUID,
-    p_session_id UUID,
-    p_text_content TEXT,
-    p_pdf_path TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_student_id UUID;
-    v_student_name TEXT;
-    v_reg_num TEXT;
-    v_submission_id UUID;
-BEGIN
-    SELECT id, full_name, registration_number INTO v_student_id, v_student_name, v_reg_num
-    FROM public.students WHERE auth_id = p_student_auth_id LIMIT 1;
-
-    IF v_student_id IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'error', 'Student not found');
-    END IF;
-
-    INSERT INTO public.exam_submissions (
-        session_id,
-        student_name,
-        registration_number,
-        text_content,
-        pdf_storage_path,
-        status
-    ) VALUES (
-        p_session_id,
-        v_student_name,
-        v_reg_num,
-        p_text_content,
-        p_pdf_path,
-        'pending'
-    ) RETURNING id INTO v_submission_id;
-
-    RETURN jsonb_build_object('success', true, 'submission_id', v_submission_id);
-END;
-$$;
-
-
--- ==========================================
--- 6. STORAGE BUCKETS (FOR EXAM PDFS)
+-- 5. STORAGE BUCKETS (FOR EXAM PDFS)
 -- ==========================================
 
 -- Insert the bucket into the storage.buckets table

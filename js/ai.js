@@ -10,6 +10,8 @@ CRITICAL EVALUATION MANDATE: The images provided represent exactly ONE student's
 
 THE "NO GHOST GRADING" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from skipping any question. Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped", "marks_awarded": 0, and "constructive_feedback": "You did not attempt this question."
 
+THE "HARD CEILING" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from hallucinating marks. Under NO CIRCUMSTANCES can the \`marks_awarded\` for a question exceed the \`max_marks\` defined for that specific question in the marking scheme. If a question is worth 5 marks, the maximum you can award is 5.
+
 *** THE 4 TIERS OF EVALUATION ***
 
 SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. Award full marks for correct concepts.
@@ -168,23 +170,6 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
                 try {
                     const apiKey = await getSecureKey();
 
-                    let userContent = rawText;
-
-                    if (Array.isArray(rawText)) {
-                        userContent = [
-                            {
-                                type: "text",
-                                text: `Here are the scanned pages of a marking scheme. Please transcribe and rewrite them into the strict "Playbook Standard Format".`
-                            }
-                        ];
-                        rawText.forEach(imageUrl => {
-                            userContent.push({
-                                type: "image_url",
-                                image_url: { url: imageUrl }
-                            });
-                        });
-                    }
-
                     const response = await fetch(API_URL, {
                         method: 'POST',
                         headers: {
@@ -202,7 +187,7 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
                                 },
                                 {
                                     role: 'user',
-                                    content: userContent
+                                    content: rawText
                                 }
                             ]
                         })
@@ -236,9 +221,70 @@ Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "
             }
         }
 
+// OCR Fallback for Scanned Marking Schemes
+async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+        try {
+            const apiKey = await getSecureKey();
+
+            const userContent = [
+                {
+                    type: "text",
+                    text: "Extract all text from these marking scheme images. Preserve the exact layout, question numbers, and point values. Do not add any conversational text, just output the extracted text."
+                }
+            ];
+
+            base64Images.forEach(imageUrl => {
+                userContent.push({
+                    type: "image_url",
+                    image_url: { url: imageUrl }
+                });
+            });
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.0-flash-001',
+                    temperature: 0.0,
+                    seed: 42,
+                    messages: [
+                        { role: 'user', content: userContent }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content;
+
+        } catch (error) {
+            attempt++;
+            console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
+
+            if (attempt >= maxRetries) {
+                console.error("Error in Playbook OCR engine (All retries exhausted):", error);
+                throw error;
+            }
+
+            const backoffTime = attempt * 3000;
+            console.log(`Self-Healing Loop activated for OCR: Retrying in ${backoffTime / 1000} seconds...`);
+            await delay(backoffTime);
+        }
+    }
+}
+
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 } else {
-            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 }

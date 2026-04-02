@@ -61,7 +61,7 @@
 <nav class="top-nav">
 <div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
 <div class="flex items-center gap-2">
-<div class="nav-logo">Playbook</div>
+<div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
 <button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
 <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
 <line x1="3" x2="21" y1="12" y2="12"></line>
@@ -88,21 +88,13 @@
 <div class="flex items-center gap-2">
 <span class="font-semibold" id="session-title" style="color: var(--text-primary);">Loading Session...</span>
 </div>
-
-<div id="batch-controls" class="flex gap-1" style="display: none;">
-<button class="btn" id="start-grading-btn">Initialize AI Grading Pipeline</button>
-</div>
-
-<div id="review-controls" class="flex justify-between items-center w-full" style="display: none;">
 <div class="flex items-center gap-1">
 <span class="text-xs font-semibold uppercase tracking-wider" style="font-size: 0.9rem; color: var(--text-secondary);">Student <span id="current-student-idx">0</span> of <span id="total-student-count">0</span>: <strong id="student-name" style="color: var(--text-primary);">...</strong> (<span id="student-reg-num">...</span>)</span>
 <button class="btn btn-secondary" disabled="" id="prev-btn" style="padding: 0.25rem 0.75rem;">← Prev</button>
 <button class="btn btn-secondary" id="next-btn" style="padding: 0.25rem 0.75rem;">Next →</button>
 </div>
-<div class="flex gap-1">
-<button class="btn btn-sm btn-secondary" id="finalize-btn">Save Draft</button>
-<button class="btn btn-sm" id="publish-btn" style="background-color: var(--success-color);">Publish Grades to Students</button>
-</div>
+<div>
+<button class="btn btn-sm" id="finalize-btn">Finalize Scores</button>
 </div>
 </header>
 <!-- Main Content -->

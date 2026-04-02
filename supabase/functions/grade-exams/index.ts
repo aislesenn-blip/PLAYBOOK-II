@@ -177,11 +177,24 @@ serve(async (req) => {
         const student = parsedData.students[i];
 
         let student_total_score = 0;
+        const student_max_score = student.max !== undefined ? student.max : (student.maxScore || 100);
+
         if (student.questions) {
             student.questions.forEach((q: any) => {
-                const marks = parseFloat(q.score !== undefined ? q.score : q.marks_awarded);
-                if (!isNaN(marks)) student_total_score += marks;
+                let marks = parseFloat(q.score !== undefined ? q.score : q.marks_awarded);
+                if (!isNaN(marks)) {
+                    const qMax = parseFloat(q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks));
+                    if (!isNaN(qMax) && qMax > 0 && marks > qMax) {
+                        marks = qMax;
+                        q.score = marks;
+                    }
+                    student_total_score += marks;
+                }
             });
+        }
+
+        if (student_total_score > student_max_score) {
+            student_total_score = student_max_score;
         }
 
         const { error: insertError } = await supabaseClient
@@ -192,7 +205,7 @@ serve(async (req) => {
                 registration_number: student.id !== undefined ? student.id : student.registrationNumber || `ID-UNKNOWN-${i+1}`,
                 pdf_storage_path: session.pdf_storage_path,
                 total_score: student_total_score,
-                max_score: student.max !== undefined ? student.max : student.maxScore || 100,
+                max_score: student_max_score,
                 grading_data: { questions: student.questions },
                 status: 'needs_review',
                 completed_at: new Date().toISOString()
