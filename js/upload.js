@@ -71,20 +71,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const parsedQuestions = student.questions || student.evaluations || student.results || [];
                     if (parsedQuestions && Array.isArray(parsedQuestions)) {
                         parsedQuestions.forEach(q => {
-                            let qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
-                            // Clamp individual question score to its max possible marks (if provided by AI)
-                            const qMax = parseFloat(q.max) || parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
-                            if (!isNaN(qMax) && qMax > 0 && qScore > qMax) {
-                                qScore = qMax;
-                                q.score = qScore; // Update the object so review UI reflects the clamped score
-                            }
+                            const qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
                             studentTotal += qScore;
                         });
-                    }
-
-                    // Global clamp: Student total cannot exceed the explicit maximum marks for the entire exam
-                    if (studentTotal > explicitMaxMarks) {
-                        studentTotal = explicitMaxMarks;
                     }
 
                     await window.supabaseClient.from('exam_submissions').insert({
@@ -160,6 +149,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 
+    // Populate the courses dropdown
+    const courseSelect = document.getElementById('course-select');
+    if (courseSelect) {
+        try {
+            const courses = await window.PlaybookDB.getCourses();
+            if (courses && courses.length > 0) {
+                courses.forEach(course => {
+                    const opt = document.createElement('option');
+                    opt.value = course.id;
+                    opt.textContent = course.name;
+                    courseSelect.appendChild(opt);
+                });
+            } else {
+                const opt = document.createElement('option');
+                opt.value = "";
+                opt.textContent = "No classes found. Please create one on the dashboard first.";
+                opt.disabled = true;
+                courseSelect.appendChild(opt);
+                // We should technically disable form submission if no classes exist,
+                // but let's let the required attribute handle it.
+            }
+        } catch(e) {
+            console.error("Failed to load courses for upload dropdown", e);
+        }
+    }
+
     const form = document.getElementById('upload-form');
     const schemeFileInput = document.getElementById('scheme-file');
     const examsFileInput = document.getElementById('exams-file');
@@ -172,17 +187,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawTextarea = document.getElementById('raw-scheme-text');
     const optimizedTextarea = document.getElementById('optimized-scheme-text');
 
-    // Handle .txt, .pdf, .docx, and image uploads and dump into textarea
+    // Handle .txt / .pdf upload and dump into textarea
     schemeFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-            const fileType = file.type;
-            const fileName = file.name.toLowerCase();
-            const parentLabel = schemeFileInput.parentElement; // Cache reference
+            // Show a quick loading state
+            const prevText = rawTextarea.value;
+            rawTextarea.value = "Reading document, please wait...";
 
-            if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
                 try {
-                    parentLabel.innerText = 'Analyzing Layout...';
                     const arrayBuffer = await file.arrayBuffer();
                     const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
 
@@ -191,108 +205,61 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
 
                     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let extractedText = "";
+                    let imagesArray = [];
 
-                    // First, attempt to extract native text if the PDF is digital
+                    rawTextarea.value = `Rendering ${pdfDoc.numPages} pages for Vision AI...`;
+
                     for (let i = 1; i <= pdfDoc.numPages; i++) {
                         const page = await pdfDoc.getPage(i);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(' ');
-                        extractedText += pageText + "\n";
+                        // Scale up for AI processing (1.5) just like exams
+                        const aiViewport = page.getViewport({ scale: 1.5 });
+                        const aiCanvas = document.createElement('canvas');
+                        const aiCtx = aiCanvas.getContext('2d');
+                        aiCanvas.height = aiViewport.height;
+                        aiCanvas.width = aiViewport.width;
+                        aiCtx.fillStyle = '#FFFFFF';
+                        aiCtx.fillRect(0, 0, aiCanvas.width, aiCanvas.height);
+
+                        await page.render({ canvasContext: aiCtx, viewport: aiViewport }).promise;
+                        const dataUrl = aiCanvas.toDataURL('image/jpeg', 0.8);
+                        imagesArray.push(dataUrl);
+
+                        // Free memory
+                        aiCanvas.width = 0; aiCanvas.height = 0;
                     }
 
-                    // Filter out common scanner watermarks that might be embedded as digital text
-                    const sanitizedText = extractedText.replace(/CamScanner/gi, '').replace(/Scanned with/gi, '').trim();
+                    rawTextarea.value = "Sending scanned images to Playbook AI for OCR and Formatting. Please wait...";
 
-                    // If we extracted a meaningful amount of text, use it. Otherwise, assume it's a scanned PDF and fall back to OCR.
-                    if (sanitizedText.length > 50) {
-                        rawTextarea.value = extractedText;
-                        parentLabel.innerText = 'Upload Document';
-                        parentLabel.appendChild(schemeFileInput);
-                    } else {
-                        let base64Images = [];
+                    // Directly call the AI to optimize from images
+                    try {
+                        const structured = await window.PlaybookAI.optimizeMarkingScheme(imagesArray);
+                        optimizedTextarea.value = structured;
 
-                        // Mirroring Exam Extraction: Convert pages to Canvas to preserve complete structural layout via AI
-                        for (let i = 1; i <= pdfDoc.numPages; i++) {
-                            const page = await pdfDoc.getPage(i);
-                            const viewport = page.getViewport({ scale: 1.5 });
-                            const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-                            ctx.fillStyle = '#FFFFFF';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                            base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
-                        }
-
-                        try {
-                            parentLabel.innerText = 'Running AI Vision...';
-                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
-                            rawTextarea.value = fullText;
-                        } catch (ocrError) {
-                            console.error("OCR Failed:", ocrError);
-                            alert("Failed to extract text from PDF via AI Vision.");
-                        } finally {
-                            parentLabel.innerText = 'Upload Document';
-                            parentLabel.appendChild(schemeFileInput);
-                        }
+                        rawContainer.style.display = 'none';
+                        optimizedContainer.style.display = 'block';
+                    } catch (aiError) {
+                        console.error("AI Error:", aiError);
+                        alert(`Failed to analyze scanned PDF: ${aiError.message}`);
+                        rawTextarea.value = prevText;
                     }
 
                 } catch (error) {
                     console.error("Error reading PDF:", error);
-                    alert("Failed to read PDF file.");
-                    parentLabel.innerText = 'Upload Document';
-                    parentLabel.appendChild(schemeFileInput);
-                }
-            } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
-                // Handle .docx using Mammoth.js
-                try {
-                    const originalBtnText = schemeFileInput.parentElement.innerText;
-                    schemeFileInput.parentElement.innerText = 'Extracting Word Doc...';
-
-                    const arrayBuffer = await file.arrayBuffer();
-                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
-                    rawTextarea.value = result.value;
-
-                } catch (error) {
-                    console.error("Error reading Word document:", error);
-                    alert("Failed to read Word document. Try saving as PDF instead.");
-                } finally {
-                    schemeFileInput.parentElement.innerText = 'Upload Document';
-                    schemeFileInput.parentElement.appendChild(schemeFileInput);
-                }
-            } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-                // Handle Images via OCR Fallback logic natively
-                try {
-                    schemeFileInput.parentElement.innerText = 'Running OCR on Image...';
-
-                    const reader = new FileReader();
-                    reader.onload = async (event) => {
-                        const base64Image = event.target.result;
-                        try {
-                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
-                            rawTextarea.value = fullText;
-                        } catch (ocrError) {
-                            console.error("OCR Failed:", ocrError);
-                            alert("Failed to extract text from image via OCR.");
-                        } finally {
-                            schemeFileInput.parentElement.innerText = 'Upload Document';
-                            schemeFileInput.parentElement.appendChild(schemeFileInput);
-                        }
-                    };
-                    reader.readAsDataURL(file);
-
-                } catch (error) {
-                    console.error("Error reading image:", error);
-                    alert("Failed to process image.");
+                    alert("Failed to read PDF file: " + error.message);
+                    rawTextarea.value = prevText;
                 }
             } else {
-                // Default handling for .txt or other text files
-                const text = await file.text();
-                rawTextarea.value = text;
+                try {
+                    const text = await file.text();
+                    rawTextarea.value = text;
+                } catch (error) {
+                     alert("Failed to read file.");
+                     rawTextarea.value = prevText;
+                }
             }
         }
+        // Reset the file input so the same file can be selected again
+        e.target.value = '';
     });
 
     optimizeBtn.addEventListener('click', async () => {
@@ -336,6 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const sessionName = document.getElementById('session-name').value;
+        const courseId = document.getElementById('course-select').value;
         const totalExamMarksInput = document.getElementById('total-exam-marks');
         const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
@@ -367,6 +335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 1. Create a "Pending" Session in Supabase
             const newSession = {
+                course_id: courseId,
                 professor_id: sessionUser.user_id,
                 name: sessionName,
                 marking_scheme: markingSchemeText,
@@ -414,18 +383,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const numPages = pdfDoc.numPages;
 
             // Helper function to detect if a page is mostly blank (using simple pixel variance)
-            // Includes a Safe-Zone Crop to ignore edge watermarks (like CamScanner) and scanner shadows
             function isCanvasBlank(canvas, ctx) {
-                // Define Safe-Zone (ignore outer 15% margins)
-                const marginX = Math.floor(canvas.width * 0.15);
-                const marginY = Math.floor(canvas.height * 0.15);
-                const safeWidth = canvas.width - (2 * marginX);
-                const safeHeight = canvas.height - (2 * marginY);
-
-                // Only get image data from the safe central zone
-                const pixelBuffer = new Uint32Array(ctx.getImageData(marginX, marginY, safeWidth, safeHeight).data.buffer);
+                const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
                 let nonWhitePixels = 0;
-
                 // Sample every 10th pixel for performance
                 for (let i = 0; i < pixelBuffer.length; i += 10) {
                     const pixel = pixelBuffer[i];
@@ -441,7 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
                 const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
-                return inkCoverage < 0.01; // Less than 1% dark pixels in the center means blank
+                return inkCoverage < 0.005; // Less than 0.5% dark pixels means blank
             }
 
             let sessionTotalScore = 0;
