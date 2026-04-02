@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         let parsed = parseFloat(val);
                         if (!isNaN(parsed)) {
                             // Enforce strict clamp to max score per question if available
-                            const maxVal = q.max_score !== undefined ? q.max_score : q.max_marks;
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
                             const parsedMax = parseFloat(maxVal);
                             if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
                                 parsed = parsedMax;
@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         let parsed = parseFloat(val);
                         if (!isNaN(parsed)) {
                             // Enforce clamp on recalculation
-                            const maxVal = q.max_score !== undefined ? q.max_score : q.max_marks;
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
                             const parsedMax = parseFloat(maxVal);
                             if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
                                 parsed = parsedMax;

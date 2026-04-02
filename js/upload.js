@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         parsedQuestions.forEach(q => {
                             let qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
                             // Clamp individual question score to its max possible marks (if provided by AI)
-                            const qMax = parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
+                            const qMax = parseFloat(q.max) || parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
                             if (!isNaN(qMax) && qMax > 0 && qScore > qMax) {
                                 qScore = qMax;
                                 q.score = qScore; // Update the object so review UI reflects the clamped score
