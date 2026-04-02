@@ -4,16 +4,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabs = document.querySelectorAll('.auth-tab');
     const forms = document.querySelectorAll('.auth-form');
 
+    function switchTab(targetDataAttr) {
+        tabs.forEach(t => t.classList.remove('active'));
+        const activeTab = document.querySelector(`.auth-tab[data-target="${targetDataAttr}"]`);
+        if (activeTab) activeTab.classList.add('active');
+
+        forms.forEach(f => f.style.display = 'none');
+        const targetId = targetDataAttr + '-form';
+        const targetForm = document.getElementById(targetId);
+        if (targetForm) targetForm.style.display = 'block';
+    }
+
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-
-            forms.forEach(f => f.style.display = 'none');
-            const targetId = tab.getAttribute('data-target') + '-form';
-            document.getElementById(targetId).style.display = 'block';
+            switchTab(tab.getAttribute('data-target'));
         });
     });
+
+    // Check URL parameters for initial tab
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('role') === 'professor') {
+        switchTab('prof-signup');
+    }
 
     // 1. Admin/Institution Signup
     const adminForm = document.getElementById('admin-signup-form');
