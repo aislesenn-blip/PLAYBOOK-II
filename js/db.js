@@ -20,6 +20,35 @@ const PlaybookDB = {
         return data;
     },
 
+    async getCourse(id) {
+        const { data, error } = await supabaseClient
+            .from('courses')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    async getEnrolledStudents(courseId) {
+        const { data, error } = await supabaseClient
+            .from('class_enrollments')
+            .select('*, student:students(*)')
+            .eq('course_id', courseId);
+        if (error) throw error;
+        return data;
+    },
+
+    async getSessionsForCourse(courseId) {
+        const { data, error } = await supabaseClient
+            .from('sessions')
+            .select('*')
+            .eq('course_id', courseId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+
     async saveInstitution(institution) {
         const { error } = await supabaseClient
             .from('institutions')

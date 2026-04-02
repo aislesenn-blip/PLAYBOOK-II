@@ -10,6 +10,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const statusEl = document.getElementById('loading-status');
     const detailEl = document.getElementById('loading-detail');
 
+    // Load available courses for the select dropdown
+    const courseSelect = document.getElementById('course-select');
+    if (courseSelect) {
+        try {
+            const courses = await window.PlaybookDB.getCourses();
+            courses.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.id;
+                option.textContent = course.name;
+                courseSelect.appendChild(option);
+            });
+        } catch (err) {
+            console.error("Failed to load courses", err);
+        }
+    }
+
     window.resumeSession = async function resumeSession(meta) {
         overlay.classList.add('active');
         statusEl.textContent = 'Resuming Session...';
@@ -336,6 +352,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const sessionName = document.getElementById('session-name').value;
+        const courseId = document.getElementById('course-select').value;
         const totalExamMarksInput = document.getElementById('total-exam-marks');
         const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
@@ -367,6 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 1. Create a "Pending" Session in Supabase
             const newSession = {
+                course_id: courseId,
                 professor_id: sessionUser.user_id,
                 name: sessionName,
                 marking_scheme: markingSchemeText,
