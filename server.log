@@ -1,18 +1,40 @@
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/http/server.py", line 1329, in <module>
-    test(
-  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/http/server.py", line 1276, in test
-    with ServerClass(addr, HandlerClass) as httpd:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/socketserver.py", line 457, in __init__
-    self.server_bind()
-  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/http/server.py", line 1323, in server_bind
-    return super().server_bind()
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/http/server.py", line 140, in server_bind
-    socketserver.TCPServer.server_bind(self)
-  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/socketserver.py", line 478, in server_bind
-    self.socket.bind(self.server_address)
-OSError: [Errno 98] Address already in use
+127.0.0.1 - - [02/Apr/2026 05:42:59] "GET /login.html HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:43:00] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:43:00] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:43:00] "GET /js/db.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:43:00] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:43:00] "GET /analytics.html?session=123 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:43:01] "GET /js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:43:01] "GET /js/analytics.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /login.html HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /js/db.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /analytics.html?session=123 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:44:52] "GET /js/analytics.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /login.html HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /js/db.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /analytics.html?session=123 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:45:23] "GET /js/analytics.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /login.html HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /js/db.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /analytics.html?session=123 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:01] "GET /js/analytics.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /login.html HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /js/db.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /analytics.html?session=123 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 05:46:48] "GET /js/analytics.js HTTP/1.1" 200 -
