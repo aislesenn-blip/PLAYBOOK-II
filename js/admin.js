@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inviteBtn = document.getElementById('invite-prof-btn');
     if (inviteBtn) {
         inviteBtn.addEventListener('click', () => {
-            const inviteUrl = window.location.origin + '/register.html?role=professor';
+            const inviteUrl = new URL('register.html?role=professor', window.location.href).href;
             navigator.clipboard.writeText(inviteUrl).then(() => {
                 alert(`Invite Link Copied: ${inviteUrl}\n\nSend this to your professors. They must sign up using their @${institution.domain} email address to automatically join your institution.`);
             }).catch(err => {
