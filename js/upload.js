@@ -160,32 +160,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 
-    // Populate the courses dropdown
-    const courseSelect = document.getElementById('course-select');
-    if (courseSelect) {
-        try {
-            const courses = await window.PlaybookDB.getCourses();
-            if (courses && courses.length > 0) {
-                courses.forEach(course => {
-                    const opt = document.createElement('option');
-                    opt.value = course.id;
-                    opt.textContent = course.name;
-                    courseSelect.appendChild(opt);
-                });
-            } else {
-                const opt = document.createElement('option');
-                opt.value = "";
-                opt.textContent = "No classes found. Please create one on the dashboard first.";
-                opt.disabled = true;
-                courseSelect.appendChild(opt);
-                // We should technically disable form submission if no classes exist,
-                // but let's let the required attribute handle it.
-            }
-        } catch(e) {
-            console.error("Failed to load courses for upload dropdown", e);
-        }
-    }
-
     const form = document.getElementById('upload-form');
     const schemeFileInput = document.getElementById('scheme-file');
     const examsFileInput = document.getElementById('exams-file');
@@ -362,7 +336,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const sessionName = document.getElementById('session-name').value;
-        const courseId = document.getElementById('course-select').value;
         const totalExamMarksInput = document.getElementById('total-exam-marks');
         const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
@@ -394,7 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 1. Create a "Pending" Session in Supabase
             const newSession = {
-                course_id: courseId,
                 professor_id: sessionUser.user_id,
                 name: sessionName,
                 marking_scheme: markingSchemeText,

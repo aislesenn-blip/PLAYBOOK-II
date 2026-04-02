@@ -59,38 +59,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-        // Load Courses
-        const courses = await window.PlaybookDB.getCourses();
-        const classesBody = document.getElementById('classes-table-body');
-
-        if (!courses || courses.length === 0) {
-            classesBody.innerHTML = `
-                <tr>
-                    <td colspan="3" class="text-center" style="padding: 1rem; color: var(--text-secondary);">
-                        No classes created yet.
-                    </td>
-                </tr>
-            `;
-        } else {
-            courses.forEach(course => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="font-weight: 600;">${window.escapeHTML(course.name)}</td>
-                    <td>${window.escapeHTML(course.academic_year || '-')}</td>
-                    <td><span class="score-badge" style="font-family: monospace; font-size: 1.1rem; letter-spacing: 2px;">${window.escapeHTML(course.join_code)}</span></td>
-                `;
-                classesBody.appendChild(tr);
-            });
-        }
-
-        // Load Sessions
         const sessions = await window.PlaybookDB.getSessions();
 
-        let awaitingCount = 0;
+        let totalGraded = 0;
         let pendingCount = 0;
-        let publishedCount = 0;
-        // appeals placeholder for now
-        let appealsCount = 0;
+        let totalScoreSum = 0;
+        let sessionsWithScore = 0;
 
         const tbody = document.getElementById('sessions-table-body');
 
@@ -110,51 +84,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             sessions.forEach(session => {
                 const totalStudents = session.total_students || 0;
+                totalGraded += totalStudents;
 
                 const currentStatus = session.status || 'pending';
-                const publishStatus = session.publish_status || 'draft';
 
-                if (currentStatus === 'pending') {
-                    awaitingCount += totalStudents;
-                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase().includes('partial')) {
-                    pendingCount += totalStudents;
-                } else if (currentStatus === 'completed' && publishStatus === 'published') {
-                    publishedCount += totalStudents;
+                if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                    pendingCount++;
+                }
+
+                if (session.average_score !== undefined && session.average_score !== null) {
+                    totalScoreSum += Number(session.average_score);
+                    sessionsWithScore++;
                 }
 
                 const tr = document.createElement('tr');
 
                 let badgeClass = 'neutral';
                 let statusBadgeColor = 'var(--neutral-text)';
-                let displayStatus = currentStatus;
 
                 if (currentStatus === 'completed') {
-                    if (publishStatus === 'published') {
-                        badgeClass = '';
-                        statusBadgeColor = 'var(--success-text)';
-                        displayStatus = 'Published';
-                    } else {
-                        badgeClass = 'partial';
-                        statusBadgeColor = 'var(--partial-text)';
-                        displayStatus = 'Draft (Completed)';
-                    }
-                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase().includes('partial')) {
+                    badgeClass = '';
+                    statusBadgeColor = 'var(--success-text)';
+                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     badgeClass = 'partial';
                     statusBadgeColor = 'var(--partial-text)';
-                    displayStatus = 'Pending Review';
-                } else if (currentStatus === 'pending') {
-                    badgeClass = 'neutral';
-                    statusBadgeColor = 'var(--neutral-text)';
-                    displayStatus = 'Awaiting Grading';
                 }
 
                 let actionLink = '-';
-                if (currentStatus === 'completed' && publishStatus === 'published') {
+                if (currentStatus === 'completed') {
                     actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
-                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase().includes('partial') || (currentStatus === 'completed' && publishStatus === 'draft')) {
+                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
-                } else if (currentStatus === 'pending') {
-                    actionLink = `<a href="review.html?session=${session.id}">Start Grading</a>`;
                 }
 
                 const safeSessionName = window.escapeHTML(String(session.name || ''));
@@ -164,6 +124,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const formattedDate = dateObj.toLocaleDateString();
                 const safeSessionDate = window.escapeHTML(formattedDate);
 
+                // Format display status for UI cleanly
+                let displayStatus = currentStatus;
+                if (displayStatus === 'needs_review' || displayStatus.toLowerCase() === 'pending review' || displayStatus.toLowerCase() === 'pending') {
+                    displayStatus = 'Pending Review';
+                } else {
+                    displayStatus = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
+                }
                 const safeSessionStatus = window.escapeHTML(String(displayStatus || ''));
 
                 tr.innerHTML = `
@@ -177,10 +144,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        document.getElementById('stat-awaiting').textContent = awaitingCount.toLocaleString();
+        document.getElementById('stat-total-graded').textContent = totalGraded.toLocaleString();
         document.getElementById('stat-pending').textContent = pendingCount.toLocaleString();
-        document.getElementById('stat-published').textContent = publishedCount.toLocaleString();
-        document.getElementById('stat-appeals').textContent = appealsCount.toLocaleString();
+
+        const overallAvg = sessionsWithScore > 0 ? Math.round(totalScoreSum / sessionsWithScore) : 0;
+        document.getElementById('stat-avg').textContent = `${overallAvg}%`;
 
     } catch(err) {
         console.error("Error loading dashboard", err);

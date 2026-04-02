@@ -72,6 +72,8 @@ const PlaybookDB = {
         return data;
     },
 
+
+
     // 2.5 COURSES
     async getCourses() {
         // Fetch definitively based on auth token instead of localstorage since RLS depends on auth.uid()
@@ -97,6 +99,7 @@ const PlaybookDB = {
         if (error) throw error;
         return data;
     },
+
 
     // 3. SESSIONS (EXAMS)
     async getSessions() {

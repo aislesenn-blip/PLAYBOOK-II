@@ -48,49 +48,23 @@
 </div>
 </header>
 <!-- Stats Grid -->
-<section class="stats-grid grid gap-2 mb-2" style="grid-template-columns: repeat(4, 1fr);">
+<section class="stats-grid grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
 <div class="card stat-card">
-<div class="stat-number" id="stat-awaiting">0</div>
-<div class="stat-label">Awaiting Grading</div>
+<div class="stat-number" id="stat-total-graded">0</div>
+<div class="stat-label">Exams Graded</div>
 </div>
 <div class="card stat-card">
 <div class="stat-number" id="stat-pending">0</div>
 <div class="stat-label">Pending Reviews</div>
 </div>
 <div class="card stat-card">
-<div class="stat-number" id="stat-published">0</div>
-<div class="stat-label">Grades Published</div>
-</div>
-<div class="card stat-card">
-<div class="stat-number" id="stat-appeals">0</div>
-<div class="stat-label">Active Appeals</div>
+<div class="stat-number" id="stat-avg">0%</div>
+<div class="stat-label">Avg. Class Score</div>
 </div>
 </section>
-<!-- Classes Module -->
-<section class="card mb-2">
-<div class="flex justify-between items-center mb-1">
-<h3>My Classes</h3>
-<button class="btn btn-sm btn-secondary" id="create-class-btn">+ New Class</button>
-</div>
-<div class="table-container">
-<table class="table">
-<thead>
-<tr>
-<th>Class Name</th>
-<th>Academic Year</th>
-<th>Student Join Code</th>
-</tr>
-</thead>
-<tbody id="classes-table-body">
-<!-- Populated by JS -->
-</tbody>
-</table>
-</div>
-</section>
-
 <!-- Recent Activity -->
 <section class="card">
-<h3 class="mb-1">Recent Assignments (Sessions)</h3>
+<h3 class="mb-1">Recent Sessions</h3>
 <div class="table-container"><table class="table">
 <thead>
 <tr>

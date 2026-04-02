@@ -88,21 +88,13 @@
 <div class="flex items-center gap-2">
 <span class="font-semibold" id="session-title" style="color: var(--text-primary);">Loading Session...</span>
 </div>
-
-<div id="batch-controls" class="flex gap-1" style="display: none;">
-<button class="btn" id="start-grading-btn">Initialize AI Grading Pipeline</button>
-</div>
-
-<div id="review-controls" class="flex justify-between items-center w-full" style="display: none;">
 <div class="flex items-center gap-1">
 <span class="text-xs font-semibold uppercase tracking-wider" style="font-size: 0.9rem; color: var(--text-secondary);">Student <span id="current-student-idx">0</span> of <span id="total-student-count">0</span>: <strong id="student-name" style="color: var(--text-primary);">...</strong> (<span id="student-reg-num">...</span>)</span>
 <button class="btn btn-secondary" disabled="" id="prev-btn" style="padding: 0.25rem 0.75rem;">← Prev</button>
 <button class="btn btn-secondary" id="next-btn" style="padding: 0.25rem 0.75rem;">Next →</button>
 </div>
-<div class="flex gap-1">
-<button class="btn btn-sm btn-secondary" id="finalize-btn">Save Draft</button>
-<button class="btn btn-sm" id="publish-btn" style="background-color: var(--success-color);">Publish Grades to Students</button>
-</div>
+<div>
+<button class="btn btn-sm" id="finalize-btn">Finalize Scores</button>
 </div>
 </header>
 <!-- Main Content -->

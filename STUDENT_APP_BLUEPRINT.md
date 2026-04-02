@@ -26,18 +26,16 @@ The Student Portal communicates with the backend exclusively through secure Post
 ### A. Joining a Class (`api_join_class`)
 Allows a student to link their account to a professor's class using a 6-digit Join Code. Note: The Join Code is associated with the *Course* itself, not an individual assignment.
 
-*   **Endpoint:** `supabase.rpc('api_join_class', { p_student_auth_id, p_join_code })`
+*   **Endpoint:** `supabase.rpc('api_join_class', { p_join_code })`
 *   **Parameters:**
-    *   `p_student_auth_id` (UUID): The authenticated student's Supabase Auth ID.
     *   `p_join_code` (TEXT): The 6-digit alphanumeric code provided by the teacher (tied to the `courses` table).
 *   **Returns:** JSON Object `{ "success": boolean, "message": string, "course_id": UUID, "error": string }`
 
 ### B. Submitting an Assignment (`api_submit_work`)
 Allows a student to submit a PDF or typed text for grading. The submission starts in a 'pending' state awaiting the teacher's batch AI grading process.
 
-*   **Endpoint:** `supabase.rpc('api_submit_work', { p_student_auth_id, p_session_id, p_text_content, p_pdf_path })`
+*   **Endpoint:** `supabase.rpc('api_submit_work', { p_session_id, p_text_content, p_pdf_path })`
 *   **Parameters:**
-    *   `p_student_auth_id` (UUID): The authenticated student's ID.
     *   `p_session_id` (UUID): The specific assignment/session ID they are submitting to.
     *   `p_text_content` (TEXT): The content of the submission if it is a typed online assignment (can be null).
     *   `p_pdf_path` (TEXT): The path within the `exams_bucket` Storage where the uploaded PDF resides (can be null).
@@ -129,7 +127,7 @@ CREATE POLICY "Professors manage session appeals" ON public.appeals FOR ALL USIN
 -- The `sessions` table now includes `publish_status TEXT DEFAULT 'draft'`
 -- The `exam_submissions` table now includes `text_content TEXT`
 
-CREATE OR REPLACE FUNCTION public.api_join_class(p_student_auth_id UUID, p_join_code TEXT)
+CREATE OR REPLACE FUNCTION public.api_join_class(p_join_code TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -142,7 +140,7 @@ BEGIN
     IF v_course_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Invalid join code');
     END IF;
-    SELECT id INTO v_student_id FROM public.students WHERE auth_id = p_student_auth_id LIMIT 1;
+    SELECT id INTO v_student_id FROM public.students WHERE auth_id = auth.uid() LIMIT 1;
     IF v_student_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Student profile not found');
     END IF;
@@ -156,7 +154,6 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.api_submit_work(
-    p_student_auth_id UUID,
     p_session_id UUID,
     p_text_content TEXT,
     p_pdf_path TEXT
@@ -172,7 +169,7 @@ DECLARE
     v_submission_id UUID;
 BEGIN
     SELECT id, full_name, registration_number INTO v_student_id, v_student_name, v_reg_num
-    FROM public.students WHERE auth_id = p_student_auth_id LIMIT 1;
+    FROM public.students WHERE auth_id = auth.uid() LIMIT 1;
     IF v_student_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Student not found');
     END IF;
