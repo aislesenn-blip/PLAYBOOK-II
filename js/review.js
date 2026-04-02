@@ -29,23 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('session-title').textContent = session.name;
         document.getElementById('total-student-count').textContent = students.length;
 
-        const batchControls = document.getElementById('batch-controls');
-        const reviewControls = document.getElementById('review-controls');
-        const gradingContainer = document.getElementById('grading-items-container');
-
-        if (session.status === 'pending') {
-            batchControls.style.display = 'flex';
-            reviewControls.style.display = 'none';
-            gradingContainer.innerHTML = `
-                <div style="text-align: center; padding: 3rem;">
-                    <h3>${students.length} Submissions Awaiting Grading</h3>
-                    <p>Click "Initialize AI Grading Pipeline" to start processing.</p>
-                </div>`;
-        } else {
-            batchControls.style.display = 'none';
-            reviewControls.style.display = 'flex';
-            loadStudent(currentIndex);
-        }
+        loadStudent(currentIndex);
 
     } catch (e) {
         console.error(e);
@@ -94,11 +78,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     st.grading.questions.forEach(q => {
                         // Safe parse, handle old db schemas
                         const val = q.score !== undefined ? q.score : q.marks_awarded;
-                        const parsed = parseFloat(val);
+                        let parsed = parseFloat(val);
                         if (!isNaN(parsed)) {
+                            // Enforce strict clamp to max score per question if available
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
+                            const parsedMax = parseFloat(maxVal);
+                            if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
+                                parsed = parsedMax;
+                                q.score = parsed; // Sync object
+                            }
                             sTotal += parsed;
                         }
                     });
+                }
+
+                // Enforce global clamp so score never exceeds maxScore
+                if (sTotal > st.grading.maxScore) {
+                    sTotal = st.grading.maxScore;
                 }
                 st.grading.totalScore = sTotal;
 
@@ -124,9 +120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             session.status = 'completed';
             await window.PlaybookDB.saveSession(session);
 
-            alert('Scores saved. You can publish them when ready.');
-            finalizeBtn.textContent = 'Saved!';
-            setTimeout(() => { finalizeBtn.textContent = originalText; finalizeBtn.disabled = false; }, 2000);
+            alert('Scores finalized and saved. Redirecting to Analytics...');
+            window.location.href = `analytics.html?session=${sessionId}`;
         } catch (error) {
             console.error("Error finalizing scores:", error);
             alert(`Failed to finalize scores: ${error.message}`);
@@ -134,49 +129,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             finalizeBtn.disabled = false;
         }
     });
-
-    const startGradingBtn = document.getElementById('start-grading-btn');
-    if (startGradingBtn) {
-        startGradingBtn.addEventListener('click', async () => {
-            startGradingBtn.textContent = 'Processing...';
-            startGradingBtn.disabled = true;
-            try {
-                session.status = 'needs_review';
-                await window.PlaybookDB.saveSession(session);
-                // In a real app, this would trigger the backend queue.
-                // For now, we simulate the state change.
-                alert('Pipeline Initialized. (Simulated) Submissions are now in review state.');
-                window.location.reload();
-            } catch (err) {
-                console.error(err);
-                alert('Failed to start grading.');
-                startGradingBtn.textContent = 'Initialize AI Grading Pipeline';
-                startGradingBtn.disabled = false;
-            }
-        });
-    }
-
-    const publishBtn = document.getElementById('publish-btn');
-    if (publishBtn) {
-        publishBtn.addEventListener('click', async () => {
-            const confirmed = confirm("Are you sure you want to publish these grades? Students will be able to see them immediately.");
-            if (!confirmed) return;
-
-            publishBtn.textContent = 'Publishing...';
-            publishBtn.disabled = true;
-            try {
-                session.publish_status = 'published';
-                await window.PlaybookDB.saveSession(session);
-                alert('Grades have been successfully published!');
-                window.location.href = `analytics.html?session=${sessionId}`;
-            } catch (err) {
-                console.error(err);
-                alert('Failed to publish grades.');
-                publishBtn.textContent = 'Publish Grades to Students';
-                publishBtn.disabled = false;
-            }
-        });
-    }
 
     function loadStudent(index) {
         const student = students[index];
@@ -273,9 +225,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     let newTotal = 0;
                     student.grading.questions.forEach(q => {
                         const val = q.score !== undefined ? q.score : q.marks_awarded;
-                        const parsed = parseFloat(val);
-                        if (!isNaN(parsed)) newTotal += parsed;
+                        let parsed = parseFloat(val);
+                        if (!isNaN(parsed)) {
+                            // Enforce clamp on recalculation
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
+                            const parsedMax = parseFloat(maxVal);
+                            if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
+                                parsed = parsedMax;
+                                q.score = parsed;
+                            }
+                            newTotal += parsed;
+                        }
                     });
+
+                    if (newTotal > student.grading.maxScore) {
+                        newTotal = student.grading.maxScore;
+                    }
+
                     student.grading.totalScore = newTotal;
                     document.getElementById('total-score-display').textContent = `${newTotal} / ${student.grading.maxScore}`;
 
