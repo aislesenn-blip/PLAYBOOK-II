@@ -21,10 +21,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const sessions = await window.PlaybookDB.getSessions();
 
-        let totalGraded = 0;
+        let awaitingCount = 0;
         let pendingCount = 0;
-        let totalScoreSum = 0;
-        let sessionsWithScore = 0;
+        let publishedCount = 0;
+        // appeals placeholder for now
+        let appealsCount = 0;
 
         const tbody = document.getElementById('sessions-table-body');
 
@@ -44,37 +45,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             sessions.forEach(session => {
                 const totalStudents = session.total_students || 0;
-                totalGraded += totalStudents;
 
                 const currentStatus = session.status || 'pending';
+                const publishStatus = session.publish_status || 'draft';
 
-                if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
-                    pendingCount++;
-                }
-
-                if (session.average_score !== undefined && session.average_score !== null) {
-                    totalScoreSum += Number(session.average_score);
-                    sessionsWithScore++;
+                if (currentStatus === 'pending') {
+                    awaitingCount += totalStudents;
+                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase().includes('partial')) {
+                    pendingCount += totalStudents;
+                } else if (currentStatus === 'completed' && publishStatus === 'published') {
+                    publishedCount += totalStudents;
                 }
 
                 const tr = document.createElement('tr');
 
                 let badgeClass = 'neutral';
                 let statusBadgeColor = 'var(--neutral-text)';
+                let displayStatus = currentStatus;
 
                 if (currentStatus === 'completed') {
-                    badgeClass = '';
-                    statusBadgeColor = 'var(--success-text)';
-                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                    if (publishStatus === 'published') {
+                        badgeClass = '';
+                        statusBadgeColor = 'var(--success-text)';
+                        displayStatus = 'Published';
+                    } else {
+                        badgeClass = 'partial';
+                        statusBadgeColor = 'var(--partial-text)';
+                        displayStatus = 'Draft (Completed)';
+                    }
+                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase().includes('partial')) {
                     badgeClass = 'partial';
                     statusBadgeColor = 'var(--partial-text)';
+                    displayStatus = 'Pending Review';
+                } else if (currentStatus === 'pending') {
+                    badgeClass = 'neutral';
+                    statusBadgeColor = 'var(--neutral-text)';
+                    displayStatus = 'Awaiting Grading';
                 }
 
                 let actionLink = '-';
-                if (currentStatus === 'completed') {
+                if (currentStatus === 'completed' && publishStatus === 'published') {
                     actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
-                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase().includes('partial') || (currentStatus === 'completed' && publishStatus === 'draft')) {
                     actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
+                } else if (currentStatus === 'pending') {
+                    actionLink = `<a href="review.html?session=${session.id}">Start Grading</a>`;
                 }
 
                 const safeSessionName = window.escapeHTML(String(session.name || ''));
@@ -84,13 +99,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const formattedDate = dateObj.toLocaleDateString();
                 const safeSessionDate = window.escapeHTML(formattedDate);
 
-                // Format display status for UI cleanly
-                let displayStatus = currentStatus;
-                if (displayStatus === 'needs_review' || displayStatus.toLowerCase() === 'pending review' || displayStatus.toLowerCase() === 'pending') {
-                    displayStatus = 'Pending Review';
-                } else {
-                    displayStatus = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
-                }
                 const safeSessionStatus = window.escapeHTML(String(displayStatus || ''));
 
                 tr.innerHTML = `
@@ -104,11 +112,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        document.getElementById('stat-total-graded').textContent = totalGraded.toLocaleString();
+        document.getElementById('stat-awaiting').textContent = awaitingCount.toLocaleString();
         document.getElementById('stat-pending').textContent = pendingCount.toLocaleString();
-
-        const overallAvg = sessionsWithScore > 0 ? Math.round(totalScoreSum / sessionsWithScore) : 0;
-        document.getElementById('stat-avg').textContent = `${overallAvg}%`;
+        document.getElementById('stat-published').textContent = publishedCount.toLocaleString();
+        document.getElementById('stat-appeals').textContent = appealsCount.toLocaleString();
 
     } catch(err) {
         console.error("Error loading dashboard", err);
