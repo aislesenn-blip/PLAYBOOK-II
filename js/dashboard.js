@@ -23,21 +23,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         return Math.random().toString(36).substring(2, 8).toUpperCase();
     }
 
-    // Handle Class Creation
+    // Handle Class Creation Modal
     const createClassBtn = document.getElementById('create-class-btn');
-    if (createClassBtn) {
-        createClassBtn.addEventListener('click', async () => {
-            const className = prompt("Enter a name for the new class (e.g., 'Biology 101'):");
-            if (!className) return;
+    const createClassModal = document.getElementById('create-class-modal');
+    const closeClassModalBtn = document.getElementById('close-class-modal-btn');
+    const submitNewClassBtn = document.getElementById('submit-new-class-btn');
 
-            const academicYear = prompt("Enter the academic year (e.g., '2025-2026'):");
-            if (!academicYear) return;
+    if (createClassBtn && createClassModal) {
+        createClassBtn.addEventListener('click', () => {
+            createClassModal.style.display = 'flex';
+        });
+
+        closeClassModalBtn.addEventListener('click', () => {
+            createClassModal.style.display = 'none';
+        });
+
+        submitNewClassBtn.addEventListener('click', async () => {
+            const classNameInput = document.getElementById('new-class-name');
+            const academicYearInput = document.getElementById('new-class-year');
+
+            const className = classNameInput.value.trim();
+            const academicYear = academicYearInput.value.trim();
+
+            if (!className) {
+                alert("Please enter a class name.");
+                return;
+            }
 
             const joinCode = generateJoinCode();
 
             try {
+                const originalText = submitNewClassBtn.textContent;
+                submitNewClassBtn.textContent = 'Creating...';
+                submitNewClassBtn.disabled = true;
+
                 // Fetch the definitive user ID directly from Supabase auth session
-                // This prevents issues if the localStorage session is stale or corrupted
                 const { data: authData, error: authErr } = await window.supabaseClient.auth.getUser();
                 if (authErr || !authData?.user?.id) {
                     throw new Error("Could not verify Supabase authentication. Please log in again.");
@@ -49,11 +69,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     academic_year: academicYear,
                     join_code: joinCode
                 });
+
                 alert(`Class created successfully! The student join code is: ${joinCode}`);
                 window.location.reload();
             } catch (err) {
                 console.error("Failed to create course", err);
-                alert("Failed to create class. Ensure the code doesn't already exist.");
+                alert("Failed to create class. Please try again.");
+                submitNewClassBtn.textContent = 'Create Class';
+                submitNewClassBtn.disabled = false;
             }
         });
     }

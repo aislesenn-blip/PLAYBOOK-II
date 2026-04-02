@@ -51,6 +51,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('analytics-title').textContent = `Analytics: ${session.name}`;
         document.getElementById('stat-total').textContent = students.length;
         document.getElementById('stat-avg').textContent = `${session.average_score || 0}%`;
+
+        // Update Publish Grades button state
+        const publishBtn = document.getElementById('publish-grades-btn');
+        if (publishBtn && session.publish_status === 'published') {
+            publishBtn.textContent = 'Published';
+            publishBtn.disabled = true;
+            publishBtn.style.backgroundColor = 'var(--text-secondary)';
+        }
         document.getElementById('stat-high').textContent = `${session.highest_score || 0}%`; // Note: highest_score might need to be computed or added to schema
 
         // Calculate distribution and question performance
@@ -166,6 +174,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             a.click();
             document.body.removeChild(a);
         });
+
+        // Publish Grades
+        const publishBtn = document.getElementById('publish-grades-btn');
+        if (publishBtn) {
+            publishBtn.addEventListener('click', async () => {
+                const confirmPublish = confirm("Are you sure you want to publish these grades? They will become visible to students in the Student Portal.");
+                if (confirmPublish) {
+                    try {
+                        const originalText = publishBtn.textContent;
+                        publishBtn.textContent = 'Publishing...';
+                        publishBtn.disabled = true;
+
+                        await window.PlaybookDB.publishSession(sessionId);
+
+                        alert("Grades have been successfully published!");
+                        publishBtn.textContent = 'Published';
+                        // Keep it disabled after publishing
+                    } catch (err) {
+                        console.error("Failed to publish grades", err);
+                        alert("Failed to publish grades. Please try again.");
+                        publishBtn.textContent = 'Publish Grades';
+                        publishBtn.disabled = false;
+                    }
+                }
+            });
+        }
 
         // Download All Feedback
         document.getElementById('download-all-feedback-btn').addEventListener('click', async (e) => {

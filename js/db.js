@@ -27,6 +27,14 @@ const PlaybookDB = {
         if (error) throw error;
     },
 
+    async publishSession(sessionId) {
+        const { error } = await supabaseClient
+            .from('sessions')
+            .update({ publish_status: 'published' })
+            .eq('id', sessionId);
+        if (error) throw error;
+    },
+
     // 1.5 SECURE INSTITUTION SECRETS (API KEYS)
     async getInstitutionSecret(institutionId) {
         // Only admins can query this table directly due to RLS.

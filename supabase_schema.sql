@@ -52,6 +52,18 @@ CREATE TABLE public.class_enrollments (
     UNIQUE(student_id, course_id)
 );
 
+CREATE TABLE public.appeals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    submission_id UUID REFERENCES public.exam_submissions(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
+    question_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'rejected', 'approved')),
+    teacher_response TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    resolved_at TIMESTAMP WITH TIME ZONE
+);
+
 CREATE TABLE public.sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
@@ -59,6 +71,7 @@ CREATE TABLE public.sessions (
     name TEXT NOT NULL,
     marking_scheme TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'needs_review', 'completed', 'failed')),
+    publish_status TEXT DEFAULT 'draft',
     total_students INT DEFAULT 0,
     average_score NUMERIC DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -70,6 +83,7 @@ CREATE TABLE public.exam_submissions (
     student_name TEXT,
     registration_number TEXT,
     pdf_storage_path TEXT,
+    text_content TEXT,
     total_score NUMERIC DEFAULT 0,
     max_score NUMERIC DEFAULT 100,
     grading_data JSONB,
@@ -134,6 +148,7 @@ ALTER TABLE public.exam_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.grade_overrides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appeals ENABLE ROW LEVEL SECURITY;
 
 -- 4. RLS POLICIES
 
@@ -198,6 +213,12 @@ CREATE POLICY "Students view own submissions" ON public.exam_submissions FOR SEL
 
 -- OVERRIDES
 CREATE POLICY "Professors log overrides" ON public.grade_overrides FOR ALL USING (changed_by = auth.uid());
+
+-- APPEALS
+CREATE POLICY "Students manage own appeals" ON public.appeals FOR ALL USING (student_id IN (SELECT id FROM public.students WHERE auth_id = auth.uid()));
+CREATE POLICY "Professors manage session appeals" ON public.appeals FOR ALL USING (
+    submission_id IN (SELECT id FROM public.exam_submissions WHERE session_id IN (SELECT id FROM public.sessions WHERE professor_id = auth.uid()))
+);
 
 -- 5. STORAGE BUCKETS (FOR EXAM PDFS)
 
@@ -283,5 +304,36 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.api_submit_work(
+    p_session_id UUID,
+    p_text_content TEXT,
+    p_pdf_path TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_student_id UUID;
+    v_student_name TEXT;
+    v_reg_num TEXT;
+    v_submission_id UUID;
+BEGIN
+    SELECT id, full_name, registration_number INTO v_student_id, v_student_name, v_reg_num
+    FROM public.students WHERE auth_id = auth.uid() LIMIT 1;
+    IF v_student_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Student not found');
+    END IF;
+
+    INSERT INTO public.exam_submissions (
+        session_id, student_name, registration_number, text_content, pdf_storage_path, status
+    ) VALUES (
+        p_session_id, v_student_name, v_reg_num, p_text_content, p_pdf_path, 'pending'
+    ) RETURNING id INTO v_submission_id;
+
+    RETURN jsonb_build_object('success', true, 'submission_id', v_submission_id);
 END;
 $$;
