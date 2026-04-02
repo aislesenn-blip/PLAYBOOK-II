@@ -188,11 +188,17 @@ CREATE POLICY "Admins update users" ON public.users FOR UPDATE USING (institutio
 
 -- COURSES & SESSIONS: Locked to the specific professor.
 CREATE POLICY "Professors manage courses" ON public.courses FOR ALL USING (professor_id = auth.uid());
+CREATE POLICY "Students view enrolled courses" ON public.courses FOR SELECT USING (id IN (SELECT course_id FROM public.class_enrollments WHERE student_id IN (SELECT id FROM public.students WHERE auth_id = auth.uid())));
 CREATE POLICY "Professors manage sessions" ON public.sessions FOR ALL USING (professor_id = auth.uid());
+CREATE POLICY "Students view enrolled sessions" ON public.sessions FOR SELECT USING (course_id IN (SELECT course_id FROM public.class_enrollments WHERE student_id IN (SELECT id FROM public.students WHERE auth_id = auth.uid())));
 
 -- EXAM SUBMISSIONS: Professors can only access submissions tied to their own sessions.
 CREATE POLICY "Professors manage submissions" ON public.exam_submissions FOR ALL USING (
     session_id IN (SELECT id FROM public.sessions WHERE professor_id = auth.uid())
+);
+CREATE POLICY "Students view own submissions" ON public.exam_submissions FOR SELECT USING (
+    registration_number IN (SELECT registration_number FROM public.students WHERE auth_id = auth.uid())
+    AND session_id IN (SELECT id FROM public.sessions WHERE publish_status = 'published')
 );
 
 -- OVERRIDES

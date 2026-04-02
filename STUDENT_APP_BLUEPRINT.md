@@ -47,7 +47,7 @@ Allows a student to submit a PDF or typed text for grading. The submission start
 You will use standard Supabase client methods to query the database, relying on RLS to keep data secure.
 
 *   **View Published Grades:**
-    *   Query the `exam_submissions` table where `student_name` matches the user and `status = 'completed'` AND `publish_status = 'published'`. Do not display grades if `publish_status = 'draft'`.
+    *   Query the `exam_submissions` table where `registration_number` matches the user's registration number and `status = 'completed'`, and join with the `sessions` table to ensure `publish_status = 'published'`. The database RLS policies enforce that you can only read your own submissions from published sessions.
 *   **Submitting an Appeal:**
     *   Perform an `INSERT` into the `appeals` table containing the `submission_id`, `student_id`, `question_id`, and a text `reason`.
 
