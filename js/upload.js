@@ -201,8 +201,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         extractedText += pageText + "\n";
                     }
 
+                    // Filter out common scanner watermarks that might be embedded as digital text
+                    const sanitizedText = extractedText.replace(/CamScanner/gi, '').replace(/Scanned with/gi, '').trim();
+
                     // If we extracted a meaningful amount of text, use it. Otherwise, assume it's a scanned PDF and fall back to OCR.
-                    if (extractedText.trim().length > 50) {
+                    if (sanitizedText.length > 50) {
                         rawTextarea.value = extractedText;
                         parentLabel.innerText = 'Upload Document';
                         parentLabel.appendChild(schemeFileInput);
