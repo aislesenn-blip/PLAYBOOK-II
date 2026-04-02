@@ -81,6 +81,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Load Classes
+    try {
+        const courses = await window.PlaybookDB.getCourses();
+        const classesTbody = document.getElementById('classes-table-body');
+        if (classesTbody) {
+            classesTbody.innerHTML = '';
+            if (courses.length === 0) {
+                classesTbody.innerHTML = '<tr><td colspan="4" class="text-center text-secondary">No classes created yet.</td></tr>';
+            } else {
+                courses.forEach(course => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${window.escapeHTML(course.name)}</strong></td>
+                        <td>${window.escapeHTML(course.academic_year || '-')}</td>
+                        <td>
+                            <span style="font-family: monospace; background: var(--surface-color); padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 1.1rem; font-weight: bold; letter-spacing: 2px;">
+                                ${course.join_code}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="class_detail.html?id=${course.id}" class="btn btn-sm btn-secondary">Manage Class</a>
+                        </td>
+                    `;
+                    classesTbody.appendChild(tr);
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load courses for dashboard", e);
+    }
+
+    // Load Sessions (Assessments)
     try {
         const sessions = await window.PlaybookDB.getSessions();
 
