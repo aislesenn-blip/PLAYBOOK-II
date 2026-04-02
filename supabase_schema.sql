@@ -32,6 +32,7 @@ CREATE TABLE public.courses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     professor_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    join_code TEXT UNIQUE, -- 6-digit alphanumeric code for students to join the class
     academic_year TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -41,7 +42,6 @@ CREATE TABLE public.sessions (
     course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
     professor_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    join_code TEXT UNIQUE, -- 6-digit alphanumeric code for students to join/submit
     marking_scheme TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'needs_review', 'completed', 'failed')),
     publish_status TEXT DEFAULT 'draft' CHECK (publish_status IN ('draft', 'published')),
@@ -168,19 +168,7 @@ CREATE POLICY "Admins update institution" ON public.institutions FOR UPDATE USIN
 -- SECRETS (VAULT): Strictly locked to Admins of that specific institution for Updates.
 -- Professors MUST be able to read the key to perform client-side grading.
 CREATE POLICY "Admins manage secrets" ON public.institution_secrets FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM public.users
-        WHERE id = auth.uid()
-        AND institution_id = public.institution_secrets.institution_id
-        AND role = 'admin'
-    )
-) WITH CHECK (
-    EXISTS (
-        SELECT 1 FROM public.users
-        WHERE id = auth.uid()
-        AND institution_id = public.institution_secrets.institution_id
-        AND role = 'admin'
-    )
+    institution_id = public.get_user_institution_id() AND public.get_user_role() = 'admin'
 );
 
 CREATE POLICY "Professors can read secrets for grading" ON public.institution_secrets FOR SELECT USING (
@@ -238,9 +226,8 @@ DECLARE
     v_course_id UUID;
     v_student_id UUID;
 BEGIN
-    -- Find the course by join code (assuming sessions have join codes linking them to courses, or joining a specific session)
-    -- In this model, let's assume the join_code on the session grants access to that session.
-    SELECT course_id INTO v_course_id FROM public.sessions WHERE join_code = p_join_code LIMIT 1;
+    -- Find the course by join code
+    SELECT id INTO v_course_id FROM public.courses WHERE join_code = p_join_code LIMIT 1;
 
     IF v_course_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Invalid join code');
