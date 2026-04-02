@@ -172,8 +172,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const template = document.getElementById('comprehensive-report-template');
                 const contentArea = document.getElementById('cr-content-area');
 
-                // Reset content area
-                contentArea.innerHTML = '';
+                // Make the wrapper visible but positioned off-screen to avoid rendering empty heights
+                containerWrapper.style.display = 'block';
 
                 // Update cover page
                 document.getElementById('cr-date').textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -196,9 +196,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 } catch(e) {}
 
-                // Generate Session Pages
-                sessionData.forEach((data, index) => {
-                    const { session, submissions } = data;
+                const opt = {
+                    margin:       [0, 0, 0, 0],
+                    filename:     `Playbook_Comprehensive_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, logging: false },
+                    jsPDF:        { unit: 'px', format: [800, 1000], orientation: 'portrait' }
+                };
+
+                // Initialize worker with just the Cover Page (clear out contentArea for this)
+                contentArea.innerHTML = '';
+                await new Promise(resolve => setTimeout(resolve, 50));
+                let worker = html2pdf().set(opt).from(template).toContainer().toCanvas().toPdf();
+
+                // Wait for the first page to be processed in the worker queue
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Process each session page by page to avoid huge html2canvas heights
+                for (let index = 0; index < sessionData.length; index++) {
+                    const { session, submissions } = sessionData[index];
+
+                    // Hide the cover page logic to only render the contentArea parts for subsequent pages
+                    document.getElementById('cr-cover-page').style.display = 'none';
 
                     // Calculate averages
                     let totalScoreSum = 0;
@@ -209,9 +228,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                     const avgPercentage = maxScoreSum > 0 ? ((totalScoreSum / maxScoreSum) * 100).toFixed(1) : 0;
 
-                    // Roster HTML
+                    // --- 1. Roster Page ---
+                    contentArea.innerHTML = '';
                     let sessionHtml = `
-                        <div style="page-break-before: always; min-height: 1000px; padding-top: 40px; box-sizing: border-box;">
+                        <div style="height: 1000px; padding-top: 40px; box-sizing: border-box;">
                             <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
                                 <div style="font-size: 14px; font-weight: 600; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Test ${sessionData.length - index}</div>
                                 <h2 style="margin: 0; font-size: 32px; font-weight: 700; color: #0f172a;">${session.name}</h2>
@@ -278,16 +298,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                     `;
 
-                    contentArea.innerHTML += sessionHtml;
+                    contentArea.innerHTML = sessionHtml;
+                    await new Promise(resolve => setTimeout(resolve, 50));
 
-                    // Student Showcase (Top 1 from this session if available)
+                    worker = worker.get('pdf').then(pdf => {
+                        pdf.addPage();
+                        return pdf;
+                    }).from(template).toContainer().toCanvas().toPdf();
+
+                    // --- 2. Showcase Page ---
                     if (sortedSubs.length > 0) {
                         const topStudent = sortedSubs[0];
                         const stScore = topStudent.grading ? topStudent.grading.totalScore : 0;
                         const stMax = topStudent.grading ? topStudent.grading.maxScore : 100;
 
+                        contentArea.innerHTML = '';
                         let showcaseHtml = `
-                            <div style="page-break-before: always; min-height: 1000px; padding-top: 40px; box-sizing: border-box;">
+                            <div style="height: 1000px; padding-top: 40px; box-sizing: border-box;">
                                 <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
                                     <div style="font-size: 14px; font-weight: 600; color: #8b5cf6; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Student Showcase</div>
                                     <h2 style="margin: 0; font-size: 28px; font-weight: 700; color: #0f172a;">${topStudent.studentName}</h2>
@@ -326,25 +353,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </div>
                             </div>
                         `;
-                        contentArea.innerHTML += showcaseHtml;
+                        contentArea.innerHTML = showcaseHtml;
+                        await new Promise(resolve => setTimeout(resolve, 50));
+
+                        worker = worker.get('pdf').then(pdf => {
+                            pdf.addPage();
+                            return pdf;
+                        }).from(template).toContainer().toCanvas().toPdf();
                     }
-                });
+                }
 
-                containerWrapper.style.display = 'block';
+                // Final save
+                await worker.save();
 
-                // Allow browser to render
-                await new Promise(resolve => setTimeout(resolve, 200));
-
-                const opt = {
-                    margin:       [0, 0, 0, 0],
-                    filename:     `Playbook_Comprehensive_Report_${new Date().toISOString().split('T')[0]}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true, logging: false },
-                    jsPDF:        { unit: 'px', format: [800, 1000], orientation: 'portrait' }
-                };
-
-                await html2pdf().set(opt).from(template).save();
-
+                // Restore DOM
+                document.getElementById('cr-cover-page').style.display = 'flex';
+                contentArea.innerHTML = '';
                 containerWrapper.style.display = 'none';
 
             } catch (error) {
