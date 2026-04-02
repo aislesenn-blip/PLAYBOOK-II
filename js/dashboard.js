@@ -18,6 +18,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Generate a random 6 character alphanumeric code
+    function generateJoinCode() {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    // Handle Class Creation
+    const createClassBtn = document.getElementById('create-class-btn');
+    if (createClassBtn) {
+        createClassBtn.addEventListener('click', async () => {
+            const className = prompt("Enter a name for the new class (e.g., 'Biology 101'):");
+            if (!className) return;
+
+            const academicYear = prompt("Enter the academic year (e.g., '2025-2026'):");
+            if (!academicYear) return;
+
+            const joinCode = generateJoinCode();
+
+            try {
+                // Fetch the definitive user ID directly from Supabase auth session
+                // This prevents issues if the localStorage session is stale or corrupted
+                const { data: authData, error: authErr } = await window.supabaseClient.auth.getUser();
+                if (authErr || !authData?.user?.id) {
+                    throw new Error("Could not verify Supabase authentication. Please log in again.");
+                }
+
+                await window.PlaybookDB.createCourse({
+                    professor_id: authData.user.id,
+                    name: className,
+                    academic_year: academicYear,
+                    join_code: joinCode
+                });
+                alert(`Class created successfully! The student join code is: ${joinCode}`);
+                window.location.reload();
+            } catch (err) {
+                console.error("Failed to create course", err);
+                alert("Failed to create class. Ensure the code doesn't already exist.");
+            }
+        });
+    }
+
     try {
         const sessions = await window.PlaybookDB.getSessions();
 
