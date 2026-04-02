@@ -29,7 +29,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('session-title').textContent = session.name;
         document.getElementById('total-student-count').textContent = students.length;
 
-        loadStudent(currentIndex);
+        const batchControls = document.getElementById('batch-controls');
+        const reviewControls = document.getElementById('review-controls');
+        const gradingContainer = document.getElementById('grading-items-container');
+
+        if (session.status === 'pending') {
+            batchControls.style.display = 'flex';
+            reviewControls.style.display = 'none';
+            gradingContainer.innerHTML = `
+                <div style="text-align: center; padding: 3rem;">
+                    <h3>${students.length} Submissions Awaiting Grading</h3>
+                    <p>Click "Initialize AI Grading Pipeline" to start processing.</p>
+                </div>`;
+        } else {
+            batchControls.style.display = 'none';
+            reviewControls.style.display = 'flex';
+            loadStudent(currentIndex);
+        }
 
     } catch (e) {
         console.error(e);
@@ -120,8 +136,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             session.status = 'completed';
             await window.PlaybookDB.saveSession(session);
 
-            alert('Scores finalized and saved. Redirecting to Analytics...');
-            window.location.href = `analytics.html?session=${sessionId}`;
+            alert('Scores saved. You can publish them when ready.');
+            finalizeBtn.textContent = 'Saved!';
+            setTimeout(() => { finalizeBtn.textContent = originalText; finalizeBtn.disabled = false; }, 2000);
         } catch (error) {
             console.error("Error finalizing scores:", error);
             alert(`Failed to finalize scores: ${error.message}`);
@@ -129,6 +146,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             finalizeBtn.disabled = false;
         }
     });
+
+    const startGradingBtn = document.getElementById('start-grading-btn');
+    if (startGradingBtn) {
+        startGradingBtn.addEventListener('click', async () => {
+            startGradingBtn.textContent = 'Processing...';
+            startGradingBtn.disabled = true;
+            try {
+                session.status = 'needs_review';
+                await window.PlaybookDB.saveSession(session);
+                // In a real app, this would trigger the backend queue.
+                // For now, we simulate the state change.
+                alert('Pipeline Initialized. (Simulated) Submissions are now in review state.');
+                window.location.reload();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to start grading.');
+                startGradingBtn.textContent = 'Initialize AI Grading Pipeline';
+                startGradingBtn.disabled = false;
+            }
+        });
+    }
+
+    const publishBtn = document.getElementById('publish-btn');
+    if (publishBtn) {
+        publishBtn.addEventListener('click', async () => {
+            const confirmed = confirm("Are you sure you want to publish these grades? Students will be able to see them immediately.");
+            if (!confirmed) return;
+
+            publishBtn.textContent = 'Publishing...';
+            publishBtn.disabled = true;
+            try {
+                session.publish_status = 'published';
+                await window.PlaybookDB.saveSession(session);
+                alert('Grades have been successfully published!');
+                window.location.href = `analytics.html?session=${sessionId}`;
+            } catch (err) {
+                console.error(err);
+                alert('Failed to publish grades.');
+                publishBtn.textContent = 'Publish Grades to Students';
+                publishBtn.disabled = false;
+            }
+        });
+    }
 
     function loadStudent(index) {
         const student = students[index];

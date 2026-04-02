@@ -293,6 +293,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 rawTextarea.value = text;
             }
         }
+        // Reset the file input so the same file can be selected again
+        e.target.value = '';
     });
 
     optimizeBtn.addEventListener('click', async () => {
