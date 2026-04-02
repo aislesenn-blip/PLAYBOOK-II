@@ -209,8 +209,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await new Promise(resolve => setTimeout(resolve, 50));
                 let worker = html2pdf().set(opt).from(template).toContainer().toCanvas().toPdf();
 
-                // Wait for the first page to be processed in the worker queue
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // CRITICAL FIX: We MUST await the worker to finish rendering the cover page
+                // before the loop modifies the DOM again. html2pdf queues actions asynchronously.
+                await worker;
 
                 // Process each session page by page to avoid huge html2canvas heights
                 for (let index = 0; index < sessionData.length; index++) {
@@ -306,6 +307,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return pdf;
                     }).from(template).toContainer().toCanvas().toPdf();
 
+                    // CRITICAL FIX: Await the rendering of this specific page.
+                    await worker;
+
                     // --- 2. Showcase Page ---
                     if (sortedSubs.length > 0) {
                         const topStudent = sortedSubs[0];
@@ -360,6 +364,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             pdf.addPage();
                             return pdf;
                         }).from(template).toContainer().toCanvas().toPdf();
+
+                        // CRITICAL FIX: Await the rendering of this specific page.
+                        await worker;
                     }
                 }
 
