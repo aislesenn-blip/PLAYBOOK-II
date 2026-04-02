@@ -36,8 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const joinCode = generateJoinCode();
 
             try {
+                // Fetch the definitive user ID directly from Supabase auth session
+                // This prevents issues if the localStorage session is stale or corrupted
+                const { data: authData, error: authErr } = await window.supabaseClient.auth.getUser();
+                if (authErr || !authData?.user?.id) {
+                    throw new Error("Could not verify Supabase authentication. Please log in again.");
+                }
+
                 await window.PlaybookDB.createCourse({
-                    professor_id: sessionUser.id,
+                    professor_id: authData.user.id,
                     name: className,
                     academic_year: academicYear,
                     join_code: joinCode
