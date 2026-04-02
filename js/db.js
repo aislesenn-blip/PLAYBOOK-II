@@ -72,6 +72,26 @@ const PlaybookDB = {
         return data;
     },
 
+    // 2.5 COURSES
+    async getCourses() {
+        const { data, error } = await supabaseClient
+            .from('courses')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+
+    async createCourse(course) {
+        const { data, error } = await supabaseClient
+            .from('courses')
+            .insert([course])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
     // 3. SESSIONS (EXAMS)
     async getSessions() {
         const { data, error } = await supabaseClient
