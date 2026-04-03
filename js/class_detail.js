@@ -36,55 +36,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('class-year').textContent = window.escapeHTML(course.academic_year || '-');
         document.getElementById('class-join-code').textContent = window.escapeHTML(course.join_code);
 
-        // Fetch Assessments (Sessions)
-        const sessions = await window.PlaybookDB.getSessionsForCourse(courseId);
-
         // Fetch students
         const enrollments = await window.PlaybookDB.getEnrolledStudents(courseId);
-        const enrolledStudents = enrollments.map(e => e.student).filter(s => s); // Extract student data, filter nulls
+        const students = enrollments.map(e => e.student).filter(s => s); // Extract student data, filter nulls
 
-        // Fetch manual submissions to include account-less students in the roster
-        const allStudentsMap = new Map();
-
-        // Add enrolled students first
-        enrolledStudents.forEach(s => {
-            const key = s.registration_number || s.full_name;
-            if (key) allStudentsMap.set(key, { full_name: s.full_name, registration_number: s.registration_number });
-        });
-
-        // Add manual submission students
-        for (const session of sessions) {
-            try {
-                const subs = await window.PlaybookDB.getSubmissionsBySession(session.id);
-                subs.forEach(sub => {
-                    // db.js getSubmissionsBySession returns mapped objects with camelCase keys: studentName, registrationNumber
-                    const name = sub.studentName;
-                    const reg = sub.registrationNumber;
-                    if (name || reg) {
-                        const key = reg || name;
-                        if (!allStudentsMap.has(key)) {
-                            allStudentsMap.set(key, {
-                                full_name: name || 'Unknown Student',
-                                registration_number: reg || '-'
-                            });
-                        }
-                    }
-                });
-            } catch (e) {
-                console.error("Failed to fetch submissions for session", session.id, e);
-            }
-        }
-
-        const allStudents = Array.from(allStudentsMap.values());
-
-        document.getElementById('stat-students-count').textContent = allStudents.length;
+        document.getElementById('stat-students-count').textContent = students.length;
 
         const studentsTbody = document.getElementById('students-table-body');
-        if (allStudents.length === 0) {
+        if (students.length === 0) {
             studentsTbody.innerHTML = '<tr><td colspan="2" class="text-center text-secondary">No students enrolled yet. Provide them the Join Code.</td></tr>';
         } else {
             studentsTbody.innerHTML = '';
-            allStudents.forEach(student => {
+            students.forEach(student => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${window.escapeHTML(student.full_name)}</td>
@@ -93,6 +56,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 studentsTbody.appendChild(tr);
             });
         }
+
+        // Fetch Assessments (Sessions)
+        const sessions = await window.PlaybookDB.getSessionsForCourse(courseId);
 
         document.getElementById('stat-assessments-count').textContent = sessions.length;
 
