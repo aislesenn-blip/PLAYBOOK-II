@@ -1193,3 +1193,21 @@ a:hover {
         display: none !important;
     }
 }
+
+/* Select element overrides for a premium look */
+select.form-control {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1em;
+    padding-right: 2.5rem; /* Make room for the arrow */
+    cursor: pointer;
+}
+
+/* Ensure the dropdown menu itself is also styled consistently, although this has limited browser support, it helps on some platforms */
+select.form-control option {
+    background-color: var(--surface-color);
+    color: var(--text-primary);
+    padding: 12px;
+}
