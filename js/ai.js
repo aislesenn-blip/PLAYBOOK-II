@@ -45,12 +45,21 @@ function parseSectionRules(examInstructions) {
     const rules = {};
     if (!examInstructions || typeof examInstructions !== 'string') return rules;
 
-    // Match "Section X: Answer 2 of 3"
-    const sectionRegex = /Section\s+([A-Z0-9]+)[\s:]+(?:answer|choose|pick)\s+(\d+)/gi;
+    // Match formats like "Section B: answer 2" or "Section B: Answer 2 of 3"
+    const format1 = /Section\s+([A-Z0-9]+)[\s:,-]+(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)/gi;
+
+    // Match formats like "Answer only 2 questions in Section B"
+    const format2 = /(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)[\sA-Za-z]*(?:in|from|of)\s+Section\s+([A-Z0-9]+)/gi;
+
     let match;
-    while ((match = sectionRegex.exec(examInstructions)) !== null) {
+    while ((match = format1.exec(examInstructions)) !== null) {
         rules[match[1].toUpperCase()] = parseInt(match[2], 10);
     }
+
+    while ((match = format2.exec(examInstructions)) !== null) {
+        rules[match[2].toUpperCase()] = parseInt(match[1], 10);
+    }
+
     return rules;
 }
 
