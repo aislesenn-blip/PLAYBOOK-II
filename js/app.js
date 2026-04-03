@@ -14,8 +14,7 @@ if (typeof document !== 'undefined') {
     // Inject custom CSS for notifications
     const styleLink = document.createElement('link');
     styleLink.rel = 'stylesheet';
-    // Use a relative path so it works when deployed in subdirectories (like GitHub Pages)
-    styleLink.href = 'css/notifications.css';
+    styleLink.href = '/css/notifications.css';
     document.head.appendChild(styleLink);
 
     // Create toast container when DOM is ready
