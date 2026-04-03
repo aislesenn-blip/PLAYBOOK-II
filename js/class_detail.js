@@ -156,14 +156,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     // Upload file to Supabase storage
                     const { data: storageData, error: storageError } = await window.supabaseClient.storage
-                        .from('course_materials')
+                        .from('materials_bucket')
                         .upload(filePath, file);
 
                     if (storageError) throw storageError;
 
                     // Get public URL or just save the path
                     const { data: publicUrlData } = window.supabaseClient.storage
-                        .from('course_materials')
+                        .from('materials_bucket')
                         .getPublicUrl(filePath);
 
                     // Save to DB
