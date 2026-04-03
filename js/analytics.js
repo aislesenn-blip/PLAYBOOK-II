@@ -176,7 +176,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         // Publish Grades
-        const publishBtn = document.getElementById('publish-grades-btn');
         if (publishBtn) {
             publishBtn.addEventListener('click', async () => {
                 const confirmPublish = confirm("Are you sure you want to publish these grades? They will become visible to students in the Student Portal.");
