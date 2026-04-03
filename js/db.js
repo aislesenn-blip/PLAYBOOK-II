@@ -127,6 +127,26 @@ const PlaybookDB = {
         return data;
     },
 
+    async getCourseMaterials(courseId) {
+        const { data, error } = await supabaseClient
+            .from('course_materials')
+            .select('*')
+            .eq('course_id', courseId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+
+    async saveCourseMaterial(material) {
+        const { data, error } = await supabaseClient
+            .from('course_materials')
+            .insert([material])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
     async createCourse(course) {
         const { data, error } = await supabaseClient
             .from('courses')

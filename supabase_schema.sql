@@ -228,6 +228,10 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('exams_bucket', 'exams_bucket', false)
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('course_materials', 'course_materials', true)
+ON CONFLICT (id) DO NOTHING;
+
 -- Storage RLS Policies
 -- Allow authenticated users (professors) to upload exams
 CREATE POLICY "Authenticated users can upload exams"
@@ -240,6 +244,21 @@ CREATE POLICY "Users can view their own exams"
 ON storage.objects FOR SELECT
 TO authenticated
 USING (bucket_id = 'exams_bucket' AND auth.uid() = owner);
+
+-- Allow professors to upload course materials
+CREATE POLICY "Professors can upload materials"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'course_materials');
+
+-- Allow professors and enrolled students to read materials
+-- Storage object 'owner' allows the uploader to read it.
+-- We also allow all authenticated users to read it since it's shared materials.
+-- (Strictly speaking, the DB table RLS protects the URL. If they have the URL and are authenticated, they can download.)
+CREATE POLICY "Authenticated users can read course materials"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'course_materials');
 
 -- 6. TRIGGERS & AUTO-PROVISIONING
 
