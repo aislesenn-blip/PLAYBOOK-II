@@ -35,10 +35,32 @@
             </div>
 
             <!-- Right Side: AI Rubric Upload -->
-            <div class="card" style="padding: 1.5rem;">
-                <h3 style="margin-top:0;">AI Marking Scheme</h3>
+            <div class="card flex-col" style="padding: 1.5rem;">
+                <div class="flex justify-between items-center w-100">
+                    <h3 class="mb-1" style="margin-top:0;">Smart Marking Scheme</h3>
+                    <a href="manual.html#standard-marking-scheme" style="font-size: 0.8rem; text-decoration: underline; color: var(--text-secondary);" target="_blank">Format Guide</a>
+                </div>
                 <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 1rem;">Provide the marking scheme. Playbook AI will grade all submitted digital PDFs instantly.</p>
-                <textarea id="marking-scheme-text" class="form-control" rows="6" placeholder="Paste your rubric or expected answers here..."></textarea>
+
+                <div id="raw-scheme-container" style="display: block; width: 100%;">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste raw text below or upload a .txt, .pdf, .docx, or image to let the pre-processor standardize it.</p>
+                    <textarea class="form-control" id="raw-scheme-text" placeholder="Paste raw unstructured marking scheme here..." style="height: 150px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
+                    <div class="flex justify-between items-center">
+                        <label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                            Upload Document
+                            <input accept=".txt, .pdf, .doc, .docx, image/png, image/jpeg, image/jpg" id="scheme-file" style="display: none;" type="file"/>
+                        </label>
+                        <button class="btn" id="optimize-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Auto-Format Scheme</button>
+                    </div>
+                </div>
+
+                <div id="optimized-scheme-container" style="display: none; width: 100%;">
+                    <p style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.5rem;">Review &amp; Tweak Standardized Scheme:</p>
+                    <textarea class="form-control" id="optimized-scheme-text" required="" style="height: 200px; resize: vertical; border-color: var(--success-color);"></textarea>
+                    <div class="flex justify-between mt-1">
+                        <button class="btn btn-secondary" id="reset-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Reset</button>
+                    </div>
+                </div>
 
                 <label class="form-label mt-1">Total Assignment Marks</label>
                 <input class="form-control" id="total-marks" type="number" value="100"/>
@@ -64,10 +86,16 @@
     <h2 id="loading-status" style="margin-top: 1.5rem;">Processing...</h2>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.21/mammoth.browser.min.js"></script>
 <script src="js/app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/ai.js"></script>
 <!-- Assuming you use a serverless edge function for grading these, we leave the JS logic simple -->
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
@@ -90,8 +118,174 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert("Failed to load session data.");
     }
 
+    // Smart Pre-Processor Logic
+    const schemeFileInput = document.getElementById('scheme-file');
+    const optimizeBtn = document.getElementById('optimize-scheme-btn');
+    const resetBtn = document.getElementById('reset-scheme-btn');
+    const rawContainer = document.getElementById('raw-scheme-container');
+    const optimizedContainer = document.getElementById('optimized-scheme-container');
+    const rawTextarea = document.getElementById('raw-scheme-text');
+    const optimizedTextarea = document.getElementById('optimized-scheme-text');
+
+    // Handle .txt, .pdf, .docx, and image uploads and dump into textarea
+    schemeFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const fileType = file.type;
+            const fileName = file.name.toLowerCase();
+            const parentLabel = schemeFileInput.parentElement; // Cache reference
+
+            if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+                try {
+                    parentLabel.innerText = 'Analyzing Layout...';
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+
+                    if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    }
+
+                    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let extractedText = "";
+
+                    // First, attempt to extract native text if the PDF is digital
+                    for (let i = 1; i <= pdfDoc.numPages; i++) {
+                        const page = await pdfDoc.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        extractedText += pageText + "\n";
+                    }
+
+                    // Filter out common scanner watermarks that might be embedded as digital text
+                    const sanitizedText = extractedText.replace(/CamScanner/gi, '').replace(/Scanned with/gi, '').trim();
+
+                    // If we extracted a meaningful amount of text, use it. Otherwise, assume it's a scanned PDF and fall back to OCR.
+                    if (sanitizedText.length > 50) {
+                        rawTextarea.value = extractedText;
+                        parentLabel.innerText = 'Upload Document';
+                        parentLabel.appendChild(schemeFileInput);
+                    } else {
+                        let base64Images = [];
+
+                        // Mirroring Exam Extraction: Convert pages to Canvas to preserve complete structural layout via AI
+                        for (let i = 1; i <= pdfDoc.numPages; i++) {
+                            const page = await pdfDoc.getPage(i);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                            base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                        }
+
+                        try {
+                            parentLabel.innerText = 'Running AI Vision...';
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from PDF via AI Vision.");
+                        } finally {
+                            parentLabel.innerText = 'Upload Document';
+                            parentLabel.appendChild(schemeFileInput);
+                        }
+                    }
+
+                } catch (error) {
+                    console.error("Error reading PDF:", error);
+                    alert("Failed to read PDF file.");
+                    parentLabel.innerText = 'Upload Document';
+                    parentLabel.appendChild(schemeFileInput);
+                }
+            } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
+                // Handle .docx using Mammoth.js
+                try {
+                    const originalBtnText = schemeFileInput.parentElement.innerText;
+                    schemeFileInput.parentElement.innerText = 'Extracting Word Doc...';
+
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    rawTextarea.value = result.value;
+
+                } catch (error) {
+                    console.error("Error reading Word document:", error);
+                    alert("Failed to read Word document. Try saving as PDF instead.");
+                } finally {
+                    schemeFileInput.parentElement.innerText = 'Upload Document';
+                    schemeFileInput.parentElement.appendChild(schemeFileInput);
+                }
+            } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+                // Handle Images via OCR Fallback logic natively
+                try {
+                    schemeFileInput.parentElement.innerText = 'Running OCR on Image...';
+
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const base64Image = event.target.result;
+                        try {
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from image via OCR.");
+                        } finally {
+                            schemeFileInput.parentElement.innerText = 'Upload Document';
+                            schemeFileInput.parentElement.appendChild(schemeFileInput);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+
+                } catch (error) {
+                    console.error("Error reading image:", error);
+                    alert("Failed to process image.");
+                }
+            } else {
+                // Default handling for .txt or other text files
+                const text = await file.text();
+                rawTextarea.value = text;
+            }
+        }
+    });
+
+    optimizeBtn.addEventListener('click', async () => {
+        if (!rawTextarea.value.trim()) {
+            alert('Please paste or upload a raw scheme first.');
+            return;
+        }
+
+        optimizeBtn.textContent = 'Formatting...';
+        optimizeBtn.disabled = true;
+
+        try {
+            const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
+            optimizedTextarea.value = structured;
+
+            rawContainer.style.display = 'none';
+            optimizedContainer.style.display = 'block';
+        } catch (e) {
+            console.error(e);
+            alert(`Failed to optimize: ${e.message}`);
+        } finally {
+            optimizeBtn.textContent = 'Auto-Format Scheme';
+            optimizeBtn.disabled = false;
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        optimizedContainer.style.display = 'none';
+        rawContainer.style.display = 'block';
+        optimizedTextarea.value = '';
+    });
+
     document.getElementById('start-grading-btn').addEventListener('click', async () => {
-        const scheme = document.getElementById('marking-scheme-text').value;
+        let scheme = optimizedTextarea.value.trim();
+        if (!scheme || optimizedContainer.style.display === 'none') {
+            scheme = rawTextarea.value.trim();
+        }
+
         const maxMarks = document.getElementById('total-marks').value;
 
         if (!scheme) {
@@ -107,7 +301,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             await window.PlaybookDB.saveSession({
                 id: sessionId,
                 marking_scheme: scheme,
-                max_score: maxMarks,
                 status: 'processing' // this would trigger a backend edge function in a real env
             });
 
