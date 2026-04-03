@@ -10,17 +10,17 @@ CRITICAL EVALUATION MANDATE: The images provided represent exactly ONE student's
 
 THE "NO MATH" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from calculating the final score or the 'marks_awarded' for any question. Your job is ONLY to extract 'answer_status' (Attempted/Skipped) and provide an array of objects explicitly stating each criterion evaluated and whether the student met it.
 
-THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped".
+THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped" and OMIT justification, criteria_evaluations, and constructive_feedback.
 
 *** EVALUATION PROTOCOL ***
 SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. If the meaning is present, the criteria boolean should be TRUE.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
-Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 3 sentences.
+Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 2 sentences. DO NOT use generic praise.
 Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
 
 *** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
-You MUST generate the "justification" BEFORE the criteria extraction. Output ONLY valid JSON. No markdown formatting. Return the evaluation for this ONE student.
+You MUST generate the "justification" BEFORE the criteria extraction. The justification MUST be exactly 1 sentence. DO NOT use robotic step-by-step formats. Output ONLY valid JSON. No markdown formatting. Return the evaluation for this ONE student.
 
 {
   "studentName": "Extracted Name or 'Unknown'",
@@ -31,11 +31,10 @@ You MUST generate the "justification" BEFORE the criteria extraction. Output ONL
       "section": "Section name if applicable, else 'General'",
       "questionTitle": "Brief title",
       "answer_status": "Answered | Skipped",
-      "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y.",
+      "justification": "The rubric requires X and the student correctly provided X but missed Y.",
       "criteria_evaluations": [
         { "criterion": "Identified correct formula", "met": true },
-        { "criterion": "Substituted variables correctly", "met": false },
-        { "criterion": "Calculated final answer", "met": true }
+        { "criterion": "Calculated final answer", "met": false }
       ],
       "max_marks": 5,
       "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
@@ -238,7 +237,28 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             // by matching any backslash NOT preceded by a backslash AND NOT followed by ", \, /, or n.
             content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
 
-            const parsedData = JSON.parse(content);
+            let parsedData;
+            try {
+                parsedData = JSON.parse(content);
+            } catch (e) {
+                console.warn("JSON parse failed, attempting automatic fallback repair for truncated JSON:", e.message);
+                // Fallback mechanism to fix unterminated JSON chunks due to max token limits
+                // It slices the string back to the last complete closing brace and appends the necessary closing tags.
+                const lastBrace = content.lastIndexOf('}');
+                if (lastBrace !== -1) {
+                    content = content.substring(0, lastBrace + 1);
+                    // Add closing brackets assuming the truncation happened within the "questions" array
+                    content += ']}';
+                    try {
+                        parsedData = JSON.parse(content);
+                        console.log("JSON fallback repair successful. Some questions may be truncated.");
+                    } catch (e2) {
+                        throw new Error(`JSON parsing completely failed even after repair: ${e2.message}`);
+                    }
+                } else {
+                    throw e;
+                }
+            }
 
             // 2. Deterministic Math Engine (Local Post-Processing)
             // AI extracted booleans, now our code calculates the absolute math to ensure 100% accuracy.
