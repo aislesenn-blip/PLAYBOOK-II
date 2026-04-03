@@ -8,7 +8,7 @@ You are the Chief Data Extractor for a World-Class International Examination Boa
 
 CRITICAL EVALUATION MANDATE: The images provided represent exactly ONE student's exam. You MUST evaluate this single student.
 
-THE "NO MATH" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from calculating the final score or the 'marks_awarded' for any question. Your job is ONLY to extract 'answer_status' (Attempted/Skipped) and provide a boolean array of whether the student hit the specific criteria in the marking scheme.
+THE "NO MATH" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from calculating the final score or the 'marks_awarded' for any question. Your job is ONLY to extract 'answer_status' (Attempted/Skipped) and provide an array of objects explicitly stating each criterion evaluated and whether the student met it.
 
 THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped".
 
@@ -32,7 +32,11 @@ You MUST generate the "justification" BEFORE the criteria extraction. Output ONL
       "questionTitle": "Brief title",
       "answer_status": "Answered | Skipped",
       "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y.",
-      "criteria_met": [true, false, true],
+      "criteria_evaluations": [
+        { "criterion": "Identified correct formula", "met": true },
+        { "criterion": "Substituted variables correctly", "met": false },
+        { "criterion": "Calculated final answer", "met": true }
+      ],
       "max_marks": 5,
       "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
     }
@@ -51,6 +55,9 @@ function parseSectionRules(examInstructions) {
     // Match formats like "Answer only 2 questions in Section B"
     const format2 = /(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)[\sA-Za-z]*(?:in|from|of)\s+Section\s+([A-Z0-9]+)/gi;
 
+    // Match global formats like "Answer 2 questions" or "Attempt 3" that apply to the whole exam
+    const formatGlobal = /(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)(?![\sA-Za-z]*(?:in|from|of)\s+Section)/gi;
+
     let match;
     while ((match = format1.exec(examInstructions)) !== null) {
         rules[match[1].toUpperCase()] = parseInt(match[2], 10);
@@ -58,6 +65,17 @@ function parseSectionRules(examInstructions) {
 
     while ((match = format2.exec(examInstructions)) !== null) {
         rules[match[2].toUpperCase()] = parseInt(match[1], 10);
+    }
+
+    // Process global rules
+    while ((match = formatGlobal.exec(examInstructions)) !== null) {
+        // If a global rule is found, we assign it to the 'GENERAL' section
+        // to match how general questions without sections are handled.
+        // We only set it if not already set, or take the strictest (lowest number).
+        const limit = parseInt(match[1], 10);
+        if (!rules["GENERAL"] || limit < rules["GENERAL"]) {
+            rules["GENERAL"] = limit;
+        }
     }
 
     return rules;
@@ -68,12 +86,12 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
     if (!extractedData || !extractedData.questions) return extractedData;
 
     extractedData.questions.forEach(q => {
-        if (q.answer_status === "Skipped" || !q.criteria_met || !Array.isArray(q.criteria_met)) {
+        if (q.answer_status === "Skipped" || !q.criteria_evaluations || !Array.isArray(q.criteria_evaluations)) {
             q.marks_awarded = 0;
         } else {
-            // Calculate proportional score based on boolean array
-            const trueCount = q.criteria_met.filter(Boolean).length;
-            const totalCriteria = q.criteria_met.length || 1;
+            // Calculate proportional score based on evaluations array
+            const trueCount = q.criteria_evaluations.filter(c => c && c.met === true).length;
+            const totalCriteria = q.criteria_evaluations.length || 1;
 
             // Assume equal weighting for criteria unless specified otherwise
             const maxMarks = q.max_marks || q.max || q.maxScore || 1;
