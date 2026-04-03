@@ -123,11 +123,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             createModal.style.display = 'none';
         });
 
-        // Setup Upload Materials (Mock logic for now)
+        // Setup Upload Materials Modal
         const uploadMaterialBtn = document.getElementById('upload-material-btn');
-        if (uploadMaterialBtn) {
+        const uploadMaterialModal = document.getElementById('upload-material-modal');
+        if (uploadMaterialBtn && uploadMaterialModal) {
             uploadMaterialBtn.addEventListener('click', () => {
-                alert("Upload feature coming soon! You will be able to share PDFs directly to the Student Portal.");
+                uploadMaterialModal.style.display = 'flex';
+            });
+            document.getElementById('close-material-modal').addEventListener('click', () => {
+                uploadMaterialModal.style.display = 'none';
+            });
+
+            document.getElementById('upload-material-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button[type="submit"]');
+                const fileInput = document.getElementById('new-material-file');
+                const titleInput = document.getElementById('new-material-title').value;
+                const descInput = document.getElementById('new-material-desc').value;
+
+                if (!fileInput.files.length) {
+                    alert("Please select a file to upload.");
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerText = 'Uploading...';
+
+                try {
+                    const file = fileInput.files[0];
+                    const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+                    const filePath = `${courseId}/${fileName}`;
+
+                    // Upload file to Supabase storage
+                    const { data: storageData, error: storageError } = await window.supabaseClient.storage
+                        .from('course_materials')
+                        .upload(filePath, file);
+
+                    if (storageError) throw storageError;
+
+                    // Get public URL or just save the path
+                    const { data: publicUrlData } = window.supabaseClient.storage
+                        .from('course_materials')
+                        .getPublicUrl(filePath);
+
+                    // Save to DB
+                    await window.PlaybookDB.saveCourseMaterial({
+                        course_id: courseId,
+                        title: titleInput,
+                        description: descInput,
+                        file_url: publicUrlData.publicUrl || filePath
+                    });
+
+                    alert('Material uploaded successfully!');
+                    location.reload();
+                } catch (err) {
+                    console.error("Upload failed", err);
+                    alert('Failed to upload material: ' + err.message);
+                    btn.disabled = false;
+                    btn.innerText = 'Upload Material';
+                }
             });
         }
 
@@ -145,7 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const { data: userData } = await window.supabaseClient.auth.getUser();
 
                 await window.PlaybookDB.saveSession({
-                    course_id: currentCourseId,
+                    course_id: courseId,
                     professor_id: userData.user.id,
                     name: name,
                     description: desc,
@@ -218,6 +272,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
                 assessmentsTbody.appendChild(tr);
             });
+        }
+
+        // Populate Materials Tab
+        const materialsTbody = document.getElementById('materials-table-body');
+        try {
+            const materials = await window.PlaybookDB.getCourseMaterials(courseId);
+            if (!materials || materials.length === 0) {
+                materialsTbody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary" style="padding: 2rem;">No materials uploaded yet.</td></tr>';
+            } else {
+                materialsTbody.innerHTML = '';
+                materials.forEach(mat => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 500;">
+                            ${window.escapeHTML(mat.title)}
+                            ${mat.description ? `<br><small class="text-secondary">${window.escapeHTML(mat.description)}</small>` : ''}
+                        </td>
+                        <td class="text-secondary">${new Date(mat.created_at).toLocaleDateString()}</td>
+                        <td><a href="${window.escapeHTML(mat.file_url)}" target="_blank" class="btn btn-sm btn-secondary">View File</a></td>
+                    `;
+                    materialsTbody.appendChild(tr);
+                });
+            }
+        } catch (e) {
+            console.error("Failed to load materials", e);
+            materialsTbody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary" style="padding: 2rem;">Failed to load materials.</td></tr>';
         }
 
         if (validAvgs > 0) {

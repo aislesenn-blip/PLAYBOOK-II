@@ -168,6 +168,31 @@
             </div>
         </div>
 
+        <!-- Upload Material Modal -->
+        <div class="modal" id="upload-material-modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="flex justify-between items-center mb-1">
+                    <h2>Upload Course Material</h2>
+                    <span class="close-modal" id="close-material-modal" style="cursor: pointer; font-size: 1.5rem;">&times;</span>
+                </div>
+                <form id="upload-material-form">
+                    <div class="form-group">
+                        <label>Material Title</label>
+                        <input type="text" class="form-control" id="new-material-title" required>
+                    </div>
+                    <div class="form-group mt-1">
+                        <label>Description (Optional)</label>
+                        <textarea class="form-control" id="new-material-desc" rows="2"></textarea>
+                    </div>
+                    <div class="form-group mt-1">
+                        <label>File (PDF, Doc, etc.)</label>
+                        <input type="file" class="form-control" id="new-material-file" required>
+                    </div>
+                    <button type="submit" class="btn mt-2">Upload Material</button>
+                </form>
+            </div>
+        </div>
+
     </main>
 </div>
 

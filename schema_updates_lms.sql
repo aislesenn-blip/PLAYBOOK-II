@@ -27,5 +27,20 @@ CREATE POLICY "Students view enrolled materials" ON public.course_materials FOR 
     course_id IN (SELECT course_id FROM public.class_enrollments WHERE student_id IN (SELECT id FROM public.students WHERE auth_id = auth.uid()))
 );
 
+-- Storage setup for course materials
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('course_materials', 'course_materials', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Professors can upload materials"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'course_materials');
+
+CREATE POLICY "Authenticated users can read course materials"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'course_materials');
+
 -- Update the Supabase cache
 NOTIFY pgrst, 'reload schema';
