@@ -14,6 +14,8 @@ THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation obje
 
 *** EVALUATION PROTOCOL ***
 SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. If the meaning is present, the criteria boolean should be TRUE.
+VISUAL DIAGRAMS MANDATE: You are fully capable of and REQUIRED to evaluate visual diagrams, drawings, graphs, and spatial logic. Do not ignore non-textual input. If the rubric asks for a diagram component (e.g., a specific label, arrow, or shape), you must evaluate it.
+LOGICAL CONSISTENCY: The boolean values in your 'criteria_evaluations' MUST strictly align with your 'justification'. If your text says a student got something right, the corresponding criterion must be true.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
 Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 3 sentences.
@@ -32,7 +34,10 @@ You MUST generate the "justification" BEFORE the criteria extraction. Output ONL
       "questionTitle": "Brief title",
       "answer_status": "Answered | Skipped",
       "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y.",
-      "criteria_met": [true, false, true],
+      "criteria_evaluations": [
+        { "criterion": "Identified correct formula", "met": true },
+        { "criterion": "Calculated final answer", "met": false }
+      ],
       "max_marks": 5,
       "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
     }
@@ -51,6 +56,9 @@ function parseSectionRules(examInstructions) {
     // Match formats like "Answer only 2 questions in Section B"
     const format2 = /(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)[\sA-Za-z]*(?:in|from|of)\s+Section\s+([A-Z0-9]+)/gi;
 
+    // Match formats like "Answer only 2 questions in this exam" or "attempt 2 questions"
+    const format3 = /(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)[\sA-Za-z]*(?:in|from|of)?\s*(?:this|the)?\s*(?:exam|paper|test|questions?)?/gi;
+
     let match;
     while ((match = format1.exec(examInstructions)) !== null) {
         rules[match[1].toUpperCase()] = parseInt(match[2], 10);
@@ -58,6 +66,13 @@ function parseSectionRules(examInstructions) {
 
     while ((match = format2.exec(examInstructions)) !== null) {
         rules[match[2].toUpperCase()] = parseInt(match[1], 10);
+    }
+
+    // Only apply format 3 if no section specific rules were found to avoid overriding
+    if (Object.keys(rules).length === 0) {
+        while ((match = format3.exec(examInstructions)) !== null) {
+            rules["GENERAL"] = parseInt(match[1], 10);
+        }
     }
 
     return rules;
@@ -68,20 +83,33 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
     if (!extractedData || !extractedData.questions) return extractedData;
 
     extractedData.questions.forEach(q => {
-        if (q.answer_status === "Skipped" || !q.criteria_met || !Array.isArray(q.criteria_met)) {
+        // Fallback for older formats or if the AI still hallucinates criteria_met
+        const criteriaList = q.criteria_evaluations || q.criteria_met;
+
+        if (q.answer_status === "Skipped" || !criteriaList || !Array.isArray(criteriaList)) {
             q.marks_awarded = 0;
         } else {
-            // Calculate proportional score based on boolean array
-            const trueCount = q.criteria_met.filter(Boolean).length;
-            const totalCriteria = q.criteria_met.length || 1;
+            let trueCount = 0;
+            let totalCriteria = criteriaList.length || 1;
+
+            if (q.criteria_evaluations) {
+                 trueCount = criteriaList.filter(c => c && c.met === true).length;
+            } else {
+                 trueCount = criteriaList.filter(Boolean).length;
+            }
 
             // Assume equal weighting for criteria unless specified otherwise
-            const maxMarks = q.max_marks || q.max || q.maxScore || 1;
+            // Fallback to 1 to prevent undefined/NaN crashes if AI omits it
+            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : (q.maxScore !== undefined ? q.maxScore : 1));
+            const maxMarks = parseFloat(maxMarksRaw) || 1;
+
+            q.max_marks = maxMarks; // Ensure it's defined on the object for the UI
 
             // Proportional Math: (trueCount / totalCriteria) * maxMarks
             let calculatedScore = (trueCount / totalCriteria) * maxMarks;
 
-            // Hard Ceiling Enforcement
+            // Hard Ceiling Enforcement and NaN prevention
+            if (isNaN(calculatedScore)) calculatedScore = 0;
             q.marks_awarded = Math.min(Math.round(calculatedScore * 100) / 100, maxMarks);
         }
     });
