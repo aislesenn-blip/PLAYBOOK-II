@@ -96,6 +96,74 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         document.getElementById('stat-assessments-count').textContent = sessions.length;
 
+        // Setup Tabs
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.fontWeight = 'normal';
+                    b.style.color = 'var(--text-secondary)';
+                });
+                btn.classList.add('active');
+                btn.style.fontWeight = 'bold';
+                btn.style.color = 'var(--text-primary)';
+
+                document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                document.getElementById(btn.dataset.tab).style.display = 'block';
+            });
+        });
+
+        // Setup Create Assignment Modal
+        const createModal = document.getElementById('create-assignment-modal');
+        document.getElementById('create-assignment-btn').addEventListener('click', () => {
+            createModal.style.display = 'flex';
+        });
+        document.getElementById('close-assignment-modal').addEventListener('click', () => {
+            createModal.style.display = 'none';
+        });
+
+        // Setup Upload Materials (Mock logic for now)
+        const uploadMaterialBtn = document.getElementById('upload-material-btn');
+        if (uploadMaterialBtn) {
+            uploadMaterialBtn.addEventListener('click', () => {
+                alert("Upload feature coming soon! You will be able to share PDFs directly to the Student Portal.");
+            });
+        }
+
+        document.getElementById('create-assignment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerText = 'Creating...';
+
+            try {
+                const name = document.getElementById('new-assign-name').value;
+                const desc = document.getElementById('new-assign-desc').value;
+                const due = document.getElementById('new-assign-due').value;
+
+                const { data: userData } = await window.supabaseClient.auth.getUser();
+
+                await window.PlaybookDB.saveSession({
+                    course_id: currentCourseId,
+                    professor_id: userData.user.id,
+                    name: name,
+                    description: desc,
+                    due_date: new Date(due).toISOString(),
+                    session_type: 'digital',
+                    status: 'pending',
+                    publish_status: 'published' // It's visible to students immediately as an open assignment
+                });
+
+                alert('Online assignment published to students!');
+                location.reload();
+            } catch (err) {
+                alert('Failed to create assignment: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = 'Publish to Students';
+            }
+        });
+
         const assessmentsTbody = document.getElementById('assessments-table-body');
         let totalAvgSum = 0;
         let validAvgs = 0;
@@ -106,8 +174,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             assessmentsTbody.innerHTML = '';
             sessions.forEach(session => {
                 const tr = document.createElement('tr');
-                const d = new Date(session.created_at);
-                const dateStr = d.toLocaleDateString();
+                const isDigital = session.session_type === 'digital';
+                const typeLabel = isDigital ? '💻 Online' : '📄 Offline (Scanned)';
+
+                // For digital, show due date. For offline, show created date.
+                let dateDisplay = '-';
+                if (isDigital && session.due_date) {
+                    dateDisplay = new Date(session.due_date).toLocaleString();
+                } else if (!isDigital) {
+                    dateDisplay = new Date(session.created_at).toLocaleDateString();
+                }
 
                 let statusBadge = '';
                 if (session.status === 'completed') {
@@ -124,14 +200,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     validAvgs++;
                 }
 
+                // Decide action button logic based on digital vs offline
+                let actionBtn = `<a href="analytics.html?session_id=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Report</a>`;
+
+                if (isDigital && session.status === 'pending') {
+                    actionBtn = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
+                } else if (!isDigital && session.status === 'pending') {
+                    actionBtn = `<a href="review.html?session_id=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
+                }
+
                 tr.innerHTML = `
-                    <td><strong>${window.escapeHTML(session.name)}</strong></td>
-                    <td class="text-secondary" style="font-size: 0.9rem;">${dateStr}</td>
+                    <td style="font-weight: 500;">${window.escapeHTML(session.name)}</td>
+                    <td class="text-secondary">${typeLabel}</td>
+                    <td class="text-secondary">${dateDisplay}</td>
                     <td>${statusBadge}</td>
-                    <td><strong>${session.status === 'completed' ? (session.average_score || 0) + '%' : '-'}</strong></td>
-                    <td>
-                        <a href="analytics.html?session=${session.id}" class="btn btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">View Stats</a>
-                    </td>
+                    <td>${actionBtn}</td>
                 `;
                 assessmentsTbody.appendChild(tr);
             });
