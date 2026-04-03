@@ -37,3 +37,12 @@
 127.0.0.1 - - [03/Apr/2026 10:07:23] "GET /js/ai.js HTTP/1.1" 200 -
 127.0.0.1 - - [03/Apr/2026 10:07:23] "GET /js/upload.js HTTP/1.1" 200 -
 127.0.0.1 - - [03/Apr/2026 10:07:23] "GET /js/queue.js HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:32] "GET /login.html HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:32] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:32] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:33] "GET /js/db.js HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:33] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:34] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:34] "GET /js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:34] "GET /js/queue.js HTTP/1.1" 200 -
+127.0.0.1 - - [03/Apr/2026 13:16:34] "GET /js/dashboard.js HTTP/1.1" 200 -
