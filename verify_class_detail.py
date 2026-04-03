@@ -14,20 +14,27 @@ def run_cuj(page):
                 { id: 's1', student_name: 'Alice Smith', registration_number: 'REG001' },
                 { id: 's2', student_name: 'Bob Jones', registration_number: 'REG002' }
             ],
+            getCourseMaterials: async () => [],
             createSession: async () => ({ id: 'new_session_id' })
         };
     """)
     page.goto("http://localhost:3000/class_detail.html?id=test_course_id")
     page.wait_for_timeout(2000)
 
-    # 1. View Assignments (default tab)
-    page.screenshot(path="/home/jules/verification/screenshots/class_detail_assignments.png")
+    # Click Materials tab first using javascript to bypass any overlay issues
+    page.evaluate("document.querySelector('button.tab-btn[data-tab=\"materials-tab\"]').click()")
+    page.wait_for_timeout(500)
+
+    # Click Upload Material to open modal
+    page.evaluate("document.querySelector('#upload-material-btn').click()")
+    page.wait_for_timeout(500)
+    page.screenshot(path="/home/jules/verification/screenshots/class_detail_upload_modal.png")
     page.wait_for_timeout(500)
 
 if __name__ == "__main__":
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
+        context = browser.new_context(record_video_dir="/home/jules/verification/videos")
         page = context.new_page()
         try:
             run_cuj(page)
