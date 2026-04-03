@@ -14,6 +14,8 @@ THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation obje
 
 *** EVALUATION PROTOCOL ***
 SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. If the meaning is present, the criteria boolean should be TRUE.
+VISUAL DIAGRAMS MANDATE: You are fully capable of and REQUIRED to evaluate visual diagrams, drawings, graphs, and spatial logic. Do not ignore non-textual input. If the rubric asks for a diagram component (e.g., a specific label, arrow, or shape), you must evaluate it.
+LOGICAL CONSISTENCY: The boolean values in your 'criteria_evaluations' MUST strictly align with your 'justification'. If your text says a student got something right, the corresponding criterion must be true.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
 Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 2 sentences. DO NOT use generic praise.
@@ -93,12 +95,17 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             const totalCriteria = q.criteria_evaluations.length || 1;
 
             // Assume equal weighting for criteria unless specified otherwise
-            const maxMarks = q.max_marks || q.max || q.maxScore || 1;
+            // Fallback to 1 to prevent undefined/NaN crashes if AI omits it
+            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : (q.maxScore !== undefined ? q.maxScore : 1));
+            const maxMarks = parseFloat(maxMarksRaw) || 1;
+
+            q.max_marks = maxMarks; // Ensure it's defined on the object for the UI
 
             // Proportional Math: (trueCount / totalCriteria) * maxMarks
             let calculatedScore = (trueCount / totalCriteria) * maxMarks;
 
-            // Hard Ceiling Enforcement
+            // Hard Ceiling Enforcement and NaN prevention
+            if (isNaN(calculatedScore)) calculatedScore = 0;
             q.marks_awarded = Math.min(Math.round(calculatedScore * 100) / 100, maxMarks);
         }
     });
