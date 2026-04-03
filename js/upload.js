@@ -78,7 +78,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             try {
-                let gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText);
+                const examInstructions = meta.examInstructions || "";
+                const explicitMaxMarks = meta.explicitMaxMarks || 100;
+                let gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText, examInstructions, explicitMaxMarks);
 
                 for (let i = 0; i < gradedStudents.length; i++) {
                     const student = gradedStudents[i];
@@ -356,6 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalExamMarksInput = document.getElementById('total-exam-marks');
         const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
+        const examInstructions = document.getElementById('exam-instructions').value.trim();
 
         // Decide which scheme text to use
         let markingSchemeText = optimizedTextarea.value.trim();
@@ -388,6 +391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 professor_id: sessionUser.user_id,
                 name: sessionName,
                 marking_scheme: markingSchemeText,
+                exam_instructions: examInstructions,
                 status: 'pending',
                 total_students: 0 // Will update once backend splits PDF
             };
@@ -525,6 +529,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sessionId: savedSession.id,
                 sessionName: document.getElementById('session-name').value,
                 markingSchemeText: markingSchemeText,
+                examInstructions: examInstructions,
                 explicitMaxMarks: explicitMaxMarks,
                 storagePath: storagePath
             };

@@ -4,34 +4,126 @@
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const SYSTEM_PROMPT = `
-You are the Chief Examiner for a World-Class International Examination Board. Your mandate is to evaluate a handwritten student exam against a strict marking scheme with absolute fairness, deterministic logic, and zero hallucinations.
+You are the Chief Data Extractor for a World-Class International Examination Board. Your mandate is to extract attempt status and boolean logic from a handwritten student exam against a strict marking scheme.
 
 CRITICAL EVALUATION MANDATE: The images provided represent exactly ONE student's exam. You MUST evaluate this single student.
 
-THE "NO GHOST GRADING" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from skipping any question. Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped", "marks_awarded": 0, and "constructive_feedback": "You did not attempt this question."
+THE "NO MATH" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from calculating the final score or the 'marks_awarded' for any question. Your job is ONLY to extract 'answer_status' (Attempted/Skipped) and provide a boolean array of whether the student hit the specific criteria in the marking scheme.
 
-THE "HARD CEILING" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from hallucinating marks. Under NO CIRCUMSTANCES can the \`marks_awarded\` for a question exceed the \`max_marks\` defined for that specific question in the marking scheme. If a question is worth 5 marks, the maximum you can award is 5.
+THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped".
 
-*** THE 4 TIERS OF EVALUATION ***
-
-SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. Award full marks for correct concepts.
-PROPORTIONAL MATH: For multi-point questions, mathematically reward what is present. (e.g., 2 valid reasons out of 5 required = 40% of marks).
-THE FATAL FLAW: If the student's answer contains fundamentally incorrect concepts, the score MUST BE 0. No pity marks for wrong science. Be ruthless.
-DIAGRAM AMNESTY: DO NOT penalize for missing sketches/diagrams, as OCR vision may miss them. Grade based strictly on the text.
+*** EVALUATION PROTOCOL ***
+SEMANTIC EQUIVALENCE: DO NOT penalize for poor English or missing exact keywords if the SCIENTIFIC MEANING is correct. If the meaning is present, the criteria boolean should be TRUE.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
 Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 3 sentences.
-
-Rule 1: Speak directly to the student as an elite Professor (Use "You").
-Rule 2: NEVER use lazy phrases like "Study more" or "Expand on this."
-Rule 3: Use this exact formula: [Acknowledge what they got right, if anything] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson to never miss it again].
-Perfect Example: "You correctly defined hydroponics, but you missed 'capillarity'. Next time, remember that a Wicking system relies specifically on capillarity action to pull water up to the roots."
+Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
 
 *** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
-You MUST generate the "justification" BEFORE the "marks_awarded" to prevent hallucinations. Output ONLY valid JSON. No markdown formatting. Return the evaluation for this ONE student.
+You MUST generate the "justification" BEFORE the criteria extraction. Output ONLY valid JSON. No markdown formatting. Return the evaluation for this ONE student.
 
-{ "studentName": "Extracted Name or 'Unknown'", "registrationNumber": "Extracted ID or 'Unknown'", "maxScore": 100, "questions": [ { "questionId": "1a", "questionTitle": "Brief title", "answer_status": "Answered | Skipped", "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y. Step 3: Match is correct/incorrect.", "marks_awarded": 2, "max_marks": 5, "constructive_feedback": "The strict Micro-Lesson feedback as defined above." } ] }
+{
+  "studentName": "Extracted Name or 'Unknown'",
+  "registrationNumber": "Extracted ID or 'Unknown'",
+  "questions": [
+    {
+      "questionId": "1a",
+      "section": "Section name if applicable, else 'General'",
+      "questionTitle": "Brief title",
+      "answer_status": "Answered | Skipped",
+      "justification": "Step 1: Rubric requires X. Step 2: Student wrote Y.",
+      "criteria_met": [true, false, true],
+      "max_marks": 5,
+      "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
+    }
+  ]
+}
 `;
+
+// Helper: Parse exam instructions for section-specific rules
+function parseSectionRules(examInstructions) {
+    const rules = {};
+    if (!examInstructions || typeof examInstructions !== 'string') return rules;
+
+    // Match "Section X: Answer 2 of 3"
+    const sectionRegex = /Section\s+([A-Z0-9]+)[\s:]+(?:answer|choose|pick)\s+(\d+)/gi;
+    let match;
+    while ((match = sectionRegex.exec(examInstructions)) !== null) {
+        rules[match[1].toUpperCase()] = parseInt(match[2], 10);
+    }
+    return rules;
+}
+
+// Helper: Deterministic Local Math Engine
+function calculateDeterministicScores(extractedData, examInstructions, maxScoreParam = 100) {
+    if (!extractedData || !extractedData.questions) return extractedData;
+
+    extractedData.questions.forEach(q => {
+        if (q.answer_status === "Skipped" || !q.criteria_met || !Array.isArray(q.criteria_met)) {
+            q.marks_awarded = 0;
+        } else {
+            // Calculate proportional score based on boolean array
+            const trueCount = q.criteria_met.filter(Boolean).length;
+            const totalCriteria = q.criteria_met.length || 1;
+
+            // Assume equal weighting for criteria unless specified otherwise
+            const maxMarks = q.max_marks || q.max || q.maxScore || 1;
+
+            // Proportional Math: (trueCount / totalCriteria) * maxMarks
+            let calculatedScore = (trueCount / totalCriteria) * maxMarks;
+
+            // Hard Ceiling Enforcement
+            q.marks_awarded = Math.min(Math.round(calculatedScore * 100) / 100, maxMarks);
+        }
+    });
+
+    // --- GREEDY BEST-SCORE ALGORITHM (Section Logic) ---
+    const sectionRules = parseSectionRules(examInstructions);
+
+    // Group questions by section
+    const sections = {};
+    extractedData.questions.forEach(q => {
+        // Extract section from "Section A", "A", etc. Default to "GENERAL"
+        let secName = "GENERAL";
+        if (q.section) {
+            // Remove the word "Section" if present to grab the actual identifier
+            const normalized = q.section.replace(/section/i, '').trim();
+            const secMatch = normalized.match(/([A-Z0-9]+)/i);
+            if (secMatch) secName = secMatch[1].toUpperCase();
+        }
+        if (!sections[secName]) sections[secName] = [];
+        sections[secName].push(q);
+    });
+
+    let totalScore = 0;
+
+    // Apply rules per section
+    for (const [secName, qs] of Object.entries(sections)) {
+        let attemptedQs = qs.filter(q => q.answer_status !== "Skipped" && q.marks_awarded > 0);
+
+        if (sectionRules[secName] && attemptedQs.length > sectionRules[secName]) {
+            // Student over-answered in this specific section. Sort by marks_awarded descending.
+            attemptedQs.sort((a, b) => b.marks_awarded - a.marks_awarded);
+
+            const allowedAnswers = sectionRules[secName];
+            const droppedQuestions = attemptedQs.slice(allowedAnswers);
+
+            // Reset marks for dropped questions
+            droppedQuestions.forEach(q => {
+                q.marks_awarded = 0;
+                q.constructive_feedback = "(Dropped: " + q.constructive_feedback + ")";
+            });
+        }
+
+        // Sum up this section
+        totalScore += qs.reduce((sum, q) => sum + (q.marks_awarded || 0), 0);
+    }
+
+    extractedData.totalScore = totalScore;
+    extractedData.maxScore = maxScoreParam; // Ensure max score is passed through
+
+    return extractedData;
+}
 
 async function getSecureKey() {
     try {
@@ -54,7 +146,7 @@ async function getSecureKey() {
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // Client-Side Distributed Grading Engine
-async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
+async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
@@ -63,10 +155,16 @@ async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
             // Ensure backwards compatibility and dynamic context building
             // We now accept an array of image data URLs directly from the browser's PDF parser
             // This is 100% compatible with GPT-4o's vision capabilities and completely avoids PDF parsing errors.
+            let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
+            if (examInstructions && examInstructions.trim() !== '') {
+                promptText += `CRITICAL EXAM INSTRUCTIONS (FOLLOW THESE OVER ANY ASSUMPTIONS):\n${examInstructions}\n\n`;
+            }
+            promptText += `Here are the scanned pages of this single student's exam:`;
+
             const userContent = [
                 {
                     type: "text",
-                    text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere are the scanned pages of this single student's exam:`
+                    text: promptText
                 }
             ];
 
@@ -115,13 +213,17 @@ async function gradeBatchExams(base64PDF, markingSchemeText, maxRetries = 3) {
 
             const parsedData = JSON.parse(content);
 
-            // Handle backward compatibility: If AI hallucinated a 'students' array wrapper despite the single-student prompt
+            // 2. Deterministic Math Engine (Local Post-Processing)
+            // AI extracted booleans, now our code calculates the absolute math to ensure 100% accuracy.
+            let finalData = parsedData;
+
             if (parsedData.students && Array.isArray(parsedData.students)) {
-                return parsedData.students;
+                finalData = parsedData.students[0]; // Take first if hallucinated array
             }
 
-            // Standard Single Student Object mapping
-            return [parsedData];
+            finalData = calculateDeterministicScores(finalData, examInstructions, maxScoreParam);
+
+            return [finalData];
 
         } catch (error) {
             attempt++;

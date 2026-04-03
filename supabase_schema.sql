@@ -70,6 +70,7 @@ CREATE TABLE public.sessions (
     professor_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     marking_scheme TEXT,
+    exam_instructions TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'needs_review', 'completed', 'failed')),
     publish_status TEXT DEFAULT 'draft',
     total_students INT DEFAULT 0,
