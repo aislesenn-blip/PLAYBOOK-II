@@ -49,7 +49,7 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 Step 1: Look at the Question. How many items did it ask for? Let's call this number 'N'. This 'N' is your 'scoring_units_requested'.
 Step 2: Look at the Student's Answer. Count how many correct items they provided. This count is your 'scoring_units_awarded'.
 Step 3: Output these explicit counts. Do NOT calculate the final numeric percentage.
-DO NOT use the total number of options in the rubric as the requested count. If a question asks for 5 items, but the rubric lists 9 possible options, the requested count (N) is 5, NOT 9.
+DEFINITION OF scoring_units_requested: This is the specific number requested by the QUESTION TEXT (e.g., if the question says 'Mention 5 reasons', the requested units is 5). DO NOT use the total length of the rubric as the requested units unless the question asks for all of them.
 
 *** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
 You MUST explicitly state the counts of requested and awarded scoring units in your text reasoning BEFORE outputting the final JSON fields.
@@ -297,8 +297,8 @@ function parseLLMJSON(content) {
             return JSON.parse(repairedContent);
         } catch (e2) {
             // Ultimate fallback for completely shattered JSON objects
-            console.error("Advanced JSON repair failed. Returning empty struct.", e2.message);
-            return {};
+            console.error("Advanced JSON repair failed. Throwing error to trigger retry.", e2.message);
+            throw new Error("Advanced JSON repair failed.");
         }
     }
 }
