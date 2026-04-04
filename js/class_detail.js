@@ -43,8 +43,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const enrollments = await window.PlaybookDB.getEnrolledStudents(courseId);
         const enrolledStudents = enrollments.map(e => e.student).filter(s => s); // Extract student data, filter nulls
 
-        // Fetch manual submissions to include account-less students in the roster
+        // Fetch manual submissions to include account-less students in the roster, and map session submissions for action button logic
         const allStudentsMap = new Map();
+        const sessionSubmissionsMap = new Map();
 
         // Add enrolled students first
         enrolledStudents.forEach(s => {
@@ -52,10 +53,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (key) allStudentsMap.set(key, { full_name: s.full_name, registration_number: s.registration_number });
         });
 
-        // Add manual submission students
+        // Add manual submission students and build session submission map
         for (const session of sessions) {
             try {
                 const subs = await window.PlaybookDB.getSubmissionsBySession(session.id);
+                sessionSubmissionsMap.set(session.id, subs);
+
                 subs.forEach(sub => {
                     // db.js getSubmissionsBySession returns mapped objects with camelCase keys: studentName, registrationNumber
                     const name = sub.studentName;
@@ -254,12 +257,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     validAvgs++;
                 }
 
-                // Decide action button logic based on digital vs offline
+                // Submission-level action button logic (Prevents "Late Submission Lockout")
+                const sessionSubs = sessionSubmissionsMap.get(session.id) || [];
+                const hasPendingSubmissions = sessionSubs.some(sub => sub.status === 'pending');
+                const hasNeedsReviewSubmissions = sessionSubs.some(sub => sub.status === 'needs_review');
+
                 let actionBtn = `<a href="analytics.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Report</a>`;
 
-                if (isDigital && session.status === 'pending') {
+                // If ANY submission is pending, the Grade button MUST be shown to allow processing of late students
+                if (isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
                     actionBtn = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
-                } else if (!isDigital && session.status === 'pending') {
+                } else if (!isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
+                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
+                } else if (session.status === 'needs_review' || hasNeedsReviewSubmissions) {
                     actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
                 }
 

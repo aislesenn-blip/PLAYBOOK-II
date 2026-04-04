@@ -106,16 +106,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    let session;
+    let submissions = [];
+
     try {
-        const session = await window.PlaybookDB.getSession(sessionId);
+        session = await window.PlaybookDB.getSession(sessionId);
         document.getElementById('session-name').innerText = session.name;
 
-        const submissions = await window.PlaybookDB.getSubmissionsBySession(sessionId);
+        try {
+            submissions = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
+        } catch(e) {
+            console.warn("No submissions found for this session yet.", e);
+            submissions = [];
+        }
         document.getElementById('submission-count').innerText = submissions.length;
 
     } catch (e) {
         console.error(e);
-        alert("Failed to load session data.");
+        alert("Failed to load session data. The session may have been deleted.");
     }
 
     // Smart Pre-Processor Logic

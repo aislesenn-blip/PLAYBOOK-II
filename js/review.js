@@ -20,20 +20,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         session = await window.PlaybookDB.getSession(sessionId);
-        students = await window.PlaybookDB.getSubmissionsBySession(sessionId);
-
-        if (!session || !students || students.length === 0) {
-            throw new Error("Session or students not found");
-        }
+        if (!session) throw new Error("Session not found");
 
         document.getElementById('session-title').textContent = session.name;
+
+        try {
+            students = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
+        } catch(e) {
+            students = [];
+        }
+
+        if (students.length === 0) {
+            document.getElementById('grading-items-container').innerHTML = '<p style="text-align: center; padding: 2rem;">No grading data found. Ensure submissions exist and have been processed by the AI.</p>';
+            return;
+        }
+
         document.getElementById('total-student-count').textContent = students.length;
 
         loadStudent(currentIndex);
 
     } catch (e) {
         console.error(e);
-        alert("Failed to load session data.");
+        alert("Failed to load session data. The session may have been deleted.");
         return;
     }
 
@@ -61,12 +69,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         finalizeBtn.disabled = true;
 
         try {
-            session.status = 'completed';
-
-            // Recalculate averages based on any overrides
+            let hasPendingStudents = false;
             let totalScoreSum = 0;
-            let highest = 0;
+            let validStudentsCount = 0;
+
             for(let st of students) {
+                // BUG FIX: Do NOT overwrite 'pending' late students with zero scores!
+                if (st.status === 'pending') {
+                    hasPendingStudents = true;
+                    continue; // Skip them entirely
+                }
+
                 let sTotal = 0;
 
                 // Ensure grading object exists to prevent TypeError
@@ -113,11 +126,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await window.PlaybookDB.saveSubmission(backendSubmission);
 
                 totalScoreSum += sTotal;
-                if(sTotal > highest) highest = sTotal;
+                validStudentsCount++;
             }
 
-            session.average_score = Math.round(totalScoreSum / students.length);
-            session.status = 'completed';
+            // Only mark session completed if NO pending students exist
+            // Otherwise, it must stay needs_review to allow dashboard action button logic to work or just stay open.
+            session.average_score = validStudentsCount > 0 ? Math.round(totalScoreSum / validStudentsCount) : 0;
+            session.status = hasPendingStudents ? 'needs_review' : 'completed';
+
             await window.PlaybookDB.saveSession(session);
 
             alert('Scores finalized and saved. Redirecting to Analytics...');
