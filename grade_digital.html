@@ -300,16 +300,111 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (error) throw error;
 
-            // In a fully built app, you would call PlaybookAI or your edge function here to actually iterate through `submissions`
-            // For now, we simulate success and redirect to review
-            setTimeout(() => {
-                alert("Grading initiated successfully! In a live environment, edge functions would process the PDFs.");
-                window.location.href = `review.html?session=${sessionId}`;
-            }, 2000);
+            const statusEl = document.getElementById('loading-status');
+
+            // Loop through submissions and grade them via PlaybookAI
+            let totalStudentsGraded = 0;
+            let sessionTotalScore = 0;
+
+            for (let i = 0; i < submissions.length; i++) {
+                const submission = submissions[i];
+
+                // Only grade if not already completed
+                if (submission.status === 'completed') {
+                    totalStudentsGraded++;
+                    sessionTotalScore += submission.total_score || 0;
+                    continue;
+                }
+
+                statusEl.innerText = `Grading Student ${i + 1} of ${submissions.length}...`;
+
+                // If it's a digital submission from Student Portal, it has text_content
+                // But gradeBatchExams expects base64 images to run OCR + Grading natively.
+                // We will wrap the text content in an array to trick the Vision API into reading it as text,
+                // OR we can pass it as part of the prompt.
+                // However, since gradeBatchExams accepts `base64PDF` which it loops through as image URLs,
+                // we should convert the raw text into a data URL or just use an empty image and let the text go in the prompt.
+                // Alternatively, since we know it's a digital text submission, we can call the AI directly or adapt gradeBatchExams.
+
+                // Let's create a minimal image with the text on it to pass to the AI, or just pass a blank image
+                // and inject the text content into the instructions.
+                const canvas = document.createElement('canvas');
+                canvas.width = 800; canvas.height = 800;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, 800, 800);
+                ctx.fillStyle = "black";
+                ctx.font = "16px Arial";
+
+                // simple word wrap for the canvas
+                const words = (submission.text_content || "No text provided by student.").split(' ');
+                let line = '';
+                let y = 30;
+                for(let n = 0; n < words.length; n++) {
+                    let testLine = line + words[n] + ' ';
+                    let metrics = ctx.measureText(testLine);
+                    let testWidth = metrics.width;
+                    if (testWidth > 760 && n > 0) {
+                        ctx.fillText(line, 20, y);
+                        line = words[n] + ' ';
+                        y += 25;
+                    } else {
+                        line = testLine;
+                    }
+                }
+                ctx.fillText(line, 20, y);
+
+                const base64Image = canvas.toDataURL('image/jpeg');
+
+                // gradeBatchExams returns an array of students. We pass our single mock image.
+                const gradedResult = await window.PlaybookAI.gradeBatchExams([base64Image], scheme, session.exam_instructions || "", 100);
+
+                if (gradedResult && gradedResult.length > 0) {
+                    const studentRes = gradedResult[0];
+                    let studentTotal = 0;
+
+                    const parsedQuestions = studentRes.questions || studentRes.evaluations || studentRes.results || [];
+                    if (parsedQuestions && Array.isArray(parsedQuestions)) {
+                        parsedQuestions.forEach(q => {
+                            let qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            const qMax = parseFloat(q.max) || parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
+                            if (!isNaN(qMax) && qMax > 0 && qScore > qMax) {
+                                qScore = qMax;
+                                q.score = qScore;
+                            }
+                            studentTotal += qScore;
+                        });
+                    }
+
+                    // Update the submission in the DB
+                    await window.supabaseClient.from('exam_submissions').update({
+                        total_score: studentTotal,
+                        max_score: 100, // or extract max from scheme
+                        grading_data: { questions: parsedQuestions },
+                        status: 'completed',
+                        completed_at: new Date().toISOString()
+                    }).eq('id', submission.id);
+
+                    totalStudentsGraded++;
+                    sessionTotalScore += studentTotal;
+                }
+            }
+
+            statusEl.innerText = 'Finalizing Results...';
+
+            const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
+            await window.supabaseClient.from('sessions').update({
+                status: 'needs_review',
+                total_students: totalStudentsGraded,
+                average_score: sessionAverage
+            }).eq('id', sessionId);
+
+            alert("Grading complete! Redirecting to review.");
+            window.location.href = `review.html?session=${sessionId}`;
 
         } catch (e) {
             console.error(e);
-            alert("Failed to initiate grading.");
+            alert(`Failed to initiate grading: ${e.message}`);
             document.getElementById('loading-overlay').style.display = 'none';
         }
     });
