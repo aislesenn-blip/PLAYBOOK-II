@@ -62,9 +62,6 @@
                     </div>
                 </div>
 
-                <label class="form-label mt-1">Total Assignment Marks</label>
-                <input class="form-control" id="total-marks" type="number" value="100"/>
-
                 <button class="btn mt-2" id="start-grading-btn" style="width: 100%;">Grade All Submissions</button>
             </div>
         </div>
@@ -286,8 +283,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             scheme = rawTextarea.value.trim();
         }
 
-        const maxMarks = document.getElementById('total-marks').value;
-
         if (!scheme) {
             alert("Please provide a marking scheme.");
             return;
@@ -297,12 +292,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('loading-status').innerText = 'Initializing AI Grading...';
 
         try {
-            // Save the marking scheme to the session
-            await window.PlaybookDB.saveSession({
-                id: sessionId,
+            // Save the marking scheme to the session using a direct update to avoid NOT NULL constraint errors from upsert
+            const { error } = await window.supabaseClient.from('sessions').update({
                 marking_scheme: scheme,
                 status: 'processing' // this would trigger a backend edge function in a real env
-            });
+            }).eq('id', sessionId);
+
+            if (error) throw error;
 
             // In a fully built app, you would call PlaybookAI or your edge function here to actually iterate through `submissions`
             // For now, we simulate success and redirect to review

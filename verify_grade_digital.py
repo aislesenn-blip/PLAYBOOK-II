@@ -27,8 +27,6 @@ def run_cuj(page):
     # 2. Fill Marking Scheme
     page.locator("#raw-scheme-text").fill("1. Question 1 (10 marks)\n2. Question 2 (10 marks)")
     page.wait_for_timeout(500)
-    page.locator("#total-marks").fill("20")
-    page.wait_for_timeout(500)
 
     # 3. Trigger Grading Action
     # we don't want to actually call the AI in the playwright script, but we can verify the button is clickable
