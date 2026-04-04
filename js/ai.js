@@ -41,8 +41,13 @@ Tier 2: Proportional Math: Assign partial credit correctly based on the provided
 Tier 3: The Fatal Flaw Rule: Fundamental violations of scientific/logical facts mean zero marks for that specific concept.
 Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/structural logic over artistic quality.
 
+*** HARDENED GRADING RULES ***
+1. THE N-ITEMS DENOMINATOR RULE: If a question asks the student to list 'N' items, and the rubric provides more than 'N' valid options, the denominator in your math formula MUST be exactly 'N'. A student who provides 'N' correct items gets 100% of the marks.
+2. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
+3. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
+
 *** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
-You MUST explicitly write out the arithmetic formula calculating the student's score in your text reasoning BEFORE outputting the final numeric score.
+You MUST explicitly write out a mathematically sound arithmetic formula calculating the student's score in your text reasoning BEFORE outputting the final numeric score. Ensure the math formula is valid.
 Example CoT Requirement: "The student successfully hit 3 out of 4 scoring units. The maximum marks for this question are 10. Formula: (3 / 4) * 10 = 7.5. Therefore, final score is 7.5."
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
@@ -229,6 +234,7 @@ function parseLLMJSON(content) {
         let dropIndex = repairedContent.length;
         let insideStr = inString;
 
+        // Scan backwards to drop anything up to the last structural boundary
         for (let i = repairedContent.length - 1; i >= 0; i--) {
             const char = repairedContent[i];
             if (char === '"' && (i === 0 || repairedContent[i-1] !== '\\')) {
@@ -249,6 +255,22 @@ function parseLLMJSON(content) {
 
         repairedContent = repairedContent.substring(0, dropIndex);
 
+        // A very truncated JSON might end up just being `{` or `[{`.
+        // Let's strip out trailing characters that are strictly invalid unquoted keys before closing.
+        // E.g., if we dropped a comma, we might end up with `{"score": 5, "justif` where "justif" isn't closed.
+        // Wait, the backward scan drops the comma, leaving `{"score": 5`. That's clean.
+        // What if it ends up with `{"justification": `? The colon is not structural in the scan above,
+        // so it might leave `{"justification":`.
+        // Let's add colon to the safe boundaries to scan past, NO, a trailing colon is invalid JSON.
+        // We need to drop the whole key if there is no value.
+        // A better approach for severely truncated JSON ending in `{"key": ` or `{"key"`:
+        // Let's just aggressively drop everything after the last valid value separator (comma, brace, bracket).
+        // Actually, the previous loop handles commas and braces well.
+
+        // Handle unquoted key remnants by doing a secondary cleanup:
+        // Strip trailing whitespace, colons, or partial string fragments
+        repairedContent = repairedContent.replace(/(,\s*|:\s*|"\w*\s*)$/, '');
+
         while (stack.length > 0) {
             repairedContent += stack.pop();
         }
@@ -256,7 +278,9 @@ function parseLLMJSON(content) {
         try {
             return JSON.parse(repairedContent);
         } catch (e2) {
-            throw new Error(`JSON parsing completely failed even after repair: ${e2.message}`);
+            // Ultimate fallback for completely shattered JSON objects
+            console.error("Advanced JSON repair failed. Returning empty struct.", e2.message);
+            return {};
         }
     }
 }
@@ -306,6 +330,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 body: JSON.stringify({
                     model: 'google/gemini-2.0-flash-001',
                     temperature: 0.0,
+                    top_p: 0.1,
                     seed: 42,
                     messages: [
                         { role: 'system', content: PASS2_SYSTEM_PROMPT },
@@ -377,6 +402,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 body: JSON.stringify({
                     model: 'google/gemini-2.0-flash-001',
                     temperature: 0.0,
+                    top_p: 0.1,
                     seed: 42,
                     max_tokens: 8192,
                     messages: [
@@ -480,6 +506,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                         body: JSON.stringify({
                             model: 'google/gemini-2.0-flash-001',
                             temperature: 0.0,
+                            top_p: 0.1,
                             seed: 42,
                             messages: [
                                 {
@@ -552,6 +579,7 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
                 body: JSON.stringify({
                     model: 'google/gemini-2.0-flash-001',
                     temperature: 0.0,
+                    top_p: 0.1,
                     seed: 42,
                     messages: [
                         { role: 'user', content: userContent }
