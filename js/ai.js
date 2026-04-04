@@ -49,7 +49,7 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 Step 1: Look at the Question. How many items did it ask for? Let's call this number 'N'.
 Step 2: Look at the Student's Answer. Count how many correct items they provided.
 Step 3: If the question asked for 'N' items, YOUR DENOMINATOR MUST BE 'N'.
-DO NOT use the total number of options in the rubric as the denominator. If a student provides 'N' correct items, they get 100% of the marks: (N / N) * Max Marks.
+DO NOT use the total number of options in the rubric as the denominator. If a question asks for 5 items, but the rubric lists 9 possible options, the denominator is 5, NOT 9. If a student provides 'N' correct items, they get 100% of the marks: (N / N) * Max Marks.
 
 *** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
 You MUST explicitly write out a mathematically sound arithmetic formula calculating the student's score in your text reasoning BEFORE outputting the final numeric score. Ensure the math formula is valid.
@@ -352,6 +352,11 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
 
             const data = await response.json();
             const parsed = parseLLMJSON(data.choices[0].message.content);
+
+            if (parsed.score === undefined || parsed.justification === undefined) {
+                throw new Error("Invalid LLM response format: missing score or justification");
+            }
+
             return {
                 ...questionData,
                 score: parsed.score !== undefined ? parsed.score : 0,
@@ -435,8 +440,14 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             const semaphore = new Semaphore(10); // Throttle to 10 concurrent requests
 
             const gradingPromises = questions.map(async (q) => {
-                if (q.answer_status === "Skipped") {
-                    return { ...q, score: 0, marks_awarded: 0 };
+                if (q.answer_status === "Skipped" || !q.student_answer_transcription || q.student_answer_transcription.trim() === "") {
+                    return {
+                        ...q,
+                        score: 0,
+                        marks_awarded: 0,
+                        justification: "No answer provided",
+                        constructive_feedback: "No answer provided"
+                    };
                 }
 
                 await semaphore.acquire();
