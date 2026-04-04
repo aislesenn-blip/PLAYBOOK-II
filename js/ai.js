@@ -33,7 +33,7 @@ During the evaluation step, you MUST automatically adapt your extraction method 
 For Diagrams: Automatically detect labeled components and evaluate them purely on the presence and correctness of the labels and connections.
 For Calculations: Automatically break down the student's work into four distinct phases: Formula/Equation -> Substitution -> Working/Steps -> Final Result, evaluating each phase independently.
 
-THE "NO MATH" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from calculating the final score or the 'marks_awarded' for any question. Your job is ONLY to extract 'answer_status' (Attempted/Skipped) and provide an array of objects explicitly stating each criterion evaluated and whether the student met it.
+THE "NO MATH" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from calculating the final score or the 'marks_awarded' for any question. Your job is ONLY to extract 'answer_status' (Attempted/Skipped) and provide an array of objects explicitly stating each criterion evaluated and whether the student met it. NEVER output a 'score' field.
 
 THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped" and OMIT justification, criteria_evaluations, and constructive_feedback.
 
@@ -208,28 +208,29 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             const apiKey = await getSecureKey();
 
             // Ensure backwards compatibility and dynamic context building
-            // We now accept an array of image data URLs directly from the browser's PDF parser
-            // This is 100% compatible with GPT-4o's vision capabilities and completely avoids PDF parsing errors.
             let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
             if (examInstructions && examInstructions.trim() !== '') {
                 promptText += `CRITICAL EXAM INSTRUCTIONS (FOLLOW THESE OVER ANY ASSUMPTIONS):\n${examInstructions}\n\n`;
             }
-            promptText += `Here are the scanned pages of this single student's exam:`;
 
-            const userContent = [
-                {
-                    type: "text",
-                    text: promptText
-                }
-            ];
+            const userContent = [];
 
-            // Ensure base64PDF is treated as an array of image URLs (handled by upload.js)
-            base64PDF.forEach(imageUrl => {
-                userContent.push({
-                    type: "image_url",
-                    image_url: { url: imageUrl }
+            // Detect if input is raw text string (Online Digital) or array of images (Offline Scanned)
+            if (typeof base64PDF === 'string') {
+                promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${base64PDF}\n---`;
+                userContent.push({ type: "text", text: promptText });
+            } else if (Array.isArray(base64PDF)) {
+                promptText += `Here are the scanned pages of this single student's exam:`;
+                userContent.push({ type: "text", text: promptText });
+                base64PDF.forEach(imageUrl => {
+                    userContent.push({
+                        type: "image_url",
+                        image_url: { url: imageUrl }
+                    });
                 });
-            });
+            } else {
+                throw new Error("Invalid input format for student exam data.");
+            }
 
             const response = await fetch(API_URL, {
                 method: 'POST',
@@ -325,20 +326,22 @@ You are an elite educational engineer. Rewrite this raw marking scheme into the 
 
 CRITICAL MANDATES:
 
-NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
-STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
-Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
+2. STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
+3. ATOMIC CRITERIA: Break down paragraph answers into explicit, atomic, true/false grading criteria. Each criterion must represent exactly one independently gradable concept.
+4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+
 === PLAYBOOK STANDARD FORMAT EXAMPLE ===
 Question 1a: Definition (Max: 3 marks)
 
-Award [1 mark] for stating "conversion of light energy to chemical energy".
-Award [1 mark] for explicitly writing "Chlorophyll".
-Award [1 mark] for mentioning "Water".
+Criterion_1: States "conversion of light energy to chemical energy" (1 mark)
+Criterion_2: Explicitly writes "Chlorophyll" (1 mark)
+Criterion_3: Mentions "Water" (1 mark)
 
 Question 1b: Diagram (Max: 2 marks)
 
-Award [1 mark] if a leaf shape is clearly drawn.
-Award [1 mark] ONLY IF an arrow is drawn pointing into the leaf and is labeled "Sunlight".
+Criterion_1: A leaf shape is clearly drawn (1 mark)
+Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" (1 mark)
 =========================================
 `;
 
