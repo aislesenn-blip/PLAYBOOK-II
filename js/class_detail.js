@@ -255,12 +255,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 // Decide action button logic based on digital vs offline
-                let actionBtn = `<a href="analytics.html?session_id=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Report</a>`;
+                let actionBtn = `<a href="analytics.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Report</a>`;
 
                 if (isDigital && session.status === 'pending') {
                     actionBtn = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
                 } else if (!isDigital && session.status === 'pending') {
-                    actionBtn = `<a href="review.html?session_id=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
+                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
                 }
 
                 tr.innerHTML = `
