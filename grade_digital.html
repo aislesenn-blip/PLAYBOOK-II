@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // For now, we simulate success and redirect to review
             setTimeout(() => {
                 alert("Grading initiated successfully! In a live environment, edge functions would process the PDFs.");
-                window.location.href = `review.html?session_id=${sessionId}`;
+                window.location.href = `review.html?session=${sessionId}`;
             }, 2000);
 
         } catch (e) {
