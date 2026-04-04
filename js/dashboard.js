@@ -177,10 +177,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 let actionLink = '-';
-                if (currentStatus === 'completed') {
-                    actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
-                } else if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                if (hasPending && session.session_type === 'digital') {
+                    actionLink = `<a href="grade_digital.html?session_id=${session.id}">Grade Submissions</a>`;
+                } else if (hasPending || hasNeedsReview || currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
                     actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
+                } else if (currentStatus === 'completed') {
+                    actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
                 }
 
                 const safeSessionName = window.escapeHTML(String(session.name || ''));

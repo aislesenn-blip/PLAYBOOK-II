@@ -200,7 +200,7 @@ const PlaybookDB = {
             id: sub.id,
             studentName: sub.student_name,
             registrationNumber: sub.registration_number,
-            text_content: sub.text_content,
+            textContent: sub.text_content,
             status: sub.status,
             grading: sub.grading_data ? {
                 totalScore: sub.total_score,
