@@ -272,21 +272,82 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 parsedData = JSON.parse(content);
             } catch (e) {
                 console.warn("JSON parse failed, attempting automatic fallback repair for truncated JSON:", e.message);
-                // Fallback mechanism to fix unterminated JSON chunks due to max token limits
-                // It slices the string back to the last complete closing brace and appends the necessary closing tags.
-                const lastBrace = content.lastIndexOf('}');
-                if (lastBrace !== -1) {
-                    content = content.substring(0, lastBrace + 1);
-                    // Add closing brackets assuming the truncation happened within the "questions" array
-                    content += ']}';
-                    try {
-                        parsedData = JSON.parse(content);
-                        console.log("JSON fallback repair successful. Some questions may be truncated.");
-                    } catch (e2) {
-                        throw new Error(`JSON parsing completely failed even after repair: ${e2.message}`);
+                // Stack-based fallback mechanism for robust truncated JSON repair
+                let repairedContent = content;
+                let stack = [];
+                let inString = false;
+                let escapeNext = false;
+
+                // Parse up to the point of truncation to build the stack
+                for (let i = 0; i < repairedContent.length; i++) {
+                    const char = repairedContent[i];
+                    if (escapeNext) {
+                        escapeNext = false;
+                        continue;
                     }
-                } else {
-                    throw e;
+                    if (char === '\\') {
+                        escapeNext = true;
+                        continue;
+                    }
+                    if (char === '"') {
+                        inString = !inString;
+                        continue;
+                    }
+                    if (!inString) {
+                        if (char === '{') stack.push('}');
+                        else if (char === '[') stack.push(']');
+                        else if (char === '}' || char === ']') stack.pop();
+                    }
+                }
+
+                // Truncate incomplete key/value pairs safely (e.g. `,"key": "val` or `,"key":`)
+                // If we are NOT in a string, we might have ended on something like `,"key":`
+                // If we are in a string, we might have ended mid-value. We should drop the whole incomplete string and its key.
+
+                // Let's do a more robust backward scan to find the last complete element
+                // We will drop everything after the last structural token that indicates a complete state.
+                let dropIndex = repairedContent.length;
+                let insideStr = inString;
+
+                for (let i = repairedContent.length - 1; i >= 0; i--) {
+                    const char = repairedContent[i];
+
+                    // Toggle string state if we hit an unescaped quote going backwards
+                    // Note: backward escape checking is tricky, we rely on the forward scan for true `inString` state at the end.
+                    // But if we hit a quote, and it's not preceded by a backslash, we toggle.
+                    if (char === '"' && (i === 0 || repairedContent[i-1] !== '\\')) {
+                        insideStr = !insideStr;
+                        continue;
+                    }
+
+                    if (!insideStr) {
+                        if (char === ',') {
+                            dropIndex = i;
+                            break;
+                        }
+                        if (char === '{' || char === '[' || char === '}' || char === ']') {
+                            dropIndex = i + 1;
+                            break;
+                        }
+                    }
+                }
+
+                repairedContent = repairedContent.substring(0, dropIndex);
+
+                // If we ended inside a string, close it
+                // Wait, if we dropped everything up to a safe structural character, we shouldn't be in a string anymore.
+                // But just in case, we won't blindly append quotes.
+
+                // Append the missing closing brackets in reverse order (LIFO)
+                while (stack.length > 0) {
+                    repairedContent += stack.pop();
+                }
+
+                try {
+                    parsedData = JSON.parse(repairedContent);
+                    console.log("JSON fallback repair successful. Some questions may be truncated.");
+                } catch (e2) {
+                    throw new Error(`JSON parsing completely failed even after repair: ${e2.message}`);
                 }
             }
 
