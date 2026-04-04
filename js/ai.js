@@ -14,7 +14,7 @@ You must analyze the student's exam and segment their answers based on the provi
 2. For EVERY question listed in the marking scheme, check if the student attempted it.
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. For list/multi-part questions, identify the expected number of items requested from the marking scheme. Default to 1.
+5. For list/multi-part questions, identify the expected number of points requested from the marking scheme. Default to 1.
 6. ONLY output valid JSON using the exact schema below. No markdown formatting.
 
 *** SCHEMA ***
@@ -26,7 +26,7 @@ You must analyze the student's exam and segment their answers based on the provi
       "questionId": "1a",
       "section": "Section name if applicable, else 'General'",
       "max_marks": 5,
-      "expected_number_of_items": 1,
+      "expected_number_of_points": 1,
       "answer_status": "Answered | Skipped",
       "student_answer_transcription": "The student wrote: '...'"
     }
@@ -367,10 +367,6 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const data = await response.json();
             const parsed = parseLLMJSON(data.choices[0].message.content);
 
-            if (parsed.total_correct_points_found === undefined || parsed.justification === undefined) {
-                throw new Error("Invalid LLM response format: missing total_correct_points_found or justification");
-            }
-
             if (parsed.is_entirely_blank === true || !questionData.student_answer_transcription) {
                 return {
                     ...questionData,
@@ -381,12 +377,16 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 };
             }
 
+            if (parsed.total_correct_points_found === undefined || parsed.justification === undefined) {
+                throw new Error("Invalid LLM response format: missing total_correct_points_found or justification");
+            }
+
             let calculatedScore = 0;
             const maxMarksRaw = questionData.max_marks !== undefined ? questionData.max_marks : (questionData.max !== undefined ? questionData.max : (questionData.maxScore !== undefined ? questionData.maxScore : 1));
             const maxMarks = parseFloat(maxMarksRaw) || 1;
 
-            const expectedItems = questionData.expected_number_of_items || 1;
-            let hitRatio = Math.min(parsed.total_correct_points_found / expectedItems, 1.0);
+            const expectedPoints = questionData.expected_number_of_points || questionData.expected_number_of_items || 1;
+            let hitRatio = Math.min(parsed.total_correct_points_found / expectedPoints, 1.0);
             calculatedScore = hitRatio * maxMarks;
 
             return {
@@ -473,7 +473,13 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
-                    return { ...q, score: 0, marks_awarded: 0 };
+                    return {
+                        ...q,
+                        score: 0,
+                        marks_awarded: 0,
+                        justification: "Student skipped this question.",
+                        constructive_feedback: "No answer provided."
+                    };
                 }
 
                 await semaphore.acquire();
