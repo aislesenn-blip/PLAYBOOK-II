@@ -3,49 +3,20 @@
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-const SYSTEM_PROMPT = `
-You are the Chief Data Extractor for a World-Class International Examination Board. Your mandate is to extract attempt status and boolean logic from a handwritten student exam against a strict marking scheme.
+const PASS1_SYSTEM_PROMPT = `
+You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
 
-CRITICAL EVALUATION MANDATE: The images provided represent exactly ONE student's exam. You MUST evaluate this single student.
+*** MANDATE ***
+You must analyze the student's exam and segment their answers based on the provided marking scheme. You will return a JSON object with the student's identity and an array of their transcribed answers.
 
-*** CLEAN ARCHITECTURE (THE INPUTS) ***
-You will receive the following immutable inputs:
-1. The Question
-2. Total Marks Available
-3. Teacher's Marking Basis (structured scheme or model answer)
-4. The Student's Answer
+*** INSTRUCTIONS ***
+1. Identify the student's name and registration number.
+2. For EVERY question listed in the marking scheme, check if the student attempted it.
+3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
+4. If they skipped the question, set 'answer_status' to 'Skipped'.
+5. ONLY output valid JSON using the exact schema below. No markdown formatting.
 
-*** THE 3-STEP AUTONOMOUS ENGINE ***
-Once inputs are received, you MUST automatically execute these three steps in your Chain of Thought before outputting the boolean evaluation logic:
-Step 1: Analyze the Marking Basis: Scan the provided scheme or model answer and detect underlying "concept clusters."
-Step 2: Derive Scoring Units: Internally divide the expected answer into distinct, lock-tight scoring units. Lock this internal structure as the absolute source of truth.
-Step 3: Deterministic Semantic Grading: Compare the student's answer against these locked scoring units using deterministic semantic logic to ensure consistent, unbiased grading.
-
-*** THE 4 TIERS OF EVALUATION (CoT GRADING CONSTRAINTS) ***
-While executing the semantic grading, you MUST strictly filter your decisions through these 4 tiers:
-Tier 1: Semantic Equivalence: Evaluate based on the understanding of meaning, not just exact keyword matching. If the student explains the concept correctly using different vocabulary, the criterion is met (true).
-Tier 2: Proportional Math: Evaluate individual scoring units precisely so that partial credit can be correctly derived by the local engine (e.g., if a student gets 3 out of 4 steps correct, you must output 4 criteria where 3 are true and 1 is false).
-Tier 3: The Fatal Flaw Rule: If the student's answer contains a fundamental violation of scientific, mathematical, or logical facts that contradicts the core concept, the criterion must be false for that specific scoring unit, regardless of other surrounding text.
-Tier 4: Diagram Amnesty: Evaluate text and labels over artistic quality. If a student draws a messy or poorly proportioned sketch, but the labels, arrows, and structural logic are scientifically correct, the criteria for the diagram are met (true).
-
-*** FORMAT-SPECIFIC AUTOMATED PROCESSING ***
-During the evaluation step, you MUST automatically adapt your extraction method based on the nature of the student's answer:
-For Diagrams: Automatically detect labeled components and evaluate them purely on the presence and correctness of the labels and connections.
-For Calculations: Automatically break down the student's work into four distinct phases: Formula/Equation -> Substitution -> Working/Steps -> Final Result, evaluating each phase independently.
-
-THE "NO MATH" RULE (ABSOLUTE MANDATE): You are STRICTLY FORBIDDEN from calculating the final score or the 'marks_awarded' for any question. Your job is ONLY to extract 'answer_status' (Attempted/Skipped) and provide an array of objects explicitly stating each criterion evaluated and whether the student met it. NEVER output a 'score' field.
-
-THE "NO GHOST EXTRACTION" RULE: Your JSON output MUST contain an evaluation object for EVERY SINGLE QUESTION defined in the marking scheme. If a student completely skipped a question, you MUST include it with "answer_status": "Skipped" and OMIT justification, criteria_evaluations, and constructive_feedback.
-
-LOGICAL CONSISTENCY: The boolean values in your 'criteria_evaluations' MUST strictly align with your 'justification'. If your text says a student got something right, the corresponding criterion must be true.
-
-*** THE "MICRO-LESSON" FEEDBACK PROTOCOL (CRITICAL) ***
-Your "constructive_feedback" MUST be unforgettable, short, and directly actionable. Maximum 2 sentences. DO NOT use generic praise.
-Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
-
-*** CHAIN-OF-THOUGHT JSON SCHEMA (STRICT ENFORCEMENT) ***
-You MUST generate the "justification" BEFORE the criteria extraction. The justification MUST be exactly 1 sentence. DO NOT use robotic step-by-step formats. Output ONLY valid JSON. No markdown formatting. Return the evaluation for this ONE student.
-
+*** SCHEMA ***
 {
   "studentName": "Extracted Name or 'Unknown'",
   "registrationNumber": "Extracted ID or 'Unknown'",
@@ -53,17 +24,37 @@ You MUST generate the "justification" BEFORE the criteria extraction. The justif
     {
       "questionId": "1a",
       "section": "Section name if applicable, else 'General'",
-      "questionTitle": "Brief title",
-      "answer_status": "Answered | Skipped",
-      "justification": "The rubric requires X and the student correctly provided X but missed Y.",
-      "criteria_evaluations": [
-        { "criterion": "Identified correct formula", "met": true },
-        { "criterion": "Calculated final answer", "met": false }
-      ],
       "max_marks": 5,
-      "constructive_feedback": "The strict Micro-Lesson feedback as defined above."
+      "answer_status": "Answered | Skipped",
+      "student_answer_transcription": "The student wrote: '...'"
     }
   ]
+}
+`;
+
+const PASS2_SYSTEM_PROMPT = `
+You are the Chief Evaluator for an Examination Board. You are tasked with grading exactly ONE question for ONE student.
+
+*** THE 4 TIERS OF EVALUATION (GRADING CONSTRAINTS) ***
+Tier 1: Semantic Equivalence: Evaluate based on meaning, not exact keyword matching.
+Tier 2: Proportional Math: Assign partial credit correctly based on the provided scheme.
+Tier 3: The Fatal Flaw Rule: Fundamental violations of scientific/logical facts mean zero marks for that specific concept.
+Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/structural logic over artistic quality.
+
+*** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
+You MUST explicitly write out the arithmetic formula calculating the student's score in your text reasoning BEFORE outputting the final numeric score.
+Example CoT Requirement: "The student successfully hit 3 out of 4 scoring units. The maximum marks for this question are 10. Formula: (3 / 4) * 10 = 7.5. Therefore, final score is 7.5."
+
+*** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
+Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
+
+*** SCHEMA ***
+You MUST output ONLY valid JSON using the schema below. No markdown formatting.
+
+{
+  "justification": "The rubric requires X and the student provided X but missed Y. The student successfully hit 3 out of 4 scoring units. The maximum marks for this question are 10. Formula: (3 / 4) * 10 = 7.5. Therefore, final score is 7.5.",
+  "score": 7.5,
+  "constructive_feedback": "You correctly identified X. However, you missed Y. Always remember to check Z."
 }
 `;
 
@@ -104,31 +95,25 @@ function parseSectionRules(examInstructions) {
     return rules;
 }
 
-// Helper: Deterministic Local Math Engine
+// Helper: Dumb Aggregator (Reduce Phase)
 function calculateDeterministicScores(extractedData, examInstructions, maxScoreParam = 100) {
     if (!extractedData || !extractedData.questions) return extractedData;
 
     extractedData.questions.forEach(q => {
-        if (q.answer_status === "Skipped" || !q.criteria_evaluations || !Array.isArray(q.criteria_evaluations)) {
+        if (q.answer_status === "Skipped") {
             q.marks_awarded = 0;
         } else {
-            // Calculate proportional score based on evaluations array
-            const trueCount = q.criteria_evaluations.filter(c => c && c.met === true).length;
-            const totalCriteria = q.criteria_evaluations.length || 1;
+            // The score is now provided entirely by the AI in PASS 2
+            let aiScore = parseFloat(q.score);
+            if (isNaN(aiScore)) aiScore = 0;
 
-            // Assume equal weighting for criteria unless specified otherwise
-            // Fallback to 1 to prevent undefined/NaN crashes if AI omits it
             const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : (q.maxScore !== undefined ? q.maxScore : 1));
             const maxMarks = parseFloat(maxMarksRaw) || 1;
 
-            q.max_marks = maxMarks; // Ensure it's defined on the object for the UI
+            q.max_marks = maxMarks;
 
-            // Proportional Math: (trueCount / totalCriteria) * maxMarks
-            let calculatedScore = (trueCount / totalCriteria) * maxMarks;
-
-            // Hard Ceiling Enforcement and NaN prevention
-            if (isNaN(calculatedScore)) calculatedScore = 0;
-            q.marks_awarded = Math.min(Math.round(calculatedScore * 100) / 100, maxMarks);
+            // Hard Ceiling Enforcement
+            q.marks_awarded = Math.min(Math.round(aiScore * 100) / 100, maxMarks);
         }
     });
 
@@ -166,7 +151,11 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             // Reset marks for dropped questions
             droppedQuestions.forEach(q => {
                 q.marks_awarded = 0;
-                q.constructive_feedback = "(Dropped: " + q.constructive_feedback + ")";
+                if (q.constructive_feedback) {
+                    q.constructive_feedback = "(Dropped: " + q.constructive_feedback + ")";
+                } else {
+                    q.constructive_feedback = "(Dropped)";
+                }
             });
         }
 
@@ -200,22 +189,169 @@ async function getSecureKey() {
 // Helper function for exponential backoff delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// Client-Side Distributed Grading Engine
+// Helper to parse LLM JSON output robustly
+function parseLLMJSON(content) {
+    if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
+    else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
+
+    content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
+
+    try {
+        return JSON.parse(content);
+    } catch (e) {
+        console.warn("JSON parse failed, attempting automatic fallback repair for truncated JSON:", e.message);
+        let repairedContent = content;
+        let stack = [];
+        let inString = false;
+        let escapeNext = false;
+
+        for (let i = 0; i < repairedContent.length; i++) {
+            const char = repairedContent[i];
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            if (char === '\\') {
+                escapeNext = true;
+                continue;
+            }
+            if (char === '"') {
+                inString = !inString;
+                continue;
+            }
+            if (!inString) {
+                if (char === '{') stack.push('}');
+                else if (char === '[') stack.push(']');
+                else if (char === '}' || char === ']') stack.pop();
+            }
+        }
+
+        let dropIndex = repairedContent.length;
+        let insideStr = inString;
+
+        for (let i = repairedContent.length - 1; i >= 0; i--) {
+            const char = repairedContent[i];
+            if (char === '"' && (i === 0 || repairedContent[i-1] !== '\\')) {
+                insideStr = !insideStr;
+                continue;
+            }
+            if (!insideStr) {
+                if (char === ',') {
+                    dropIndex = i;
+                    break;
+                }
+                if (char === '{' || char === '[' || char === '}' || char === ']') {
+                    dropIndex = i + 1;
+                    break;
+                }
+            }
+        }
+
+        repairedContent = repairedContent.substring(0, dropIndex);
+
+        while (stack.length > 0) {
+            repairedContent += stack.pop();
+        }
+
+        try {
+            return JSON.parse(repairedContent);
+        } catch (e2) {
+            throw new Error(`JSON parsing completely failed even after repair: ${e2.message}`);
+        }
+    }
+}
+
+// Simple Concurrency Semaphore (Promise Pool)
+class Semaphore {
+    constructor(maxConcurrent) {
+        this.maxConcurrent = maxConcurrent;
+        this.currentConcurrent = 0;
+        this.queue = [];
+    }
+
+    async acquire() {
+        if (this.currentConcurrent < this.maxConcurrent) {
+            this.currentConcurrent++;
+            return Promise.resolve();
+        }
+
+        return new Promise(resolve => {
+            this.queue.push(resolve);
+        });
+    }
+
+    release() {
+        this.currentConcurrent--;
+        if (this.queue.length > 0) {
+            this.currentConcurrent++;
+            const resolve = this.queue.shift();
+            resolve();
+        }
+    }
+}
+
+// Pass 2: Single-Question Grading
+async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
+    let attempt = 0;
+    while (attempt < 3) {
+        try {
+            const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.0-flash-001',
+                    temperature: 0.0,
+                    seed: 42,
+                    messages: [
+                        { role: 'system', content: PASS2_SYSTEM_PROMPT },
+                        { role: 'user', content: promptText }
+                    ],
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            const parsed = parseLLMJSON(data.choices[0].message.content);
+            return {
+                ...questionData,
+                score: parsed.score !== undefined ? parsed.score : 0,
+                justification: parsed.justification || "No justification provided.",
+                constructive_feedback: parsed.constructive_feedback || "Review rubric.",
+                criteria_evaluations: [] // Nullified by new architecture
+            };
+
+        } catch (error) {
+            attempt++;
+            if (attempt >= 3) {
+                console.error(`Failed to grade question ${questionData.questionId}:`, error);
+                return { ...questionData, score: 0, marks_awarded: 0, answer_status: "Skipped", constructive_feedback: "Error grading." };
+            }
+            await delay(attempt * 2000);
+        }
+    }
+}
+
+// Client-Side Distributed Grading Engine (Map-Reduce Architecture)
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
             const apiKey = await getSecureKey();
 
-            // Ensure backwards compatibility and dynamic context building
+            // PASS 1: THE SEGMENTATION MAP
             let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
-            if (examInstructions && examInstructions.trim() !== '') {
-                promptText += `CRITICAL EXAM INSTRUCTIONS (FOLLOW THESE OVER ANY ASSUMPTIONS):\n${examInstructions}\n\n`;
-            }
-
             const userContent = [];
 
-            // Detect if input is raw text string (Online Digital) or array of images (Offline Scanned)
             if (typeof base64PDF === 'string') {
                 promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${base64PDF}\n---`;
                 userContent.push({ type: "text", text: promptText });
@@ -232,134 +368,59 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 throw new Error("Invalid input format for student exam data.");
             }
 
-            const response = await fetch(API_URL, {
+            const mapResponse = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-001', // Required model: Guaranteed massive context window support on OpenRouter
+                    model: 'google/gemini-2.0-flash-001',
                     temperature: 0.0,
                     seed: 42,
-                    max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
+                    max_tokens: 8192,
                     messages: [
-                        { role: 'system', content: SYSTEM_PROMPT },
+                        { role: 'system', content: PASS1_SYSTEM_PROMPT },
                         { role: 'user', content: userContent }
                     ],
                     response_format: { type: "json_object" }
                 })
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            if (!mapResponse.ok) {
+                const errorText = await mapResponse.text();
+                throw new Error(`OpenRouter API error in Pass 1: ${mapResponse.status} ${errorText}`);
             }
 
-            const data = await response.json();
-            let content = data.choices[0].message.content;
+            const mapData = await mapResponse.json();
+            let parsedMap = parseLLMJSON(mapData.choices[0].message.content);
 
-            if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
-            else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
+            if (parsedMap.students && Array.isArray(parsedMap.students)) {
+                parsedMap = parsedMap.students[0];
+            }
 
-            // JSON Sanitizer: Robustly double-escape unescaped backslashes to prevent "Bad escaped character" JSON.parse errors.
-            // This safely preserves valid JSON structure escapes (\", \\, \/, \n) but double-escapes everything else (e.g. \frac, \sin, \theta)
-            // by matching any backslash NOT preceded by a backslash AND NOT followed by ", \, /, or n.
-            content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
+            // PASS 2: PARALLEL QUESTION PROCESSING (The "Brain")
+            const questions = parsedMap.questions || [];
+            const semaphore = new Semaphore(10); // Throttle to 10 concurrent requests
 
-            let parsedData;
-            try {
-                parsedData = JSON.parse(content);
-            } catch (e) {
-                console.warn("JSON parse failed, attempting automatic fallback repair for truncated JSON:", e.message);
-                // Stack-based fallback mechanism for robust truncated JSON repair
-                let repairedContent = content;
-                let stack = [];
-                let inString = false;
-                let escapeNext = false;
-
-                // Parse up to the point of truncation to build the stack
-                for (let i = 0; i < repairedContent.length; i++) {
-                    const char = repairedContent[i];
-                    if (escapeNext) {
-                        escapeNext = false;
-                        continue;
-                    }
-                    if (char === '\\') {
-                        escapeNext = true;
-                        continue;
-                    }
-                    if (char === '"') {
-                        inString = !inString;
-                        continue;
-                    }
-                    if (!inString) {
-                        if (char === '{') stack.push('}');
-                        else if (char === '[') stack.push(']');
-                        else if (char === '}' || char === ']') stack.pop();
-                    }
+            const gradingPromises = questions.map(async (q) => {
+                if (q.answer_status === "Skipped") {
+                    return { ...q, score: 0, marks_awarded: 0 };
                 }
 
-                // Truncate incomplete key/value pairs safely (e.g. `,"key": "val` or `,"key":`)
-                // If we are NOT in a string, we might have ended on something like `,"key":`
-                // If we are in a string, we might have ended mid-value. We should drop the whole incomplete string and its key.
-
-                // Let's do a more robust backward scan to find the last complete element
-                // We will drop everything after the last structural token that indicates a complete state.
-                let dropIndex = repairedContent.length;
-                let insideStr = inString;
-
-                for (let i = repairedContent.length - 1; i >= 0; i--) {
-                    const char = repairedContent[i];
-
-                    // Toggle string state if we hit an unescaped quote going backwards
-                    // Note: backward escape checking is tricky, we rely on the forward scan for true `inString` state at the end.
-                    // But if we hit a quote, and it's not preceded by a backslash, we toggle.
-                    if (char === '"' && (i === 0 || repairedContent[i-1] !== '\\')) {
-                        insideStr = !insideStr;
-                        continue;
-                    }
-
-                    if (!insideStr) {
-                        if (char === ',') {
-                            dropIndex = i;
-                            break;
-                        }
-                        if (char === '{' || char === '[' || char === '}' || char === ']') {
-                            dropIndex = i + 1;
-                            break;
-                        }
-                    }
-                }
-
-                repairedContent = repairedContent.substring(0, dropIndex);
-
-                // If we ended inside a string, close it
-                // Wait, if we dropped everything up to a safe structural character, we shouldn't be in a string anymore.
-                // But just in case, we won't blindly append quotes.
-
-                // Append the missing closing brackets in reverse order (LIFO)
-                while (stack.length > 0) {
-                    repairedContent += stack.pop();
-                }
-
+                await semaphore.acquire();
                 try {
-                    parsedData = JSON.parse(repairedContent);
-                    console.log("JSON fallback repair successful. Some questions may be truncated.");
-                } catch (e2) {
-                    throw new Error(`JSON parsing completely failed even after repair: ${e2.message}`);
+                    return await gradeSingleQuestion(apiKey, q, markingSchemeText);
+                } finally {
+                    semaphore.release();
                 }
-            }
+            });
 
-            // 2. Deterministic Math Engine (Local Post-Processing)
-            // AI extracted booleans, now our code calculates the absolute math to ensure 100% accuracy.
-            let finalData = parsedData;
+            const gradedQuestions = await Promise.all(gradingPromises);
+            parsedMap.questions = gradedQuestions;
 
-            if (parsedData.students && Array.isArray(parsedData.students)) {
-                finalData = parsedData.students[0]; // Take first if hallucinated array
-            }
-
-            finalData = calculateDeterministicScores(finalData, examInstructions, maxScoreParam);
+            // PASS 3: THE DUMB AGGREGATOR (The "Reduce" Phase)
+            const finalData = calculateDeterministicScores(parsedMap, examInstructions, maxScoreParam);
 
             return [finalData];
 
@@ -367,13 +428,11 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             attempt++;
             console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
 
-            // If we've exhausted all retries, throw the error to halt the queue
             if (attempt >= maxRetries) {
                 console.error("Error in Playbook grading engine (All retries exhausted):", error);
                 throw error;
             }
 
-            // Exponential backoff: Wait 3s, then 6s, before retrying
             const backoffTime = attempt * 3000;
             console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
             await delay(backoffTime);
