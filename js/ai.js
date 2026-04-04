@@ -440,14 +440,20 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             const semaphore = new Semaphore(10); // Throttle to 10 concurrent requests
 
             const gradingPromises = questions.map(async (q) => {
-                if (q.answer_status === "Skipped" || !q.student_answer_transcription || q.student_answer_transcription.trim() === "") {
-                    return {
-                        ...q,
-                        score: 0,
-                        marks_awarded: 0,
-                        justification: "No answer provided",
-                        constructive_feedback: "No answer provided"
-                    };
+                // BUG FIX: Do NOT aggressively intercept missing transcriptions for digital assignments.
+                // Sometimes the LLM sets answer_status to "Skipped" incorrectly if the format isn't perfect,
+                // or omits transcription. We must allow PASS 2 to properly evaluate the context or fallback safely via the prompt logic.
+                if (q.answer_status === "Skipped" && (!q.student_answer_transcription || q.student_answer_transcription.trim() === "")) {
+                     // Check if there is literally NO text provided by the student globally before zeroing out.
+                     if (typeof base64PDF === 'string' && base64PDF.includes("No text provided by student.")) {
+                         return {
+                            ...q,
+                            score: 0,
+                            marks_awarded: 0,
+                            justification: "No text provided by student.",
+                            constructive_feedback: "Please provide an answer."
+                         };
+                     }
                 }
 
                 await semaphore.acquire();

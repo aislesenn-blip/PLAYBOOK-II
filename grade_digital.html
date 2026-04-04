@@ -325,13 +325,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Only grade if not already completed
                 if (submission.status === 'completed') {
                     totalStudentsGraded++;
-                    sessionTotalScore += submission.total_score || 0;
+                        sessionTotalScore += (submission.grading && submission.grading.totalScore) ? submission.grading.totalScore : 0;
                     continue;
                 }
 
                 statusEl.innerText = `Grading Student ${i + 1} of ${submissions.length}...`;
 
-                const rawTextSubmission = submission.text_content || "No text provided by student.";
+                const rawTextSubmission = submission.textContent || "No text provided by student.";
 
                 // Pass the raw text string directly to the adapted gradeBatchExams function
                 const gradedResult = await window.PlaybookAI.gradeBatchExams(rawTextSubmission, scheme, session.exam_instructions || "", explicitMaxMarks);
