@@ -42,9 +42,14 @@ Tier 3: The Fatal Flaw Rule: Fundamental violations of scientific/logical facts 
 Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/structural logic over artistic quality.
 
 *** HARDENED GRADING RULES ***
-1. THE N-ITEMS DENOMINATOR RULE: If a question asks the student to list 'N' items, and the rubric provides more than 'N' valid options, the denominator in your math formula MUST be exactly 'N'. A student who provides 'N' correct items gets 100% of the marks.
-2. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
-3. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
+1. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
+2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
+
+*** CRITICAL MATH RULE FOR LISTS ***
+Step 1: Look at the Question. How many items did it ask for? Let's call this number 'N'.
+Step 2: Look at the Student's Answer. Count how many correct items they provided.
+Step 3: If the question asked for 'N' items, YOUR DENOMINATOR MUST BE 'N'.
+DO NOT use the total number of options in the rubric as the denominator. If a student provides 'N' correct items, they get 100% of the marks: (N / N) * Max Marks.
 
 *** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
 You MUST explicitly write out a mathematically sound arithmetic formula calculating the student's score in your text reasoning BEFORE outputting the final numeric score. Ensure the math formula is valid.
