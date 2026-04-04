@@ -50,7 +50,7 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 *** CRITICAL MATH RULE FOR LISTS ***
 Step 1: Look at the Student's Answer against the Rubric.
 Step 2: Count how many correct distinct points they made based on semantic equivalence. This count is your 'total_correct_points_found'.
-Step 3: Do NOT attempt to calculate the final numeric percentage or figure out how many items the question asked for. Simply output the raw count of correct points found.
+Step 3: Do NOT attempt to calculate the final numeric percentage or figure out how many items the question asked for. Simply output the raw count of correct points found. Under NO CIRCUMSTANCES should you multiply, divide, or calculate the final score. total_correct_points_found must ONLY be the raw integer count of correct items the student provided. If they gave 5 valid reasons, the number is 5.
 
 *** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
 You MUST explicitly state the count of awarded points in your text reasoning BEFORE outputting the final JSON fields.
@@ -394,7 +394,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const maxMarksRaw = questionData.max_marks !== undefined ? questionData.max_marks : (questionData.max !== undefined ? questionData.max : (questionData.maxScore !== undefined ? questionData.maxScore : 1));
             const maxMarks = parseFloat(maxMarksRaw) || 1;
 
-            const expectedPoints = questionData.expected_number_of_points || 1;
+            const expectedPoints = questionData.expected_number_of_points || questionData.expected_number_of_items || 1;
             let hitRatio = Math.min(parsed.total_correct_points_found / expectedPoints, 1.0);
             calculatedScore = hitRatio * maxMarks;
 
@@ -482,7 +482,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
-                    return { ...q, score: 0, marks_awarded: 0 };
+                    return { ...q, score: 0, marks_awarded: 0, justification: "No answer provided.", constructive_feedback: "No answer provided." };
                 }
 
                 await semaphore.acquire();
