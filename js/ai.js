@@ -43,17 +43,16 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 
 *** HARDENED GRADING RULES ***
 1. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
-2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output scoring_units_awarded: 0 and scoring_units_requested: 1 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
+2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output "is_entirely_blank": true and "total_correct_points_found": 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
 
 *** CRITICAL MATH RULE FOR LISTS ***
-Step 1: Look at the Question. How many items did it ask for? Let's call this number 'N'. This 'N' is your 'scoring_units_requested'.
-Step 2: Look at the Student's Answer. Count how many correct items they provided. This count is your 'scoring_units_awarded'.
-Step 3: Output these explicit counts. Do NOT calculate the final numeric percentage.
-DEFINITION OF scoring_units_requested: This is the specific number requested by the QUESTION TEXT (e.g., if the question says 'Mention 5 reasons', the requested units is 5). DO NOT use the total length of the rubric as the requested units unless the question asks for all of them.
+Step 1: Look at the Student's Answer against the Rubric.
+Step 2: Count how many correct distinct points they made based on semantic equivalence. This count is your 'total_correct_points_found'.
+Step 3: Do NOT attempt to calculate the final numeric percentage or figure out how many items the question asked for. Simply output the raw count of correct points found.
 
 *** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
-You MUST explicitly state the counts of requested and awarded scoring units in your text reasoning BEFORE outputting the final JSON fields.
-Example CoT Requirement: "The question asked for 4 units. The student successfully hit 3 out of 4 scoring units. Therefore, scoring_units_awarded is 3 and scoring_units_requested is 4."
+You MUST explicitly state the count of awarded points in your text reasoning BEFORE outputting the final JSON fields.
+Example CoT Requirement: "The student successfully hit 3 correct points. Therefore, total_correct_points_found is 3."
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
 You are a tutor, not just a grader. Your "constructive_feedback" MUST be short, directly actionable, and educational. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson (a 1-to-2 sentence encouraging tip or easy way to remember the concept)]. Append the micro-lesson directly to the end of your constructive_feedback string.
@@ -61,8 +60,8 @@ You are a tutor, not just a grader. Your "constructive_feedback" MUST be short, 
 *** EXAMPLES OF LOGICAL EVALUATION (FEW-SHOT) ***
 Example A: The N-Item List Question
 Question: Mention 3 examples of beneficial nutrients. Rubric: Sodium, Silicon, Cobalt, Selenium, Aluminum. (Total 5 options). Student Answer: Sodium, Cobalt, Silicon.
-Evaluation Logic: The question asked for 3. The student provided 3 correct ones.
-Extracted Data: scoring_units_requested: 3. scoring_units_awarded: 3. (Do NOT use 5 anywhere in your extraction).
+Evaluation Logic: The student provided 3 correct points from the rubric.
+Extracted Data: total_correct_points_found: 3.
 Feedback: You correctly identified three beneficial nutrients. Excellent work. Remember, while essential nutrients are required for a plant to complete its life cycle, beneficial nutrients just give the plant an extra boost in specific environments!
 
 Example B: The Blank Answer
@@ -74,10 +73,10 @@ Feedback: No answer provided. Don't be afraid to attempt a question even if you 
 You MUST output ONLY valid JSON using the schema below. No markdown formatting.
 
 {
-  "justification": "The rubric requires X and the student provided X but missed Y. The question asked for 4 units. The student successfully hit 3 out of 4 scoring units. Therefore, scoring_units_awarded is 3 and scoring_units_requested is 4.",
-  "scoring_units_awarded": 3,
-  "scoring_units_requested": 4,
-  "constructive_feedback": "You correctly identified X. However, you missed Y. Always remember to check Z."
+  "justification": "The rubric requires X and the student provided X but missed Y. The student successfully hit 3 correct points. Therefore, total_correct_points_found is 3.",
+  "constructive_feedback": "You correctly identified X. However, you missed Y. Always remember to check Z.",
+  "total_correct_points_found": 3,
+  "is_entirely_blank": false
 }
 `;
 
@@ -366,21 +365,27 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const data = await response.json();
             const parsed = parseLLMJSON(data.choices[0].message.content);
 
-            if (parsed.scoring_units_awarded === undefined || parsed.scoring_units_requested === undefined || parsed.justification === undefined) {
-                throw new Error("Invalid LLM response format: missing scoring units or justification");
+            if (parsed.total_correct_points_found === undefined || parsed.justification === undefined) {
+                throw new Error("Invalid LLM response format: missing total_correct_points_found or justification");
+            }
+
+            if (parsed.is_entirely_blank === true || !questionData.student_answer_transcription) {
+                return {
+                    ...questionData,
+                    score: 0,
+                    justification: "No answer provided.",
+                    constructive_feedback: "No answer provided.",
+                    criteria_evaluations: []
+                };
             }
 
             let calculatedScore = 0;
             const maxMarksRaw = questionData.max_marks !== undefined ? questionData.max_marks : (questionData.max !== undefined ? questionData.max : (questionData.maxScore !== undefined ? questionData.maxScore : 1));
             const maxMarks = parseFloat(maxMarksRaw) || 1;
 
-            if (parsed.scoring_units_requested > 0) {
-                calculatedScore = (parsed.scoring_units_awarded / parsed.scoring_units_requested) * maxMarks;
-            } else {
-                calculatedScore = parsed.scoring_units_awarded > 0 ? maxMarks : 0;
-            }
-
-            calculatedScore = Math.min(calculatedScore, maxMarks);
+            const expectedItems = questionData.expected_number_of_items || 1;
+            let hitRatio = Math.min(parsed.total_correct_points_found / expectedItems, 1.0);
+            calculatedScore = hitRatio * maxMarks;
 
             return {
                 ...questionData,
