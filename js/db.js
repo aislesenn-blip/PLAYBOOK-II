@@ -201,6 +201,7 @@ const PlaybookDB = {
             studentName: sub.student_name,
             registrationNumber: sub.registration_number,
             textContent: sub.text_content,
+            pdfStoragePath: sub.pdf_storage_path,
             status: sub.status,
             grading: sub.grading_data ? {
                 totalScore: sub.total_score,

@@ -331,10 +331,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 statusEl.innerText = `Grading Student ${i + 1} of ${submissions.length}...`;
 
-                const rawTextSubmission = submission.textContent || "No text provided by student.";
+                let studentExamInput = null;
 
-                // Pass the raw text string directly to the adapted gradeBatchExams function
-                const gradedResult = await window.PlaybookAI.gradeBatchExams(rawTextSubmission, scheme, session.exam_instructions || "", explicitMaxMarks);
+                if (submission.pdfStoragePath) {
+                    statusEl.innerText = `Downloading PDF for Student ${i + 1}...`;
+                    const { data: blob, error: downloadError } = await window.supabaseClient.storage
+                        .from('exams_bucket')
+                        .download(submission.pdfStoragePath);
+
+                    if (downloadError) {
+                        console.error("Failed to download PDF:", downloadError);
+                        studentExamInput = submission.textContent || "Error downloading PDF. No text provided.";
+                    } else {
+                        try {
+                            statusEl.innerText = `Analyzing pages for Student ${i + 1}...`;
+                            const arrayBuffer = await blob.arrayBuffer();
+                            const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+
+                            if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                            }
+
+                            const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            let base64Images = [];
+
+                            for (let j = 1; j <= pdfDoc.numPages; j++) {
+                                const page = await pdfDoc.getPage(j);
+                                const viewport = page.getViewport({ scale: 1.5 });
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                                base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                            }
+                            studentExamInput = base64Images;
+                        } catch (pdfError) {
+                            console.error("Failed to parse PDF:", pdfError);
+                            studentExamInput = submission.textContent || "Error parsing PDF. No text provided.";
+                        }
+                    }
+                } else {
+                    studentExamInput = submission.textContent || "No text provided by student.";
+                }
+
+                statusEl.innerText = `Grading Student ${i + 1} of ${submissions.length}...`;
+
+                // Pass the extracted input directly to the adapted gradeBatchExams function
+                const gradedResult = await window.PlaybookAI.gradeBatchExams(studentExamInput, scheme, session.exam_instructions || "", explicitMaxMarks);
 
                 if (gradedResult && gradedResult.length > 0) {
                     const studentRes = gradedResult[0];
