@@ -137,17 +137,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             sessions.sort((a, b) => Number(b.id) - Number(a.id)); // Sort newest first
 
-            sessions.forEach(session => {
+            // Use for...of to allow await inside loop
+            for (const session of sessions) {
                 const totalStudents = session.total_students || 0;
                 totalGraded += totalStudents;
 
                 const currentStatus = session.status || 'pending';
 
-                if (currentStatus === 'needs_review' || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
+                // Fetch submissions to determine true action state (prevent late submission lockout)
+                let hasPending = false;
+                let hasNeedsReview = false;
+                try {
+                    const subs = await window.PlaybookDB.getSubmissionsBySession(session.id);
+                    hasPending = subs.some(s => s.status === 'pending');
+                    hasNeedsReview = subs.some(s => s.status === 'needs_review');
+                } catch(e) {}
+
+                // Update metrics based on derived state
+                if (currentStatus === 'needs_review' || hasNeedsReview || hasPending) {
                     pendingCount++;
                 }
 
-                if (session.average_score !== undefined && session.average_score !== null) {
+                if (currentStatus === 'completed' && session.average_score && !hasPending && !hasNeedsReview) {
                     totalScoreSum += Number(session.average_score);
                     sessionsWithScore++;
                 }
@@ -181,7 +192,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Format display status for UI cleanly
                 let displayStatus = currentStatus;
-                if (displayStatus === 'needs_review' || displayStatus.toLowerCase() === 'pending review' || displayStatus.toLowerCase() === 'pending') {
+                if (hasPending || currentStatus === 'pending') {
+                    displayStatus = 'Pending';
+                } else if (hasNeedsReview || currentStatus === 'needs_review' || displayStatus.toLowerCase() === 'pending review') {
                     displayStatus = 'Pending Review';
                 } else {
                     displayStatus = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
@@ -196,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <td>${actionLink}</td>
                 `;
                 tbody.appendChild(tr);
-            });
+            }
         }
 
         document.getElementById('stat-total-graded').textContent = totalGraded.toLocaleString();
