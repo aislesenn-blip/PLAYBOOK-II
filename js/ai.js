@@ -14,7 +14,7 @@ You must analyze the student's exam and segment their answers based on the provi
 2. For EVERY question listed in the marking scheme, check if the student attempted it.
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. For list/multi-part questions, identify the expected number of items requested from the marking scheme. Default to 1.
+5. For list/multi-part questions, identify the expected number of points requested from the marking scheme. Default to 1.
 6. ONLY output valid JSON using the exact schema below. No markdown formatting.
 
 *** SCHEMA ***
@@ -26,7 +26,7 @@ You must analyze the student's exam and segment their answers based on the provi
       "questionId": "1a",
       "section": "Section name if applicable, else 'General'",
       "max_marks": 5,
-      "expected_number_of_items": 1,
+      "expected_number_of_points": 1,
       "answer_status": "Answered | Skipped",
       "student_answer_transcription": "The student wrote: '...'"
     }
@@ -215,6 +215,15 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // Helper to parse LLM JSON output robustly
 function parseLLMJSON(content) {
+    if (!content || content.trim() === '') {
+        return {
+            total_correct_points_found: 0,
+            is_entirely_blank: true,
+            justification: "No answer provided.",
+            constructive_feedback: "No answer provided."
+        };
+    }
+
     if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
     else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
 
@@ -385,8 +394,8 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const maxMarksRaw = questionData.max_marks !== undefined ? questionData.max_marks : (questionData.max !== undefined ? questionData.max : (questionData.maxScore !== undefined ? questionData.maxScore : 1));
             const maxMarks = parseFloat(maxMarksRaw) || 1;
 
-            const expectedItems = questionData.expected_number_of_items || 1;
-            let hitRatio = Math.min(parsed.total_correct_points_found / expectedItems, 1.0);
+            const expectedPoints = questionData.expected_number_of_points || 1;
+            let hitRatio = Math.min(parsed.total_correct_points_found / expectedPoints, 1.0);
             calculatedScore = hitRatio * maxMarks;
 
             return {
