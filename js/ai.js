@@ -14,7 +14,8 @@ You must analyze the student's exam and segment their answers based on the provi
 2. For EVERY question listed in the marking scheme, check if the student attempted it.
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. ONLY output valid JSON using the exact schema below. No markdown formatting.
+5. For list/multi-part questions, identify the expected number of items requested from the marking scheme. Default to 1.
+6. ONLY output valid JSON using the exact schema below. No markdown formatting.
 
 *** SCHEMA ***
 {
@@ -25,6 +26,7 @@ You must analyze the student's exam and segment their answers based on the provi
       "questionId": "1a",
       "section": "Section name if applicable, else 'General'",
       "max_marks": 5,
+      "expected_number_of_items": 1,
       "answer_status": "Answered | Skipped",
       "student_answer_transcription": "The student wrote: '...'"
     }
@@ -399,7 +401,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             attempt++;
             if (attempt >= 3) {
                 console.error(`Failed to grade question ${questionData.questionId}:`, error);
-                return { ...questionData, score: 0, marks_awarded: 0, answer_status: "Skipped", constructive_feedback: "Error grading." };
+                return { ...questionData, score: 0, marks_awarded: 0, answer_status: "Skipped", justification: "Error grading.", constructive_feedback: "Error grading." };
             }
             await delay(attempt * 2000);
         }
