@@ -14,7 +14,7 @@ You must analyze the student's exam and segment their answers based on the provi
 2. For EVERY question listed in the marking scheme, check if the student attempted it.
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. Analyze the marking scheme for the question and identify the expected number of scoring items or criteria. Store this as 'expected_number_of_items'.
+5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
 6. ONLY output valid JSON using the exact schema below. No markdown formatting.
 
 *** SCHEMA ***
@@ -115,7 +115,7 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             const maxMarks = parseFloat(maxMarksRaw) || 1;
             q.max_marks = maxMarks;
 
-            const expectedItems = parseInt(q.expected_number_of_items) || 1;
+            const expectedItems = parseInt(q.expected_number_of_items) || maxMarks;
             let correctPoints = parseInt(q.total_correct_points_found) || 0;
 
             let aiScore = Math.min(correctPoints / expectedItems, 1.0) * maxMarks;
