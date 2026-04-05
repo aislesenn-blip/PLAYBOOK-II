@@ -48,7 +48,7 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
 
 *** STRICT SCORING GUARDRAIL ***
-Calculate the exact marks the student earned based on the rubric. If the rubric states each item is worth 0.5 marks, and they got 3 items, award 1.5.
+Calculate the exact marks the student earned based on the rubric. If the rubric states each item is worth 0.5 marks, and they got 3 items, award 1.5. 
 DO NOT divide their score by the total number of options listed in the marking scheme. Just add up the points they successfully earned.
 If the student's answer is blank, output 'is_entirely_blank': true.
 
@@ -57,7 +57,7 @@ Your "constructive_feedback" MUST be short and directly actionable. Use this exa
 
 *** SCHEMA ***
 You MUST output ONLY valid JSON using the exact keys below. No markdown formatting.
-CRITICAL JSON RULE: Do NOT use ANY quotation marks (" or ') inside your justification or feedback text. If you need to reference what the student wrote, paraphrase them or just state the words without wrapping them in quotes.
+CRITICAL JSON RULE: Do NOT use ANY quotation marks inside your justification or feedback text. If you need to reference what the student wrote, paraphrase them or just state the words without wrapping them in quotes.
 
 {
   "justification": "The rubric requires X and the student provided X but missed Y.",
@@ -104,7 +104,7 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
 
             let aiCalculatedMarks = parseFloat(q.marks_awarded_by_ai) || 0;
             let finalScore = Math.min(aiCalculatedMarks, maxMarks);
-
+            
             q.score = finalScore;
             q.marks_awarded = Math.round(finalScore * 100) / 100;
         }
@@ -146,7 +146,7 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
     }
 
     extractedData.totalScore = totalScore;
-    extractedData.maxScore = maxScoreParam;
+    extractedData.maxScore = maxScoreParam; 
 
     return extractedData;
 }
@@ -176,12 +176,14 @@ function parseLLMJSON(content) {
     }
 
     let cleanedText = content;
-    if (cleanedText.startsWith('\`\`\`json')) cleanedText = cleanedText.replace(/^\`\`\`json\n|\n\`\`\`$/g, '');
-    else if (cleanedText.startsWith('\`\`\`')) cleanedText = cleanedText.replace(/^\`\`\`\n|\n\`\`\`$/g, '');
+    
+    // Safely remove markdown JSON blocks
+    cleanedText = cleanedText.replace(/^```json\s*/gi, '');
+    cleanedText = cleanedText.replace(/^```\s*/gi, '');
+    cleanedText = cleanedText.replace(/```\s*$/gi, '');
 
     // THE MAGIC SANITIZER: Strip unescaped newlines and tabs BEFORE parsing
     cleanedText = cleanedText.replace(/[\n\r\t]+/g, ' ');
-    cleanedText = cleanedText.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
 
     try {
         return JSON.parse(cleanedText);
@@ -200,8 +202,7 @@ function parseLLMJSON(content) {
             if (!inString) {
                 if (char === '{') stack.push('}');
                 else if (char === '[') stack.push(']');
-                else if (char === '}') stack.pop();
-                else if (char === ']') stack.pop();
+                else if (char === '}' || char === ']') stack.pop();
             }
         }
 
@@ -262,17 +263,17 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
     const maxRetries = 5;
     while (attempt < maxRetries) {
         try {
-            const promptText = \`Marking Scheme for context:\n\${markingSchemeText}\n\nEvaluate the following student's answer for Question \${questionData.questionId}:\nMax Marks: \${questionData.max_marks}\nAnswer: \${questionData.student_answer_transcription}\`;
+            const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            const timeoutId = setTimeout(() => controller.abort(), 60000); 
 
             let response;
             try {
                 response = await fetch(API_URL, {
                     method: 'POST',
                     headers: {
-                        'Authorization': \`Bearer \${apiKey}\`,
+                        'Authorization': `Bearer ${apiKey}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
@@ -296,7 +297,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             if (!response.ok) {
                 if (response.status === 429) throw new Error("Rate limit exceeded (429)");
                 const errorText = await response.text();
-                throw new Error(\`OpenRouter API error: \${response.status} \${errorText}\`);
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
             }
 
             const data = await response.json();
@@ -312,14 +313,14 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 is_entirely_blank: parsed.is_entirely_blank || false,
                 justification: parsed.justification || "No justification provided.",
                 constructive_feedback: parsed.constructive_feedback || "Review rubric.",
-                criteria_evaluations: []
+                criteria_evaluations: [] 
             };
 
         } catch (error) {
             attempt++;
-            console.warn(\`[Invisible Retry] gradeSingleQuestion attempt \${attempt} failed for Question \${questionData.questionId}:\`, error.message);
+            console.warn(`[Invisible Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
             if (attempt >= maxRetries) {
-                console.error(\`Failed to grade question \${questionData.questionId} after \${maxRetries} attempts:\`, error);
+                console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
                 return { ...questionData, marks_awarded_by_ai: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
             const baseDelay = 4000;
@@ -335,14 +336,14 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
         try {
             const apiKey = await getSecureKey();
 
-            let promptText = \`Here is the marking scheme:\n\${markingSchemeText}\n\n\`;
+            let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
             const userContent = [];
 
             if (typeof base64PDF === 'string') {
-                promptText += \`Here is the raw text of this single student's digital exam submission:\n\n---\n\${base64PDF}\n---\`;
+                promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${base64PDF}\n---`;
                 userContent.push({ type: "text", text: promptText });
             } else if (Array.isArray(base64PDF)) {
-                promptText += \`Here are the scanned pages of this single student's exam:\`;
+                promptText += `Here are the scanned pages of this single student's exam:`;
                 userContent.push({ type: "text", text: promptText });
                 base64PDF.forEach(imageUrl => {
                     userContent.push({
@@ -357,7 +358,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             const mapResponse = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
-                    'Authorization': \`Bearer \${apiKey}\`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -376,7 +377,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             if (!mapResponse.ok) {
                 const errorText = await mapResponse.text();
-                throw new Error(\`OpenRouter API error in Pass 1: \${mapResponse.status} \${errorText}\`);
+                throw new Error(`OpenRouter API error in Pass 1: ${mapResponse.status} ${errorText}`);
             }
 
             const mapData = await mapResponse.json();
@@ -387,8 +388,9 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             }
 
             const questions = parsedMap.questions || [];
+            
             // STRICT CONCURRENCY CONTROL TO PREVENT HTTP 429
-            const semaphore = new Semaphore(2);
+            const semaphore = new Semaphore(2); 
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
@@ -417,7 +419,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
         } catch (error) {
             attempt++;
-            console.warn(\`Playbook Engine Attempt \${attempt} failed: \${error.message}\`);
+            console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
             if (attempt >= maxRetries) throw error;
             const backoffTime = attempt * 3000;
             await delay(backoffTime);
@@ -425,14 +427,14 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     }
 }
 
-const OPTIMIZE_PROMPT = \`
+const OPTIMIZE_PROMPT = `
 You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
 
 CRITICAL MANDATES:
 1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
 2. STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
 3. ATOMIC CRITERIA: Break down paragraph answers into explicit, atomic, true/false grading criteria. Each criterion must represent exactly one independently gradable concept.
-4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+4. Output ONLY the structured text. Do not use markdown block wrapping.
 
 === PLAYBOOK STANDARD FORMAT EXAMPLE ===
 Question 1a: Definition (Max: 3 marks)
@@ -446,7 +448,7 @@ Question 1b: Diagram (Max: 2 marks)
 Criterion_1: A leaf shape is clearly drawn (1 mark)
 Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" (1 mark)
 =========================================
-\`;
+`;
 
 async function optimizeMarkingScheme(rawText, maxRetries = 3) {
     let attempt = 0;
@@ -456,7 +458,7 @@ async function optimizeMarkingScheme(rawText, maxRetries = 3) {
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
-                    'Authorization': \`Bearer \${apiKey}\`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -473,13 +475,13 @@ async function optimizeMarkingScheme(rawText, maxRetries = 3) {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(\`OpenRouter API error: \${response.status} \${errorText}\`);
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
             }
 
             const data = await response.json();
             let content = data.choices[0].message.content;
 
-            if (content.startsWith('\`\`\`')) content = content.replace(/^\`\`\`[^\n]*\n|\n\`\`\`$/g, '');
+            if (content.startsWith('```')) content = content.replace(/^```[^\n]*\n|\n```$/g, '');
             return content;
         } catch (error) {
             attempt++;
@@ -504,7 +506,7 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
-                    'Authorization': \`Bearer \${apiKey}\`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -518,7 +520,7 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(\`OpenRouter API error: \${response.status} \${errorText}\`);
+                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
             }
 
             const data = await response.json();
