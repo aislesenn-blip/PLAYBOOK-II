@@ -331,26 +331,38 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-001',
-                    temperature: 0.0,
-                    top_p: 0.1,
-                    seed: 42,
-                    messages: [
-                        { role: 'system', content: PASS2_SYSTEM_PROMPT },
-                        { role: 'user', content: promptText }
-                    ],
-                    response_format: { type: "json_object" }
-                })
-            });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+            let response;
+            try {
+                response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'google/gemini-2.0-flash-001',
+                        temperature: 0.0,
+                        top_p: 0.1,
+                        seed: 42,
+                        messages: [
+                            { role: 'system', content: PASS2_SYSTEM_PROMPT },
+                            { role: 'user', content: promptText }
+                        ],
+                        response_format: { type: "json_object" }
+                    }),
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timeoutId);
+            }
 
             if (!response.ok) {
+                if (response.status === 429) {
+                    throw new Error("Rate limit exceeded (429)");
+                }
                 const errorText = await response.text();
                 throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
             }
@@ -378,7 +390,11 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
                 return { ...questionData, marks_awarded_by_ai: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
-            await delay(attempt * 2000);
+
+            // Exponential backoff with jitter
+            const baseDelay = 4000;
+            const backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            await delay(backoffTime);
         }
     }
 }
@@ -444,7 +460,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             // PASS 2: PARALLEL QUESTION PROCESSING (The "Brain")
             const questions = parsedMap.questions || [];
-            const semaphore = new Semaphore(10); // Throttle to 10 concurrent requests
+            const semaphore = new Semaphore(3); // Throttle to 3 concurrent requests
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
