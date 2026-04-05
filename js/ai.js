@@ -218,9 +218,46 @@ function parseLLMJSON(content) {
     }
 
     // STEP 1: Extract ONLY the JSON object, ignoring any conversational filler text before or after
-    const match = content.match(/\{[\s\S]*\}/);
-    if (match) {
-        content = match[0];
+    // Custom brace-counting JSON extractor to guarantee perfect extraction
+    let startIndex = content.indexOf('{');
+    if (startIndex !== -1) {
+        let depth = 0;
+        let inString = false;
+        let escapeNext = false;
+        let endIndex = -1;
+
+        for (let i = startIndex; i < content.length; i++) {
+            const char = content[i];
+
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            if (char === '\\') {
+                escapeNext = true;
+                continue;
+            }
+            if (char === '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (!inString) {
+                if (char === '{') {
+                    depth++;
+                } else if (char === '}') {
+                    depth--;
+                    if (depth === 0) {
+                        endIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (endIndex !== -1) {
+            content = content.substring(startIndex, endIndex + 1);
+        }
     }
 
     // STEP 2: Safely strip markdown blocks (in case they were inside the matched block or around it)
@@ -231,8 +268,13 @@ function parseLLMJSON(content) {
 
     // STEP 4: Handle single quotes used incorrectly as keys (e.g. {'justification': ...})
     content = content.replace(/([{,]\s*)'([^']+)'(\s*:)/g, '$1"$2"$3');
+    // Handle single quotes used incorrectly as string values
+    content = content.replace(/(:\s*)'([^']+)'(\s*[,}])/g, '$1"$2"$3');
 
-    // STEP 5: THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
+    // STEP 5: THE FIX: Safe trailing commas
+    content = content.replace(/,\s*([}\]])/g, '$1');
+
+    // STEP 6: THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
     content = content.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
 
     try {
