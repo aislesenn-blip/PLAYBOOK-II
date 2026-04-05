@@ -347,6 +347,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         temperature: 0.0,
                         top_p: 0.1,
                         seed: 42,
+                        max_tokens: 8192,
                         messages: [
                             { role: 'system', content: PASS2_SYSTEM_PROMPT },
                             { role: 'user', content: promptText }
