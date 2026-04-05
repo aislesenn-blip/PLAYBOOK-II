@@ -48,8 +48,7 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
 
 *** STRICT SCORING GUARDRAIL ***
-Calculate the exact marks the student earned based on the rubric. If the rubric states each item is worth 0.5 marks, and they got 3 items, award 1.5. 
-DO NOT divide their score by the total number of options listed in the marking scheme. Just add up the points they successfully earned.
+Do NOT perform arithmetic or calculate partial marks. Your only job is to count the exact number of correct facts/items the student provided based on the rubric, and output this as an integer called 'total_correct_points_found'. Let the system handle the final proportional math.
 If the student's answer is blank, output 'is_entirely_blank': true.
 CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries (e.g., {"justification": "..."}). However, if you need to quote the student's text INSIDE your explanation, you MUST use single quotes ('). Example of correct formatting: {"justification": "The student correctly stated 'beneficial nutrients'."} Do not use unescaped double quotes inside the string value.
 
@@ -61,7 +60,7 @@ You MUST output ONLY valid JSON using the schema below. No markdown formatting.
 
 {
   "justification": "The rubric requires X and the student provided X...",
-  "marks_awarded": 1.5,
+  "total_correct_points_found": 3,
   "is_entirely_blank": false,
   "constructive_feedback": "You correctly identified X. However, you missed Y."
 }
@@ -113,12 +112,21 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             q.marks_awarded = 0;
             q.score = 0;
         } else {
-            // The new dumb aggregator - no division!
+            // The new deterministic aggregator - math done securely in JS based on AI's point count
             const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 1);
             const maxMarks = parseFloat(maxMarksRaw) || 1;
             q.max_marks = maxMarks;
 
-            let aiCalculatedMarks = parseFloat(q.marks_awarded_by_ai) || 0;
+            const expectedItemsRaw = q.expected_number_of_items !== undefined ? q.expected_number_of_items : 1;
+            const expectedItems = parseFloat(expectedItemsRaw) || 1;
+
+            let correctPointsFound = parseInt(q.total_correct_points_found, 10) || 0;
+
+            // Proportional Math Calculation handled deterministically in JavaScript
+            let aiCalculatedMarks = (correctPointsFound / expectedItems) * maxMarks;
+
+            // Re-assign back to marks_awarded_by_ai to preserve schema for downstream logic
+            q.marks_awarded_by_ai = aiCalculatedMarks;
             
             // Hard Ceiling Enforcement (Never exceed max marks)
             let finalScore = Math.min(aiCalculatedMarks, maxMarks);
@@ -364,13 +372,13 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const data = await response.json();
             const parsed = parseLLMJSON(data.choices[0].message.content);
 
-            if (parsed.marks_awarded === undefined && parsed.is_entirely_blank === undefined) {
-                throw new Error("Invalid LLM response format: missing marks_awarded or is_entirely_blank");
+            if (parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
+                throw new Error("Invalid LLM response format: missing total_correct_points_found or is_entirely_blank");
             }
 
             return {
                 ...questionData,
-                marks_awarded_by_ai: parsed.marks_awarded !== undefined ? parseFloat(parsed.marks_awarded) : 0,
+                total_correct_points_found: parsed.total_correct_points_found !== undefined ? parseInt(parsed.total_correct_points_found, 10) : 0,
                 is_entirely_blank: parsed.is_entirely_blank || false,
                 justification: parsed.justification || "No justification provided.",
                 constructive_feedback: parsed.constructive_feedback || "Review rubric.",
@@ -382,7 +390,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             console.warn(`[Invisible Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
             if (attempt >= maxRetries) {
                 console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
-                return { ...questionData, marks_awarded_by_ai: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
+                return { ...questionData, total_correct_points_found: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
             
             // Exponential backoff with jitter
