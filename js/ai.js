@@ -325,7 +325,8 @@ class Semaphore {
 // Pass 2: Single-Question Grading
 async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
     let attempt = 0;
-    while (attempt < 3) {
+    const maxRetries = 5;
+    while (attempt < maxRetries) {
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
@@ -371,8 +372,9 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
 
         } catch (error) {
             attempt++;
-            if (attempt >= 3) {
-                console.error(`Failed to grade question ${questionData.questionId}:`, error);
+            console.warn(`[Invisible Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
+            if (attempt >= maxRetries) {
+                console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
                 return { ...questionData, total_correct_points_found: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
             await delay(attempt * 2000);
