@@ -14,7 +14,8 @@ You must analyze the student's exam and segment their answers based on the provi
 2. For EVERY question listed in the marking scheme, check if the student attempted it.
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. ONLY output valid JSON using the exact schema below. No markdown formatting.
+5. Analyze the marking scheme for the question and identify the expected number of scoring items or criteria. Store this as 'expected_number_of_items'.
+6. ONLY output valid JSON using the exact schema below. No markdown formatting.
 
 *** SCHEMA ***
 {
@@ -25,6 +26,7 @@ You must analyze the student's exam and segment their answers based on the provi
       "questionId": "1a",
       "section": "Section name if applicable, else 'General'",
       "max_marks": 5,
+      "expected_number_of_items": 4,
       "answer_status": "Answered | Skipped",
       "student_answer_transcription": "The student wrote: '...'"
     }
@@ -45,15 +47,9 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 1. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
 2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
 
-*** CRITICAL MATH RULE FOR LISTS ***
-Step 1: Look at the Question. How many items did it ask for? Let's call this number 'N'.
-Step 2: Look at the Student's Answer. Count how many correct items they provided.
-Step 3: If the question asked for 'N' items, YOUR DENOMINATOR MUST BE 'N'.
-DO NOT use the total number of options in the rubric as the denominator. If a question asks for 5 items, but the rubric lists 9 possible options, the denominator is 5, NOT 9. If a student provides 'N' correct items, they get 100% of the marks: (N / N) * Max Marks.
-
-*** ANTI-HALLUCINATION GUARDRAIL (EXPLICIT ARITHMETIC) ***
-You MUST explicitly write out a mathematically sound arithmetic formula calculating the student's score in your text reasoning BEFORE outputting the final numeric score. Ensure the math formula is valid.
-Example CoT Requirement: "The student successfully hit 3 out of 4 scoring units. The maximum marks for this question are 10. Formula: (3 / 4) * 10 = 7.5. Therefore, final score is 7.5."
+*** ANTI-HALLUCINATION GUARDRAIL (DECOUPLED ARITHMETIC) ***
+Do NOT perform arithmetic or calculate a final score. You must strictly output the raw count of correct scoring items the student provided. The system will handle the mathematical division and scaling automatically. Do not mention formulas in your justification.
+If the student's answer is blank, output 'is_entirely_blank': true.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
 Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
@@ -62,8 +58,9 @@ Your "constructive_feedback" MUST be short and directly actionable. Use this exa
 You MUST output ONLY valid JSON using the schema below. No markdown formatting.
 
 {
-  "justification": "The rubric requires X and the student provided X but missed Y. The student successfully hit 3 out of 4 scoring units. The maximum marks for this question are 10. Formula: (3 / 4) * 10 = 7.5. Therefore, final score is 7.5.",
-  "score": 7.5,
+  "justification": "The rubric requires X and the student provided X but missed Y. The student successfully hit 3 scoring units.",
+  "total_correct_points_found": 3,
+  "is_entirely_blank": false,
   "constructive_feedback": "You correctly identified X. However, you missed Y. Always remember to check Z."
 }
 `;
@@ -110,19 +107,21 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
     if (!extractedData || !extractedData.questions) return extractedData;
 
     extractedData.questions.forEach(q => {
-        if (q.answer_status === "Skipped") {
+        if (q.answer_status === "Skipped" || q.is_entirely_blank) {
             q.marks_awarded = 0;
+            q.score = 0;
         } else {
-            // The score is now provided entirely by the AI in PASS 2
-            let aiScore = parseFloat(q.score);
-            if (isNaN(aiScore)) aiScore = 0;
-
             const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : (q.maxScore !== undefined ? q.maxScore : 1));
             const maxMarks = parseFloat(maxMarksRaw) || 1;
-
             q.max_marks = maxMarks;
 
+            const expectedItems = parseInt(q.expected_number_of_items) || 1;
+            let correctPoints = parseInt(q.total_correct_points_found) || 0;
+
+            let aiScore = Math.min(correctPoints / expectedItems, 1.0) * maxMarks;
+
             // Hard Ceiling Enforcement
+            q.score = aiScore;
             q.marks_awarded = Math.min(Math.round(aiScore * 100) / 100, maxMarks);
         }
     });
@@ -201,6 +200,10 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // Helper to parse LLM JSON output robustly
 function parseLLMJSON(content) {
+    if (!content || content.trim() === '') {
+        return { is_entirely_blank: true, justification: "No step-by-step thinking provided", total_correct_points_found: 0 };
+    }
+
     if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
     else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');
 
@@ -284,8 +287,8 @@ function parseLLMJSON(content) {
             return JSON.parse(repairedContent);
         } catch (e2) {
             // Ultimate fallback for completely shattered JSON objects
-            console.error("Advanced JSON repair failed. Returning empty struct.", e2.message);
-            return {};
+            console.error("Advanced JSON repair failed.", e2.message);
+            throw new Error("JSON parse failed completely");
         }
     }
 }
@@ -353,13 +356,14 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const data = await response.json();
             const parsed = parseLLMJSON(data.choices[0].message.content);
 
-            if (parsed.score === undefined || parsed.justification === undefined) {
-                throw new Error("Invalid LLM response format: missing score or justification");
+            if (parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
+                throw new Error("Invalid LLM response format: missing total_correct_points_found or is_entirely_blank");
             }
 
             return {
                 ...questionData,
-                score: parsed.score !== undefined ? parsed.score : 0,
+                total_correct_points_found: parsed.total_correct_points_found !== undefined ? parsed.total_correct_points_found : 0,
+                is_entirely_blank: parsed.is_entirely_blank || false,
                 justification: parsed.justification || "No justification provided.",
                 constructive_feedback: parsed.constructive_feedback || "Review rubric.",
                 criteria_evaluations: [] // Nullified by new architecture
@@ -369,7 +373,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             attempt++;
             if (attempt >= 3) {
                 console.error(`Failed to grade question ${questionData.questionId}:`, error);
-                return { ...questionData, score: 0, marks_awarded: 0, answer_status: "Skipped", constructive_feedback: "Error grading." };
+                return { ...questionData, total_correct_points_found: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
             await delay(attempt * 2000);
         }
@@ -440,11 +444,11 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             const semaphore = new Semaphore(10); // Throttle to 10 concurrent requests
 
             const gradingPromises = questions.map(async (q) => {
-                if (q.answer_status === "Skipped" || !q.student_answer_transcription || q.student_answer_transcription.trim() === "") {
+                if (q.answer_status === "Skipped") {
                     return {
                         ...q,
-                        score: 0,
-                        marks_awarded: 0,
+                        is_entirely_blank: true,
+                        total_correct_points_found: 0,
                         justification: "No answer provided",
                         constructive_feedback: "No answer provided"
                     };
