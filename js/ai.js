@@ -49,6 +49,7 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 
 *** ANTI-HALLUCINATION GUARDRAIL (DECOUPLED ARITHMETIC) ***
 Do NOT perform arithmetic or calculate a final score. You must strictly output the raw count of correct scoring items the student provided. The system will handle the mathematical division and scaling automatically. Do not mention formulas in your justification.
+CRITICAL: The number you output for total_correct_points_found MUST perfectly match the number of correct items you mention in your feedback text. Do not output 1 if you textually state the student found 3.
 If the student's answer is blank, output 'is_entirely_blank': true.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
@@ -115,8 +116,8 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             const maxMarks = parseFloat(maxMarksRaw) || 1;
             q.max_marks = maxMarks;
 
-            const expectedItems = parseInt(q.expected_number_of_items) || maxMarks;
-            let correctPoints = parseInt(q.total_correct_points_found) || 0;
+            const expectedItems = parseFloat(q.expected_number_of_items) || maxMarks;
+            let correctPoints = parseFloat(q.total_correct_points_found) || 0;
 
             let aiScore = Math.min(correctPoints / expectedItems, 1.0) * maxMarks;
 
