@@ -52,6 +52,7 @@ Do NOT perform arithmetic or calculate the final score. Your job is to extract t
 1. 'total_correct_points_found': The integer count of the exact number of correct facts/items the student provided based on the rubric.
 2. 'mark_value_per_point': The numerical value awarded per correct point (e.g., 0.5 or 1). Read this directly from the rubric. If not explicitly stated, default to 1.
 Let the system handle the final math using simple multiplication.
+You MUST count the correct points and output the integer. Do NOT output marks in the justification text.
 If the student's answer is blank, output 'is_entirely_blank': true.
 CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries (e.g., {"justification": "..."}). However, if you need to quote the student's text INSIDE your explanation, you MUST use single quotes ('). Example of correct formatting: {"justification": "The student correctly stated 'beneficial nutrients'."} Do not use unescaped double quotes inside the string value.
 
@@ -216,13 +217,22 @@ function parseLLMJSON(content) {
         return { is_entirely_blank: true, justification: "No step-by-step thinking provided", marks_awarded: 0 };
     }
 
-    // 1. Safely strip markdown blocks
+    // STEP 1: Extract ONLY the JSON object, ignoring any conversational filler text before or after
+    const match = content.match(/\{[\s\S]*\}/);
+    if (match) {
+        content = match[0];
+    }
+
+    // STEP 2: Safely strip markdown blocks (in case they were inside the matched block or around it)
     content = content.replace(/^```json\s*/gi, '').replace(/^```\s*/gi, '').replace(/```\s*$/gi, '');
 
-    // 2. THE FIX: Strip unescaped newlines and tabs that break JSON parsing
+    // STEP 3: THE FIX: Strip unescaped newlines and tabs that break JSON parsing
     content = content.replace(/[\n\r\t]+/g, ' ');
 
-    // 3. THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
+    // STEP 4: Handle single quotes used incorrectly as keys (e.g. {'justification': ...})
+    content = content.replace(/([{,]\s*)'([^']+)'(\s*:)/g, '$1"$2"$3');
+
+    // STEP 5: THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
     content = content.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
 
     try {
