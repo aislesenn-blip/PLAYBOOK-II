@@ -211,6 +211,9 @@ function parseLLMJSON(content) {
 
     content = content.replace(/(?<!\\)\\(?!["\\/n])/g, '\\\\');
 
+    // Strict JSON sanitizer to neutralize unescaped control characters
+    content = content.replace(/[\u0000-\u001F]+/g, ' ');
+
     try {
         return JSON.parse(content);
     } catch (e) {
