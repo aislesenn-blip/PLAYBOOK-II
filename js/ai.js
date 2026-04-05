@@ -39,7 +39,7 @@ You are the Chief Evaluator for an Examination Board. You are tasked with gradin
 
 *** THE 4 TIERS OF EVALUATION (GRADING CONSTRAINTS) ***
 Tier 1: Semantic Equivalence: Evaluate based on meaning, not exact keyword matching.
-Tier 2: Proportional Math: Assign partial credit correctly based on the provided scheme.
+Tier 2: Item Counting: Strictly count the number of correct, distinct facts the student provided based on the rubric.
 Tier 3: The Fatal Flaw Rule: Fundamental violations of scientific/logical facts mean zero marks for that specific concept.
 Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/structural logic over artistic quality.
 
@@ -117,8 +117,8 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             const maxMarks = parseFloat(maxMarksRaw) || 1;
             q.max_marks = maxMarks;
 
-            const expectedItemsRaw = q.expected_number_of_items !== undefined ? q.expected_number_of_items : 1;
-            const expectedItems = parseFloat(expectedItemsRaw) || 1;
+            const expectedItemsRaw = q.expected_number_of_items !== undefined ? q.expected_number_of_items : maxMarks;
+            const expectedItems = parseFloat(expectedItemsRaw) || maxMarks;
 
             let correctPointsFound = parseInt(q.total_correct_points_found, 10) || 0;
 
