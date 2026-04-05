@@ -16,19 +16,11 @@ Traceback (most recent call last):
   File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/socketserver.py", line 478, in server_bind
     self.socket.bind(self.server_address)
 OSError: [Errno 98] Address already in use
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /class_detail.html?id=test_course_id HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /js/app.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /js/auth.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /js/class_detail.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /js/db.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:03:51] "GET /css/notifications.css HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /class_detail.html?id=test_course_id HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /js/app.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /js/class_detail.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /js/auth.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /js/db.js HTTP/1.1" 200 -
-127.0.0.1 - - [05/Apr/2026 14:06:40] "GET /css/notifications.css HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /class_detail.html?id=test_course_id HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /icons/playbook-icon.png HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /js/db.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /js/class_detail.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Apr/2026 14:46:52] "GET /css/notifications.css HTTP/1.1" 200 -
