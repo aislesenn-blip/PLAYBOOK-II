@@ -417,8 +417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 3. Update Session to Processing
             await window.supabaseClient.from('sessions').update({
-                status: 'processing',
-                pdf_storage_path: storagePath
+                status: 'processing'
             }).eq('id', savedSession.id);
 
             statusEl.textContent = 'Grading Engine Active...';
