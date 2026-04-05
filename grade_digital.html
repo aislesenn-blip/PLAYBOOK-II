@@ -331,7 +331,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 statusEl.innerText = `Grading Student ${i + 1} of ${submissions.length}...`;
 
-                const rawTextSubmission = submission.text_content || "No text provided by student.";
+                let rawTextSubmission = submission.text_content;
+
+                if (!rawTextSubmission && submission.pdf_storage_path) {
+                    // NOTE: You must add your pdf.js text extraction logic here!
+                    // For now, if we can't read it, do not send "No text provided".
+                    rawTextSubmission = "[PDF Attached but unparsed. Read from storage.]";
+                } else if (!rawTextSubmission && !submission.pdf_storage_path) {
+                    rawTextSubmission = "No text provided by student.";
+                }
 
                 // Pass the raw text string directly to the adapted gradeBatchExams function
                 const gradedResult = await window.PlaybookAI.gradeBatchExams(rawTextSubmission, scheme, session.exam_instructions || "", explicitMaxMarks);

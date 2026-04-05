@@ -47,9 +47,9 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 1. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
 2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
 
-*** ANTI-HALLUCINATION GUARDRAIL (DECOUPLED ARITHMETIC) ***
-Do NOT perform arithmetic or calculate a final score. You must strictly output the raw count of correct scoring items the student provided. The system will handle the mathematical division and scaling automatically. Do not mention formulas in your justification.
-CRITICAL: The number you output for total_correct_points_found MUST perfectly match the number of correct items you mention in your feedback text. Do not output 1 if you textually state the student found 3.
+*** STRICT SCORING GUARDRAIL ***
+Calculate the exact marks the student earned based on the rubric. If the rubric states each item is worth 0.5 marks, and they got 3 items, award 1.5.
+DO NOT divide their score by the total number of options listed in the marking scheme. Just add up the points they successfully earned.
 If the student's answer is blank, output 'is_entirely_blank': true.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
@@ -59,10 +59,10 @@ Your "constructive_feedback" MUST be short and directly actionable. Use this exa
 You MUST output ONLY valid JSON using the schema below. No markdown formatting.
 
 {
-  "justification": "The rubric requires X and the student provided X but missed Y. The student successfully hit 3 scoring units.",
-  "total_correct_points_found": 3,
+  "justification": "The rubric requires X and the student provided X...",
+  "marks_awarded": 1.5,
   "is_entirely_blank": false,
-  "constructive_feedback": "You correctly identified X. However, you missed Y. Always remember to check Z."
+  "constructive_feedback": "You correctly identified X. However, you missed Y."
 }
 `;
 
@@ -112,18 +112,18 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             q.marks_awarded = 0;
             q.score = 0;
         } else {
-            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : (q.maxScore !== undefined ? q.maxScore : 1));
+            // The new dumb aggregator - no division!
+            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 1);
             const maxMarks = parseFloat(maxMarksRaw) || 1;
             q.max_marks = maxMarks;
 
-            const expectedItems = parseFloat(q.expected_number_of_items) || maxMarks;
-            let correctPoints = parseFloat(q.total_correct_points_found) || 0;
+            let aiCalculatedMarks = parseFloat(q.marks_awarded_by_ai) || 0;
 
-            let aiScore = Math.min(correctPoints / expectedItems, 1.0) * maxMarks;
+            // Hard Ceiling Enforcement (Never exceed max marks)
+            let finalScore = Math.min(aiCalculatedMarks, maxMarks);
 
-            // Hard Ceiling Enforcement
-            q.score = aiScore;
-            q.marks_awarded = Math.min(Math.round(aiScore * 100) / 100, maxMarks);
+            q.score = finalScore;
+            q.marks_awarded = Math.round(finalScore * 100) / 100;
         }
     });
 
@@ -202,7 +202,7 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 // Helper to parse LLM JSON output robustly
 function parseLLMJSON(content) {
     if (!content || content.trim() === '') {
-        return { is_entirely_blank: true, justification: "No step-by-step thinking provided", total_correct_points_found: 0 };
+        return { is_entirely_blank: true, justification: "No step-by-step thinking provided", marks_awarded: 0 };
     }
 
     if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
@@ -358,13 +358,13 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const data = await response.json();
             const parsed = parseLLMJSON(data.choices[0].message.content);
 
-            if (parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
-                throw new Error("Invalid LLM response format: missing total_correct_points_found or is_entirely_blank");
+            if (parsed.marks_awarded === undefined && parsed.is_entirely_blank === undefined) {
+                throw new Error("Invalid LLM response format: missing marks_awarded or is_entirely_blank");
             }
 
             return {
                 ...questionData,
-                total_correct_points_found: parsed.total_correct_points_found !== undefined ? parsed.total_correct_points_found : 0,
+                marks_awarded_by_ai: parsed.marks_awarded !== undefined ? parseFloat(parsed.marks_awarded) : 0,
                 is_entirely_blank: parsed.is_entirely_blank || false,
                 justification: parsed.justification || "No justification provided.",
                 constructive_feedback: parsed.constructive_feedback || "Review rubric.",
@@ -376,7 +376,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             console.warn(`[Invisible Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
             if (attempt >= maxRetries) {
                 console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
-                return { ...questionData, total_correct_points_found: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
+                return { ...questionData, marks_awarded_by_ai: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
             await delay(attempt * 2000);
         }
@@ -451,7 +451,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     return {
                         ...q,
                         is_entirely_blank: true,
-                        total_correct_points_found: 0,
+                        marks_awarded_by_ai: 0,
                         justification: "No answer provided",
                         constructive_feedback: "No answer provided"
                     };
