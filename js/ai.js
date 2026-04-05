@@ -51,45 +51,60 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 Calculate the exact marks the student earned based on the rubric. If the rubric states each item is worth 0.5 marks, and they got 3 items, award 1.5. 
 DO NOT divide their score by the total number of options listed in the marking scheme. Just add up the points they successfully earned.
 If the student's answer is blank, output 'is_entirely_blank': true.
+CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries (e.g., {"justification": "..."}). However, if you need to quote the student's text INSIDE your explanation, you MUST use single quotes ('). Example of correct formatting: {"justification": "The student correctly stated 'beneficial nutrients'."} Do not use unescaped double quotes inside the string value.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
 Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
 
 *** SCHEMA ***
-You MUST output ONLY valid JSON using the exact keys below. No markdown formatting.
-CRITICAL JSON RULE: Do NOT use ANY quotation marks inside your justification or feedback text. If you need to reference what the student wrote, paraphrase them or just state the words without wrapping them in quotes.
+You MUST output ONLY valid JSON using the schema below. No markdown formatting.
 
 {
-  "justification": "The rubric requires X and the student provided X but missed Y.",
+  "justification": "The rubric requires X and the student provided X...",
   "marks_awarded": 1.5,
   "is_entirely_blank": false,
   "constructive_feedback": "You correctly identified X. However, you missed Y."
 }
 `;
 
+// Helper: Parse exam instructions for section-specific rules
 function parseSectionRules(examInstructions) {
     const rules = {};
     if (!examInstructions || typeof examInstructions !== 'string') return rules;
+
+    // Match formats like "Section B: answer 2" or "Section B: Answer 2 of 3"
     const format1 = /Section\s+([A-Z0-9]+)[\s:,-]+(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)/gi;
+
+    // Match formats like "Answer only 2 questions in Section B"
     const format2 = /(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)[\sA-Za-z]*(?:in|from|of)\s+Section\s+([A-Z0-9]+)/gi;
+
+    // Match global formats like "Answer 2 questions" or "Attempt 3" that apply to the whole exam
     const formatGlobal = /(?:answer|choose|pick|attempt|do)[\sA-Za-z]*(\d+)(?![\sA-Za-z]*(?:in|from|of)\s+Section)/gi;
 
     let match;
     while ((match = format1.exec(examInstructions)) !== null) {
         rules[match[1].toUpperCase()] = parseInt(match[2], 10);
     }
+
     while ((match = format2.exec(examInstructions)) !== null) {
         rules[match[2].toUpperCase()] = parseInt(match[1], 10);
     }
+
+    // Process global rules
     while ((match = formatGlobal.exec(examInstructions)) !== null) {
+        // If a global rule is found, we assign it to the 'GENERAL' section
+        // to match how general questions without sections are handled.
+        // We only set it if not already set, or take the strictest (lowest number).
         const limit = parseInt(match[1], 10);
         if (!rules["GENERAL"] || limit < rules["GENERAL"]) {
             rules["GENERAL"] = limit;
         }
     }
+
     return rules;
 }
 
+// Helper: Dumb Aggregator (Reduce Phase)
 function calculateDeterministicScores(extractedData, examInstructions, maxScoreParam = 100) {
     if (!extractedData || !extractedData.questions) return extractedData;
 
@@ -98,11 +113,14 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             q.marks_awarded = 0;
             q.score = 0;
         } else {
+            // The new dumb aggregator - no division!
             const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 1);
             const maxMarks = parseFloat(maxMarksRaw) || 1;
             q.max_marks = maxMarks;
 
             let aiCalculatedMarks = parseFloat(q.marks_awarded_by_ai) || 0;
+            
+            // Hard Ceiling Enforcement (Never exceed max marks)
             let finalScore = Math.min(aiCalculatedMarks, maxMarks);
             
             q.score = finalScore;
@@ -110,11 +128,16 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
         }
     });
 
+    // --- GREEDY BEST-SCORE ALGORITHM (Section Logic) ---
     const sectionRules = parseSectionRules(examInstructions);
+
+    // Group questions by section
     const sections = {};
     extractedData.questions.forEach(q => {
+        // Extract section from "Section A", "A", etc. Default to "GENERAL"
         let secName = "GENERAL";
         if (q.section) {
+            // Remove the word "Section" if present to grab the actual identifier
             const normalized = q.section.replace(/section/i, '').trim();
             const secMatch = normalized.match(/([A-Z0-9]+)/i);
             if (secMatch) secName = secMatch[1].toUpperCase();
@@ -125,14 +148,18 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
 
     let totalScore = 0;
 
+    // Apply rules per section
     for (const [secName, qs] of Object.entries(sections)) {
         let attemptedQs = qs.filter(q => q.answer_status !== "Skipped" && q.marks_awarded > 0);
 
         if (sectionRules[secName] && attemptedQs.length > sectionRules[secName]) {
+            // Student over-answered in this specific section. Sort by marks_awarded descending.
             attemptedQs.sort((a, b) => b.marks_awarded - a.marks_awarded);
+
             const allowedAnswers = sectionRules[secName];
             const droppedQuestions = attemptedQs.slice(allowedAnswers);
 
+            // Reset marks for dropped questions
             droppedQuestions.forEach(q => {
                 q.marks_awarded = 0;
                 if (q.constructive_feedback) {
@@ -142,11 +169,13 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
                 }
             });
         }
+
+        // Sum up this section
         totalScore += qs.reduce((sum, q) => sum + (q.marks_awarded || 0), 0);
     }
 
     extractedData.totalScore = totalScore;
-    extractedData.maxScore = maxScoreParam; 
+    extractedData.maxScore = maxScoreParam; // Ensure max score is passed through
 
     return extractedData;
 }
@@ -168,37 +197,47 @@ async function getSecureKey() {
     }
 }
 
+// Helper function for exponential backoff delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
+// Helper to parse LLM JSON output robustly
 function parseLLMJSON(content) {
     if (!content || content.trim() === '') {
         return { is_entirely_blank: true, justification: "No step-by-step thinking provided", marks_awarded: 0 };
     }
 
-    let cleanedText = content;
-    
-    // Safely remove markdown JSON blocks
-    cleanedText = cleanedText.replace(/^```json\s*/gi, '');
-    cleanedText = cleanedText.replace(/^```\s*/gi, '');
-    cleanedText = cleanedText.replace(/```\s*$/gi, '');
+    // 1. Safely strip markdown blocks
+    content = content.replace(/^```json\s*/gi, '').replace(/^```\s*/gi, '').replace(/```\s*$/gi, '');
 
-    // THE MAGIC SANITIZER: Strip unescaped newlines and tabs BEFORE parsing
-    cleanedText = cleanedText.replace(/[\n\r\t]+/g, ' ');
+    // 2. THE FIX: Strip unescaped newlines and tabs that break JSON parsing
+    content = content.replace(/[\n\r\t]+/g, ' ');
+
+    // 3. THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
+    content = content.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
 
     try {
-        return JSON.parse(cleanedText);
+        return JSON.parse(content);
     } catch (e) {
         console.warn("JSON parse failed, attempting automatic fallback repair for truncated JSON:", e.message);
-        let repairedContent = cleanedText;
+        let repairedContent = content;
         let stack = [];
         let inString = false;
         let escapeNext = false;
 
         for (let i = 0; i < repairedContent.length; i++) {
             const char = repairedContent[i];
-            if (escapeNext) { escapeNext = false; continue; }
-            if (char === '\\') { escapeNext = true; continue; }
-            if (char === '"') { inString = !inString; continue; }
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            if (char === '\\') {
+                escapeNext = true;
+                continue;
+            }
+            if (char === '"') {
+                inString = !inString;
+                continue;
+            }
             if (!inString) {
                 if (char === '{') stack.push('}');
                 else if (char === '[') stack.push(']');
@@ -209,6 +248,7 @@ function parseLLMJSON(content) {
         let dropIndex = repairedContent.length;
         let insideStr = inString;
 
+        // Scan backwards to drop anything up to the last structural boundary
         for (let i = repairedContent.length - 1; i >= 0; i--) {
             const char = repairedContent[i];
             if (char === '"' && (i === 0 || repairedContent[i-1] !== '\\')) {
@@ -216,38 +256,56 @@ function parseLLMJSON(content) {
                 continue;
             }
             if (!insideStr) {
-                if (char === ',') { dropIndex = i; break; }
-                if (char === '{' || char === '[' || char === '}' || char === ']') { dropIndex = i + 1; break; }
+                if (char === ',') {
+                    dropIndex = i;
+                    break;
+                }
+                if (char === '{' || char === '[' || char === '}' || char === ']') {
+                    dropIndex = i + 1;
+                    break;
+                }
             }
         }
 
         repairedContent = repairedContent.substring(0, dropIndex);
+
+        // Handle unquoted key remnants by doing a secondary cleanup:
+        // Strip trailing whitespace, colons, or partial string fragments
         repairedContent = repairedContent.replace(/(,\s*|:\s*|"\w*\s*)$/, '');
 
-        while (stack.length > 0) { repairedContent += stack.pop(); }
+        while (stack.length > 0) {
+            repairedContent += stack.pop();
+        }
 
         try {
             return JSON.parse(repairedContent);
         } catch (e2) {
+            // Ultimate fallback for completely shattered JSON objects
             console.error("Advanced JSON repair failed.", e2.message);
             throw new Error("JSON parse failed completely");
         }
     }
 }
 
+// Simple Concurrency Semaphore (Promise Pool)
 class Semaphore {
     constructor(maxConcurrent) {
         this.maxConcurrent = maxConcurrent;
         this.currentConcurrent = 0;
         this.queue = [];
     }
+
     async acquire() {
         if (this.currentConcurrent < this.maxConcurrent) {
             this.currentConcurrent++;
             return Promise.resolve();
         }
-        return new Promise(resolve => { this.queue.push(resolve); });
+
+        return new Promise(resolve => {
+            this.queue.push(resolve);
+        });
     }
+
     release() {
         this.currentConcurrent--;
         if (this.queue.length > 0) {
@@ -258,6 +316,7 @@ class Semaphore {
     }
 }
 
+// Pass 2: Single-Question Grading
 async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
     let attempt = 0;
     const maxRetries = 5;
@@ -266,7 +325,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); 
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
             let response;
             try {
@@ -295,7 +354,9 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             }
 
             if (!response.ok) {
-                if (response.status === 429) throw new Error("Rate limit exceeded (429)");
+                if (response.status === 429) {
+                    throw new Error("Rate limit exceeded (429)");
+                }
                 const errorText = await response.text();
                 throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
             }
@@ -313,7 +374,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 is_entirely_blank: parsed.is_entirely_blank || false,
                 justification: parsed.justification || "No justification provided.",
                 constructive_feedback: parsed.constructive_feedback || "Review rubric.",
-                criteria_evaluations: [] 
+                criteria_evaluations: [] // Nullified by new architecture
             };
 
         } catch (error) {
@@ -323,6 +384,8 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
                 return { ...questionData, marks_awarded_by_ai: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
+            
+            // Exponential backoff with jitter
             const baseDelay = 4000;
             const backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
             await delay(backoffTime);
@@ -330,12 +393,14 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
     }
 }
 
+// Client-Side Distributed Grading Engine (Map-Reduce Architecture)
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
             const apiKey = await getSecureKey();
 
+            // PASS 1: THE SEGMENTATION MAP
             let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
             const userContent = [];
 
@@ -387,10 +452,9 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 parsedMap = parsedMap.students[0];
             }
 
+            // PASS 2: PARALLEL QUESTION PROCESSING (The "Brain")
             const questions = parsedMap.questions || [];
-            
-            // STRICT CONCURRENCY CONTROL TO PREVENT HTTP 429
-            const semaphore = new Semaphore(2); 
+            const semaphore = new Semaphore(3); // Throttle to 3 concurrent requests
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
@@ -414,27 +478,37 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             const gradedQuestions = await Promise.all(gradingPromises);
             parsedMap.questions = gradedQuestions;
 
+            // PASS 3: THE DUMB AGGREGATOR (The "Reduce" Phase)
             const finalData = calculateDeterministicScores(parsedMap, examInstructions, maxScoreParam);
+
             return [finalData];
 
         } catch (error) {
             attempt++;
             console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
-            if (attempt >= maxRetries) throw error;
+
+            if (attempt >= maxRetries) {
+                console.error("Error in Playbook grading engine (All retries exhausted):", error);
+                throw error;
+            }
+
             const backoffTime = attempt * 3000;
+            console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
             await delay(backoffTime);
         }
     }
 }
 
-const OPTIMIZE_PROMPT = `
+        // Optimization Prompt for Pre-processing
+        const OPTIMIZE_PROMPT = `
 You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
 
 CRITICAL MANDATES:
+
 1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
 2. STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
 3. ATOMIC CRITERIA: Break down paragraph answers into explicit, atomic, true/false grading criteria. Each criterion must represent exactly one independently gradable concept.
-4. Output ONLY the structured text. Do not use markdown block wrapping.
+4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
 
 === PLAYBOOK STANDARD FORMAT EXAMPLE ===
 Question 1a: Definition (Max: 3 marks)
@@ -450,11 +524,85 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
 =========================================
 `;
 
-async function optimizeMarkingScheme(rawText, maxRetries = 3) {
+        async function optimizeMarkingScheme(rawText, maxRetries = 3) {
+            let attempt = 0;
+            while (attempt < maxRetries) {
+                try {
+                    const apiKey = await getSecureKey();
+
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: 'google/gemini-2.0-flash-001',
+                            temperature: 0.0,
+                            top_p: 0.1,
+                            seed: 42,
+                            messages: [
+                                {
+                                    role: 'system',
+                                    content: OPTIMIZE_PROMPT
+                                },
+                                {
+                                    role: 'user',
+                                    content: rawText
+                                }
+                            ]
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+                    }
+
+                    const data = await response.json();
+                    let content = data.choices[0].message.content;
+
+                    if (content.startsWith('```')) {
+                        content = content.replace(/^```[^\n]*\n|\n```$/g, '');
+                    }
+                    return content;
+                } catch (error) {
+                    attempt++;
+                    console.warn(`Optimization Attempt ${attempt} failed: ${error.message}`);
+
+                    if (attempt >= maxRetries) {
+                        console.error("Error in Playbook optimization engine (All retries exhausted):", error);
+                        throw error;
+                    }
+
+                    const backoffTime = attempt * 3000;
+                    console.log(`Self-Healing Loop activated for optimization: Retrying in ${backoffTime / 1000} seconds...`);
+                    await delay(backoffTime);
+                }
+            }
+        }
+
+// OCR Fallback for Scanned Marking Schemes
+async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
             const apiKey = await getSecureKey();
+
+            const userContent = [
+                {
+                    type: "text",
+                    text: "Extract all text from these marking scheme images. Preserve the exact layout, question numbers, and point values. Do not add any conversational text, just output the extracted text."
+                }
+            ];
+
+            base64Images.forEach(imageUrl => {
+                userContent.push({
+                    type: "image_url",
+                    image_url: { url: imageUrl }
+                });
+            });
+
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
@@ -467,8 +615,7 @@ async function optimizeMarkingScheme(rawText, maxRetries = 3) {
                     top_p: 0.1,
                     seed: 42,
                     messages: [
-                        { role: 'system', content: OPTIMIZE_PROMPT },
-                        { role: 'user', content: rawText }
+                        { role: 'user', content: userContent }
                     ]
                 })
             });
@@ -479,63 +626,27 @@ async function optimizeMarkingScheme(rawText, maxRetries = 3) {
             }
 
             const data = await response.json();
-            let content = data.choices[0].message.content;
+            return data.choices[0].message.content;
 
-            if (content.startsWith('```')) content = content.replace(/^```[^\n]*\n|\n```$/g, '');
-            return content;
         } catch (error) {
             attempt++;
-            if (attempt >= maxRetries) throw error;
-            const backoffTime = attempt * 3000;
-            await delay(backoffTime);
-        }
-    }
-}
+            console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
 
-async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
-    let attempt = 0;
-    while (attempt < maxRetries) {
-        try {
-            const apiKey = await getSecureKey();
-            const userContent = [{ type: "text", text: "Extract all text from these marking scheme images. Preserve the exact layout, question numbers, and point values. Do not add any conversational text, just output the extracted text." }];
-
-            base64Images.forEach(imageUrl => {
-                userContent.push({ type: "image_url", image_url: { url: imageUrl } });
-            });
-
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-001',
-                    temperature: 0.0,
-                    top_p: 0.1,
-                    seed: 42,
-                    messages: [{ role: 'user', content: userContent }]
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+            if (attempt >= maxRetries) {
+                console.error("Error in Playbook OCR engine (All retries exhausted):", error);
+                throw error;
             }
 
-            const data = await response.json();
-            return data.choices[0].message.content;
-        } catch (error) {
-            attempt++;
-            if (attempt >= maxRetries) throw error;
             const backoffTime = attempt * 3000;
+            console.log(`Self-Healing Loop activated for OCR: Retrying in ${backoffTime / 1000} seconds...`);
             await delay(backoffTime);
         }
     }
 }
 
+// Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-    window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 } else {
-    self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 }
