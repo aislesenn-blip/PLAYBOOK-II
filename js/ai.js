@@ -486,7 +486,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'anthropic/claude-3.5-sonnet',
+                        model: 'anthropic/claude-3.7-sonnet',
                         temperature: 0.0,
                         top_p: 0.1,
                         seed: 42,
@@ -578,7 +578,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'anthropic/claude-3.5-sonnet',
+                    model: 'anthropic/claude-3.7-sonnet',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
@@ -688,7 +688,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            model: 'anthropic/claude-3.5-sonnet',
+                            model: 'anthropic/claude-3.7-sonnet',
                             temperature: 0.0,
                             top_p: 0.1,
                             seed: 42,
@@ -761,7 +761,7 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'anthropic/claude-3.5-sonnet',
+                    model: 'anthropic/claude-3.7-sonnet',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
