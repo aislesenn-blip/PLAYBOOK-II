@@ -277,6 +277,94 @@ function parseLLMJSON(content) {
     // STEP 6: THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
     content = content.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
 
+    // STEP 7: THE FIX: Magically escape illegal double quotes inside known string values
+    function sanitizeStringValue(str, key, nextKey) {
+        let keyStr = `"${key}":`;
+        let startIndex = str.indexOf(keyStr);
+        if (startIndex === -1) {
+            // AI might have added spaces: "key" :
+            keyStr = `"${key}" :`;
+            startIndex = str.indexOf(keyStr);
+            if (startIndex === -1) {
+                // Try single quotes just in case Step 4 missed it somehow
+                keyStr = `'${key}':`;
+                startIndex = str.indexOf(keyStr);
+            }
+        }
+
+        let nextKeyStr = `"${nextKey}":`;
+        let endIndex = str.indexOf(nextKeyStr);
+        if (endIndex === -1) {
+             nextKeyStr = `"${nextKey}" :`;
+             endIndex = str.indexOf(nextKeyStr);
+        }
+
+        if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+            let startVal = startIndex + keyStr.length;
+            let rawValueBlock = str.substring(startVal, endIndex);
+
+            // The rawValueBlock looks like:   "The student said "hello" today", \n
+            // We need to find the FIRST quote and the LAST quote before the comma.
+            let firstQuote = rawValueBlock.indexOf('"');
+            let lastQuote = rawValueBlock.lastIndexOf('"');
+
+            // If the AI used single quotes for the boundary, we need to find those instead
+            if (firstQuote === -1 || lastQuote === firstQuote) {
+                firstQuote = rawValueBlock.indexOf("'");
+                lastQuote = rawValueBlock.lastIndexOf("'");
+                if (firstQuote !== -1 && lastQuote !== firstQuote) {
+                     let innerString = rawValueBlock.substring(firstQuote + 1, lastQuote);
+                     // Escape double quotes inside
+                     innerString = innerString.replace(/"/g, '\\"');
+                     // Reconstruct the block with double quotes on the boundary
+                     let newBlock = rawValueBlock.substring(0, firstQuote) + '"' + innerString + '"' + rawValueBlock.substring(lastQuote + 1);
+                     return str.substring(0, startVal) + newBlock + str.substring(endIndex);
+                }
+                return str;
+            }
+
+            let innerString = rawValueBlock.substring(firstQuote + 1, lastQuote);
+
+            // Now, innerString is: The student said "hello" today
+            // We must escape all unescaped double quotes inside it!
+            // First, temporarily unescape any already-escaped quotes so we don't double-escape
+            innerString = innerString.replace(/\\"/g, '"');
+            // Then escape all of them
+            innerString = innerString.replace(/"/g, '\\"');
+
+            let newBlock = rawValueBlock.substring(0, firstQuote + 1) + innerString + rawValueBlock.substring(lastQuote);
+            return str.substring(0, startVal) + newBlock + str.substring(endIndex);
+        }
+
+        // Handle if nextKey is null (meaning it's the last key in the JSON, like constructive_feedback)
+        if (startIndex !== -1 && !nextKey) {
+             let startVal = startIndex + keyStr.length;
+             let rawValueBlock = str.substring(startVal);
+
+             // Find first quote
+             let firstQuote = rawValueBlock.indexOf('"');
+             // Find last quote before the closing brace '}'
+             let closingBrace = rawValueBlock.lastIndexOf('}');
+             if (closingBrace !== -1) {
+                 let lastQuote = rawValueBlock.lastIndexOf('"', closingBrace - 1);
+
+                 if (firstQuote !== -1 && lastQuote !== -1 && firstQuote < lastQuote) {
+                     let innerString = rawValueBlock.substring(firstQuote + 1, lastQuote);
+                     innerString = innerString.replace(/\\"/g, '"');
+                     innerString = innerString.replace(/"/g, '\\"');
+
+                     let newBlock = rawValueBlock.substring(0, firstQuote + 1) + innerString + rawValueBlock.substring(lastQuote);
+                     return str.substring(0, startVal) + newBlock;
+                 }
+             }
+        }
+
+        return str;
+    }
+
+    content = sanitizeStringValue(content, "justification", "total_correct_points_found");
+    content = sanitizeStringValue(content, "constructive_feedback", null);
+
     try {
         return JSON.parse(content);
     } catch (e) {
@@ -398,7 +486,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'google/gemini-2.0-flash-001',
+                        model: 'anthropic/claude-3.5-sonnet',
                         temperature: 0.0,
                         top_p: 0.1,
                         seed: 42,
@@ -490,7 +578,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-001',
+                    model: 'anthropic/claude-3.5-sonnet',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
@@ -600,7 +688,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            model: 'google/gemini-2.0-flash-001',
+                            model: 'anthropic/claude-3.5-sonnet',
                             temperature: 0.0,
                             top_p: 0.1,
                             seed: 42,
@@ -673,7 +761,7 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-001',
+                    model: 'anthropic/claude-3.5-sonnet',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
