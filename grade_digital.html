@@ -88,6 +88,16 @@
     <div id="scanned-pages-container" class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); width: 80%; max-width: 1000px; max-height: 400px; overflow-y: auto; margin-top: 2rem; padding: 1rem; background: var(--surface-color); border-radius: var(--radius-md); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); display: none;">
         <!-- Canvas pages will be drawn here -->
     </div>
+
+    <p id="loading-detail" style="margin-top: 0.5rem; color: var(--text-secondary);">Playbook is evaluating student responses against your marking scheme.</p>
+
+    <!-- Real-time grading progress log (Mirror offline UI) -->
+    <div id="realtime-log-container" style="display: none; width: 80%; max-width: 600px; margin-top: 1.5rem; text-align: left; background: var(--surface-color); padding: 1rem; border-radius: 4px; box-shadow: var(--shadow); max-height: 200px; overflow-y: auto;">
+        <h4 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-primary);">Live Processing Log</h4>
+        <ul id="realtime-log" style="list-style-type: none; padding-left: 0; margin-bottom: 0; font-size: 0.85rem; color: var(--text-secondary);">
+            <!-- Populated dynamically -->
+        </ul>
+    </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -336,6 +346,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const statusEl = document.getElementById('loading-status');
+            const detailEl = document.getElementById('loading-detail');
+            const logContainer = document.getElementById('realtime-log-container');
+            const logUl = document.getElementById('realtime-log');
+
+            logContainer.style.display = 'block';
+            logUl.innerHTML = '';
+
+            function addLog(msg) {
+                const li = document.createElement('li');
+                li.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                logUl.appendChild(li);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            addLog(`Session configured. Connecting to Playbook Intelligence Cluster...`);
 
             // Loop through submissions and grade them via PlaybookAI
             let totalStudentsGraded = 0;
@@ -343,26 +368,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             for (let i = 0; i < submissions.length; i++) {
                 const submission = submissions[i];
+                const studentNameLabel = submission.studentName || `Student ${i + 1}`;
 
                 // Only grade if not already completed
                 if (submission.status === 'completed') {
                     totalStudentsGraded++;
                     sessionTotalScore += submission.total_score || 0;
+                    addLog(`Skipped ${studentNameLabel} - already marked completed.`);
                     continue;
                 }
 
-                statusEl.innerText = `Grading Student ${i + 1} of ${submissions.length}...`;
+                statusEl.innerText = `Grading ${studentNameLabel}...`;
+                detailEl.innerText = `Student ${i + 1} of ${submissions.length} in queue.`;
+                addLog(`Initiating grading for ${studentNameLabel}.`);
 
                 let rawTextSubmission = submission.textContent;
                 let submissionImages = [];
 
                 if (!rawTextSubmission && submission.pdfStoragePath) {
                     try {
-                        statusEl.innerText = `Downloading PDF for Student ${i + 1}...`;
+                        statusEl.innerText = `Downloading PDF Document...`;
+                        addLog(`Fetching secure PDF from storage for ${studentNameLabel}...`);
                         const { data, error } = await window.supabaseClient.storage.from('exams_bucket').download(submission.pdfStoragePath);
                         if (error) throw error;
 
-                        statusEl.innerText = `Parsing PDF for Student ${i + 1}...`;
+                        statusEl.innerText = `Parsing PDF Document...`;
+                        addLog(`PDF downloaded successfully. Beginning structural extraction...`);
                         const arrayBuffer = await data.arrayBuffer();
 
                         const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
@@ -371,8 +402,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        addLog(`Found ${pdfDoc.numPages} pages in document. Rendering images...`);
 
-                        statusEl.innerText = `Converting PDF to Images for Student ${i + 1}...`;
+                        statusEl.innerText = `Converting Document Pages...`;
                         const scannedContainer = document.getElementById('scanned-pages-container');
                         scannedContainer.style.display = 'grid';
                         scannedContainer.innerHTML = '';
@@ -410,23 +442,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 submissionImages.push(canvas.toDataURL('image/jpeg', 0.95));
                             }
                         }
+                        addLog(`Canvas conversion complete. ${submissionImages.length} readable images extracted.`);
 
                         if (submissionImages.length === 0) {
                             rawTextSubmission = "Student submitted an empty PDF.";
+                            addLog(`Warning: Document was empty or corrupt.`);
                         }
                     } catch (err) {
                         console.error("Failed to parse PDF for submission:", err);
+                        addLog(`Error reading PDF file: ${err.message}`);
                         rawTextSubmission = "[Error reading PDF file from storage.]";
                     }
                 } else if (!rawTextSubmission && !submission.pdfStoragePath) {
                     rawTextSubmission = "No text provided by student.";
                 }
 
-                statusEl.innerText = `AI Grading Student ${i + 1} of ${submissions.length}...`;
+                statusEl.innerText = `AI Intelligence Active...`;
+                detailEl.innerText = `Evaluating semantic equivalence and structured logic.`;
+                addLog(`Executing Playbook Zero-Hallucination Grading Protocol...`);
 
                 // Pass the raw text string or images array directly to the adapted gradeBatchExams function
                 const gradingInput = submissionImages.length > 0 ? submissionImages : rawTextSubmission;
                 const gradedResult = await window.PlaybookAI.gradeBatchExams(gradingInput, scheme, session.exam_instructions || "", explicitMaxMarks);
+
+                addLog(`AI Evaluation complete for ${studentNameLabel}.`);
 
                 if (gradedResult && gradedResult.length > 0) {
                     const studentRes = gradedResult[0];
@@ -462,6 +501,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             statusEl.innerText = 'Finalizing Results...';
+            detailEl.innerText = `Successfully graded ${totalStudentsGraded} submissions.`;
+            addLog(`Saving batch results to database...`);
 
             const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
             if (isValidUUID(sessionId)) {

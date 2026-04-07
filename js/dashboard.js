@@ -4,8 +4,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!sessionUser) return;
 
     // Utility to check if string is a valid UUID
+    // REMOVED 'g' flag to prevent stateful regex bugs, removed '\b' for broader compatibility
     const isValidUUID = (id) => {
-        const regexExp = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/gi;
+        const regexExp = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         return regexExp.test(id);
     };
 
@@ -237,7 +238,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Chart.js Rendering Logic
     async function renderDashboardCharts(sessions) {
-        if (typeof Chart === 'undefined') return;
+        if (typeof Chart === 'undefined') {
+            console.error("Chart.js failed to load from CDN.");
+            const pulseCanvas = document.getElementById('performancePulseChart');
+            if (pulseCanvas) pulseCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-align: center; padding: 1rem;">Failed to load charts.<br>Please check your internet connection or disable ad-blockers.</div>';
+
+            const spectrumCanvas = document.getElementById('gradeSpectrumChart');
+            if (spectrumCanvas) spectrumCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-align: center; padding: 1rem;">Failed to load charts.</div>';
+
+            const leaderboardCanvas = document.getElementById('classLeaderboardChart');
+            if (leaderboardCanvas) leaderboardCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-align: center; padding: 1rem;">Failed to load charts.</div>';
+            return;
+        }
 
         // Common Chart.js Defaults for Premium Look
         Chart.defaults.font.family = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
