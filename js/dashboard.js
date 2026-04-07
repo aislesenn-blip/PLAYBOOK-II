@@ -220,8 +220,252 @@ document.addEventListener('DOMContentLoaded', async () => {
         const overallAvg = sessionsWithScore > 0 ? Math.round(totalScoreSum / sessionsWithScore) : 0;
         document.getElementById('stat-avg').textContent = `${overallAvg}%`;
 
+        // Wait a tick to let DOM settle, then render charts
+        setTimeout(() => {
+            renderDashboardCharts(sessions);
+        }, 100);
+
     } catch(err) {
         console.error("Error loading dashboard", err);
+    }
+
+    // Chart.js Rendering Logic
+    async function renderDashboardCharts(sessions) {
+        if (typeof Chart === 'undefined') return;
+
+        // Common Chart.js Defaults for Premium Look
+        Chart.defaults.font.family = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+        Chart.defaults.color = '#64748b'; // slate-500
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)'; // slate-900
+        Chart.defaults.plugins.tooltip.padding = 12;
+        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
+        Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
+
+        // 1. Performance Pulse (Line Chart)
+        const pulseCanvas = document.getElementById('performancePulseChart');
+        if (pulseCanvas) {
+            // Filter only completed sessions with scores, sort oldest to newest
+            const completedSessions = sessions
+                .filter(s => s.status === 'completed' && s.average_score !== null)
+                .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+            if (completedSessions.length > 0) {
+                const labels = completedSessions.map(s => {
+                    const date = new Date(s.created_at);
+                    return `${date.getMonth()+1}/${date.getDate()} - ${s.name.substring(0, 10)}...`;
+                });
+                const dataPoints = completedSessions.map(s => Number(s.average_score));
+
+                const ctx = pulseCanvas.getContext('2d');
+
+                // Create gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)'); // blue-500 semi
+                gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Average Score (%)',
+                            data: dataPoints,
+                            borderColor: '#3b82f6', // blue-500
+                            backgroundColor: gradient,
+                            borderWidth: 3,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#3b82f6',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.4 // Smooth bezier curves
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false } // slate-200
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false }
+                            }
+                        }
+                    }
+                });
+            } else {
+                pulseCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">Not enough data yet.</div>';
+            }
+        }
+
+        // 2. Grade Spectrum (Doughnut Chart)
+        const spectrumCanvas = document.getElementById('gradeSpectrumChart');
+        if (spectrumCanvas) {
+            let scaleData = [
+                { min: 90, max: 100, label: 'A', color: '#10b981' }, // emerald-500
+                { min: 80, max: 89.9, label: 'B', color: '#3b82f6' }, // blue-500
+                { min: 70, max: 79.9, label: 'C', color: '#f59e0b' }, // amber-500
+                { min: 60, max: 69.9, label: 'D', color: '#f97316' }, // orange-500
+                { min: 0, max: 59.9, label: 'F', color: '#ef4444' }   // red-500
+            ];
+
+            try {
+                const savedScale = await window.PlaybookDB.getSetting('grading_scale');
+                if (savedScale && Array.isArray(savedScale.value)) {
+                    // Update colors if custom scale is loaded
+                    scaleData = savedScale.value.map((s, i) => {
+                        const defaultColors = ['#10b981', '#3b82f6', '#f59e0b', '#f97316', '#ef4444', '#8b5cf6'];
+                        return { ...s, color: defaultColors[i % defaultColors.length] };
+                    });
+                }
+            } catch(e) {}
+
+            let totalSubs = 0;
+            let totalScoreSum = 0;
+            let totalMaxSum = 0;
+            let gradeCounts = {};
+            scaleData.forEach(s => gradeCounts[s.label] = 0);
+
+            // Fetch all submissions to calculate exact grade distribution
+            const completedSessions = sessions.filter(s => s.status === 'completed');
+            for (const s of completedSessions) {
+                try {
+                    const subs = await window.PlaybookDB.getSubmissionsBySession(s.id);
+                    subs.forEach(st => {
+                        if (st.grading) {
+                            totalSubs++;
+                            totalScoreSum += st.grading.totalScore;
+                            totalMaxSum += st.grading.maxScore;
+
+                            const percentage = (st.grading.totalScore / st.grading.maxScore) * 100;
+                            for (const scale of scaleData) {
+                                if (percentage >= scale.min && percentage <= scale.max) {
+                                    gradeCounts[scale.label]++;
+                                    break;
+                                }
+                            }
+                        }
+                    });
+                } catch(e) {}
+            }
+
+            if (totalSubs > 0) {
+                // Update the center text
+                const centerVal = document.getElementById('doughnut-center-val');
+                if (centerVal) {
+                    const avgPerc = Math.round((totalScoreSum / totalMaxSum) * 100);
+                    centerVal.textContent = `${avgPerc}%`;
+                }
+
+                new Chart(spectrumCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: scaleData.map(s => s.label),
+                        datasets: [{
+                            data: scaleData.map(s => gradeCounts[s.label]),
+                            backgroundColor: scaleData.map(s => s.color),
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%', // Make it a thin, modern ring
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: { usePointStyle: true, padding: 20 }
+                            }
+                        }
+                    }
+                });
+            } else {
+                spectrumCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">No graded submissions yet.</div>';
+            }
+        }
+
+        // 3. Class Leaderboard (Bar Chart)
+        const leaderboardCanvas = document.getElementById('classLeaderboardChart');
+        if (leaderboardCanvas) {
+            try {
+                const courses = await window.PlaybookDB.getCourses();
+                if (courses && courses.length > 0) {
+                    let courseData = [];
+
+                    for (const course of courses) {
+                        // Find all sessions for this course
+                        const courseSessions = sessions.filter(s => s.course_id === course.id && s.status === 'completed' && s.average_score !== null);
+
+                        if (courseSessions.length > 0) {
+                            let sumAvg = 0;
+                            courseSessions.forEach(s => sumAvg += Number(s.average_score));
+                            const overallCourseAvg = sumAvg / courseSessions.length;
+
+                            courseData.push({
+                                name: course.name,
+                                avg: Math.round(overallCourseAvg)
+                            });
+                        }
+                    }
+
+                    // Sort by highest average
+                    courseData.sort((a, b) => b.avg - a.avg);
+
+                    if (courseData.length > 0) {
+                        // Take top 5
+                        courseData = courseData.slice(0, 5);
+
+                        new Chart(leaderboardCanvas, {
+                            type: 'bar',
+                            data: {
+                                labels: courseData.map(c => c.name),
+                                datasets: [{
+                                    label: 'Overall Average (%)',
+                                    data: courseData.map(c => c.avg),
+                                    backgroundColor: '#8b5cf6', // violet-500
+                                    borderRadius: 20, // High-end pill shape
+                                    borderSkipped: false,
+                                    barPercentage: 0.6
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                indexAxis: 'y', // Horizontal bar chart
+                                plugins: {
+                                    legend: { display: false }
+                                },
+                                scales: {
+                                    x: {
+                                        beginAtZero: true,
+                                        max: 100,
+                                        grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                                    },
+                                    y: {
+                                        grid: { display: false, drawBorder: false }
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        leaderboardCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">Complete a session to see class rankings.</div>';
+                    }
+                } else {
+                     leaderboardCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">Create classes to see the leaderboard.</div>';
+                }
+            } catch(e) {
+                console.error("Failed to load class leaderboard", e);
+            }
+        }
     }
 
     // Comprehensive Report
