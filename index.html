@@ -5,6 +5,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Playbook - Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link href="css/style.css" rel="stylesheet"/>
 </head>
 <body>
@@ -63,6 +64,39 @@
 <div class="stat-label">Avg. Class Score</div>
 </div>
 </section>
+
+<!-- Visual Analytics Dashboard -->
+<section class="visual-analytics-section grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
+    <!-- Performance Pulse -->
+    <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; height: 350px;">
+        <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem;">Performance Pulse</h3>
+        <div style="flex-grow: 1; position: relative;">
+            <canvas id="performancePulseChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Grade Spectrum -->
+    <div class="card" style="display: flex; flex-direction: column; height: 350px; align-items: center; justify-content: center;">
+        <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem; align-self: flex-start; width: 100%;">Grade Spectrum</h3>
+        <div style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center;">
+            <canvas id="gradeSpectrumChart"></canvas>
+            <!-- Center Text for Doughnut -->
+            <div id="grade-spectrum-center" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
+                <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);" id="doughnut-center-val">--%</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Overall</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Class Leaderboard -->
+    <div class="card" style="grid-column: span 3; display: flex; flex-direction: column; height: 350px;">
+        <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem;">Class Leaderboard</h3>
+        <div style="flex-grow: 1; position: relative;">
+            <canvas id="classLeaderboardChart"></canvas>
+        </div>
+    </div>
+</section>
+
 <!-- My Classes Section -->
 <section class="card mb-2" id="my-classes-section">
 <div class="flex justify-between items-center mb-1">

@@ -54,7 +54,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         // Add manual submission students and build session submission map
-        for (const session of sessions) {
+        // Fix N+1 query bottleneck using Promise.all()
+        const submissionPromises = sessions.map(async (session) => {
             try {
                 const subs = await window.PlaybookDB.getSubmissionsBySession(session.id);
                 sessionSubmissionsMap.set(session.id, subs);
@@ -76,7 +77,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (e) {
                 console.error("Failed to fetch submissions for session", session.id, e);
             }
-        }
+        });
+
+        await Promise.all(submissionPromises);
 
         const allStudents = Array.from(allStudentsMap.values());
 
