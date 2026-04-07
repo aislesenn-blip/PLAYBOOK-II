@@ -375,6 +375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td><span class="score-badge ${badgeClass}" style="color: ${gradeColor};">${grade}</span></td>
                 <td>
                     <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-sm view-submission-btn" data-studentid="${st.id}" title="View Student's Original Work">View Work</button>
                         <button class="btn btn-secondary btn-sm view-feedback-btn" data-studentid="${st.id}">View Feedback</button>
                         <button class="btn btn-sm download-feedback-btn" data-studentid="${st.id}">Download PDF</button>
                     </div>
@@ -383,6 +384,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             tr.querySelector('.reg-no-cell').textContent = regNo;
             tr.querySelector('.student-name-cell').textContent = st.studentName;
             tbody.appendChild(tr);
+        });
+
+        // Attach event listeners to the newly created view work buttons
+        const viewWorkLinks = tbody.querySelectorAll('.view-submission-btn');
+        viewWorkLinks.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const studentId = e.target.getAttribute('data-studentid');
+                const student = data.find(s => s.id === studentId);
+                if (student) {
+                    viewStudentWork(student);
+                }
+            });
         });
 
         // Attach event listeners to the newly created links
@@ -446,6 +459,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerOverlay.addEventListener('click', (e) => {
         if (e.target === drawerOverlay) closeDrawer();
     });
+
+    const submissionModal = document.getElementById('submission-modal');
+    const closeSubmissionModal = document.getElementById('close-submission-modal');
+    const submissionContentArea = document.getElementById('submission-content-area');
+
+    if (closeSubmissionModal && submissionModal) {
+        closeSubmissionModal.addEventListener('click', () => {
+            submissionModal.style.display = 'none';
+        });
+    }
+
+    async function viewStudentWork(student) {
+        if (!submissionModal || !submissionContentArea) return;
+
+        submissionModal.style.display = 'flex';
+        submissionContentArea.innerHTML = 'Loading student work...';
+
+        if (student.pdfStoragePath) {
+            try {
+                const { data, error } = await window.supabaseClient.storage.from('exams_bucket').createSignedUrl(student.pdfStoragePath, 3600);
+                if (error) throw error;
+
+                submissionContentArea.innerHTML = `
+                    <div style="margin-bottom: 1rem;">
+                        <a href="${data.signedUrl}" target="_blank" class="btn btn-sm btn-primary">Open PDF in New Tab</a>
+                    </div>
+                    <iframe src="${data.signedUrl}" width="100%" height="600px" style="border: none; border-radius: 4px;"></iframe>
+                `;
+            } catch (err) {
+                console.error("Error loading PDF:", err);
+                submissionContentArea.innerHTML = `<span style="color: red;">Error: Could not load the PDF document from storage.</span><br><br>The file may have been deleted or there is a permission issue.`;
+            }
+        } else if (student.textContent) {
+            submissionContentArea.textContent = student.textContent;
+        } else {
+            submissionContentArea.innerHTML = '<span style="color: var(--text-secondary);">No submitted work (neither text nor PDF) found for this student.</span>';
+        }
+    }
 
     function viewStudentFeedback(student, session) {
         const drawerContent = document.getElementById('feedback-drawer-content');

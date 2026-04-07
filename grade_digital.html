@@ -331,18 +331,69 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 statusEl.innerText = `Grading Student ${i + 1} of ${submissions.length}...`;
 
-                let rawTextSubmission = submission.text_content;
+                let rawTextSubmission = submission.textContent;
+                let submissionImages = [];
 
-                if (!rawTextSubmission && submission.pdf_storage_path) {
-                    // NOTE: You must add your pdf.js text extraction logic here!
-                    // For now, if we can't read it, do not send "No text provided".
-                    rawTextSubmission = "[PDF Attached but unparsed. Read from storage.]";
-                } else if (!rawTextSubmission && !submission.pdf_storage_path) {
+                if (!rawTextSubmission && submission.pdfStoragePath) {
+                    try {
+                        statusEl.innerText = `Downloading PDF for Student ${i + 1}...`;
+                        const { data, error } = await window.supabaseClient.storage.from('exams_bucket').download(submission.pdfStoragePath);
+                        if (error) throw error;
+
+                        statusEl.innerText = `Parsing PDF for Student ${i + 1}...`;
+                        const arrayBuffer = await data.arrayBuffer();
+
+                        const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+                        if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                        }
+
+                        const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+                        statusEl.innerText = `Converting PDF to Images for Student ${i + 1}...`;
+
+                        for (let p = 1; p <= pdfDoc.numPages; p++) {
+                            const page = await pdfDoc.getPage(p);
+                            const viewport = page.getViewport({ scale: 2.0 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            canvas.width = viewport.width;
+                            canvas.height = viewport.height;
+
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                            // Check if canvas is completely blank (simplified logic)
+                            const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+                            let nonWhitePixels = 0;
+                            for (let j = 0; j < pixelBuffer.length; j += 10) {
+                                const pixel = pixelBuffer[j];
+                                const r = pixel & 0xFF;
+                                const g = (pixel >> 8) & 0xFF;
+                                const b = (pixel >> 16) & 0xFF;
+                                if (r < 250 || g < 250 || b < 250) nonWhitePixels++;
+                            }
+
+                            if (nonWhitePixels > 500) {
+                                submissionImages.push(canvas.toDataURL('image/jpeg', 0.95));
+                            }
+                        }
+
+                        if (submissionImages.length === 0) {
+                            rawTextSubmission = "Student submitted an empty PDF.";
+                        }
+                    } catch (err) {
+                        console.error("Failed to parse PDF for submission:", err);
+                        rawTextSubmission = "[Error reading PDF file from storage.]";
+                    }
+                } else if (!rawTextSubmission && !submission.pdfStoragePath) {
                     rawTextSubmission = "No text provided by student.";
                 }
 
-                // Pass the raw text string directly to the adapted gradeBatchExams function
-                const gradedResult = await window.PlaybookAI.gradeBatchExams(rawTextSubmission, scheme, session.exam_instructions || "", explicitMaxMarks);
+                statusEl.innerText = `AI Grading Student ${i + 1} of ${submissions.length}...`;
+
+                // Pass the raw text string or images array directly to the adapted gradeBatchExams function
+                const gradingInput = submissionImages.length > 0 ? submissionImages : rawTextSubmission;
+                const gradedResult = await window.PlaybookAI.gradeBatchExams(gradingInput, scheme, session.exam_instructions || "", explicitMaxMarks);
 
                 if (gradedResult && gradedResult.length > 0) {
                     const studentRes = gradedResult[0];

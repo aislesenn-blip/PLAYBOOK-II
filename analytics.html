@@ -144,6 +144,19 @@
 </main>
 </div>
 
+<!-- View Submission Modal -->
+<div class="modal-overlay" id="submission-modal" style="display: none; align-items: center; justify-content: center;">
+    <div class="modal-content" style="max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;">
+        <h3 style="margin-bottom: 1rem;">Student Submission</h3>
+        <div id="submission-content-area" style="background: var(--background-color); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); white-space: pre-wrap; font-family: monospace; min-height: 200px;">
+            Loading submission...
+        </div>
+        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+            <button class="btn btn-secondary" id="close-submission-modal">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Slide-out Drawer for "View Feedback" -->
 <div class="overlay" id="feedback-drawer-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; transition: opacity 0.3s; opacity: 0; backdrop-filter: blur(2px);">
     <div id="feedback-drawer" style="position: absolute; right: -600px; top: 0; bottom: 0; width: 600px; max-width: 100%; background: #ffffff; box-shadow: -4px 0 24px rgba(0,0,0,0.1); padding: 2rem; overflow-y: auto; transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1); border-left: 1px solid var(--border-color);">

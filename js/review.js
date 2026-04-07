@@ -45,6 +45,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    // View Student Work Logic
+    const viewSubmissionBtn = document.getElementById('view-submission-btn');
+    const submissionModal = document.getElementById('submission-modal');
+    const closeSubmissionModal = document.getElementById('close-submission-modal');
+    const submissionContentArea = document.getElementById('submission-content-area');
+
+    if (viewSubmissionBtn && submissionModal) {
+        viewSubmissionBtn.addEventListener('click', async () => {
+            submissionModal.style.display = 'flex';
+            submissionContentArea.innerHTML = 'Loading student work...';
+
+            const currentStudent = students[currentIndex];
+            if (!currentStudent) {
+                submissionContentArea.innerHTML = 'No student data found.';
+                return;
+            }
+
+            if (currentStudent.pdfStoragePath) {
+                try {
+                    const { data, error } = await window.supabaseClient.storage.from('exams_bucket').createSignedUrl(currentStudent.pdfStoragePath, 3600);
+                    if (error) throw error;
+
+                    submissionContentArea.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <a href="${data.signedUrl}" target="_blank" class="btn btn-sm btn-primary">Open PDF in New Tab</a>
+                        </div>
+                        <iframe src="${data.signedUrl}" width="100%" height="600px" style="border: none; border-radius: 4px;"></iframe>
+                    `;
+                } catch (err) {
+                    console.error("Error loading PDF:", err);
+                    submissionContentArea.innerHTML = `<span style="color: red;">Error: Could not load the PDF document from storage.</span><br><br>The file may have been deleted or there is a permission issue.`;
+                }
+            } else if (currentStudent.textContent) {
+                submissionContentArea.textContent = currentStudent.textContent;
+            } else {
+                submissionContentArea.innerHTML = '<span style="color: var(--text-secondary);">No submitted work (neither text nor PDF) found for this student.</span>';
+            }
+        });
+
+        closeSubmissionModal.addEventListener('click', () => {
+            submissionModal.style.display = 'none';
+        });
+    }
+
     prevBtn.addEventListener('click', () => {
         if (currentIndex > 0) {
             currentIndex--;
