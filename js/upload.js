@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
 
         setTimeout(() => {
-            window.location.href = `index.html`;
+            window.location.href = `review.html?session=${sessionId}`;
         }, 3000);
     }
 
