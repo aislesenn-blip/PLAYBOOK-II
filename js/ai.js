@@ -116,17 +116,21 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             q.score = 0;
         } else {
             // The new deterministic aggregator - math done securely in JS based on AI's point count
-            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 1);
-            const maxMarks = parseFloat(maxMarksRaw) || 1;
+            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 0);
+            const maxMarks = Math.max(parseFloat(maxMarksRaw) || 0, 0); // Ensure it's never negative
             q.max_marks = maxMarks;
 
             let correctPointsFound = parseInt(q.total_correct_points_found, 10) || 0;
 
+            // Prevent division by zero if expected_number_of_items is 0 or undefined
             const expectedItemsRaw = q.expected_number_of_items !== undefined ? q.expected_number_of_items : maxMarks;
-            const expectedItems = parseFloat(expectedItemsRaw) || maxMarks;
+            const expectedItems = Math.max(parseFloat(expectedItemsRaw) || maxMarks, 1);
 
             // Proportional Math Calculation handled strictly and deterministically in JavaScript
             let aiCalculatedMarks = (correctPointsFound / expectedItems) * maxMarks;
+
+            // Prevent NaN if math somehow fails
+            aiCalculatedMarks = isNaN(aiCalculatedMarks) ? 0 : aiCalculatedMarks;
 
             // Re-assign back to marks_awarded_by_ai to preserve schema for downstream logic
             q.marks_awarded_by_ai = aiCalculatedMarks;
