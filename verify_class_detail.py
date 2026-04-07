@@ -4,7 +4,7 @@ def run_cuj(page):
     # Mock auth and DB so we can load the page without Supabase connectivity
     page.add_init_script("""
         localStorage.setItem('playbook_session', JSON.stringify({ role: 'professor' }));
-        const mockDB = {
+        window.PlaybookDB = {
             getCourse: async () => ({ id: 'test_course_id', name: 'Software Engineering 101', join_code: 'SE101X' }),
             getSessionsForCourse: async () => [
                 { id: '1', name: 'Midterm Exam', session_type: 'physical', created_at: new Date().toISOString(), due_date: null, publish_status: 'draft' },
@@ -17,7 +17,6 @@ def run_cuj(page):
             getCourseMaterials: async () => [],
             createSession: async () => ({ id: 'new_session_id' })
         };
-        Object.defineProperty(window, 'PlaybookDB', { writable: false, value: mockDB });
     """)
     page.goto("http://localhost:3000/class_detail.html?id=test_course_id")
     page.wait_for_timeout(2000)
