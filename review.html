@@ -94,9 +94,24 @@
 <button class="btn btn-secondary" id="next-btn" style="padding: 0.25rem 0.75rem;">Next →</button>
 </div>
 <div>
+<button class="btn btn-sm" id="view-submission-btn" style="margin-right: 0.5rem;">View Student Work</button>
 <button class="btn btn-sm" id="finalize-btn">Finalize Scores</button>
 </div>
 </header>
+
+<!-- View Submission Modal -->
+<div class="modal-overlay" id="submission-modal" style="display: none; align-items: center; justify-content: center;">
+    <div class="modal-content" style="max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;">
+        <h3 style="margin-bottom: 1rem;">Student Submission</h3>
+        <div id="submission-content-area" style="background: var(--background-color); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); white-space: pre-wrap; font-family: monospace; min-height: 200px;">
+            Loading submission...
+        </div>
+        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+            <button class="btn btn-secondary" id="close-submission-modal">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Main Content -->
 <main class="main-content flex-grow" style="padding: 2rem; overflow-y: visible; height: auto;">
 <div class="max-w-7xl mx-auto" style="width: 100%;">
