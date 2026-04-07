@@ -48,11 +48,10 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
 
 *** STRICT SCORING GUARDRAIL ***
-Do NOT perform arithmetic or calculate the final score. Your job is to extract two simple values from the rubric and the student's answer:
+Do NOT perform arithmetic or calculate the final score. Your ONLY job is to extract ONE simple value from the rubric and the student's answer:
 1. 'total_correct_points_found': The integer count of the exact number of correct facts/items the student provided based on the rubric.
-2. 'mark_value_per_point': The numerical value awarded per correct point (e.g., 0.5 or 1). Read this directly from the rubric. If not explicitly stated, default to 1.
-Let the system handle the final math using simple multiplication.
-You MUST count the correct points and output the integer. Do NOT output marks in the justification text.
+Let the system handle the final math using strict internal ratios.
+You MUST count the correct points and output the integer. Do NOT output marks in the justification text. Do NOT attempt to output mark values per point.
 If the student's answer is blank, output 'is_entirely_blank': true.
 CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries (e.g., {"justification": "..."}). However, if you need to quote the student's text INSIDE your explanation, you MUST use single quotes ('). Example of correct formatting: {"justification": "The student correctly stated 'beneficial nutrients'."} Do not use unescaped double quotes inside the string value.
 
@@ -65,7 +64,6 @@ You MUST output ONLY valid JSON using the schema below. No markdown formatting.
 {
   "justification": "The rubric requires X and the student provided X...",
   "total_correct_points_found": 3,
-  "mark_value_per_point": 0.5,
   "is_entirely_blank": false,
   "constructive_feedback": "You correctly identified X. However, you missed Y."
 }
@@ -118,15 +116,21 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             q.score = 0;
         } else {
             // The new deterministic aggregator - math done securely in JS based on AI's point count
-            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 1);
-            const maxMarks = parseFloat(maxMarksRaw) || 1;
+            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 0);
+            const maxMarks = Math.max(parseFloat(maxMarksRaw) || 0, 0); // Ensure it's never negative
             q.max_marks = maxMarks;
 
             let correctPointsFound = parseInt(q.total_correct_points_found, 10) || 0;
-            let pointValue = parseFloat(q.mark_value_per_point) || 1;
 
-            // Simple Multiplication Math handled deterministically in JavaScript
-            let aiCalculatedMarks = correctPointsFound * pointValue;
+            // Prevent division by zero if expected_number_of_items is 0 or undefined
+            const expectedItemsRaw = q.expected_number_of_items !== undefined ? q.expected_number_of_items : maxMarks;
+            const expectedItems = Math.max(parseFloat(expectedItemsRaw) || maxMarks, 1);
+
+            // Proportional Math Calculation handled strictly and deterministically in JavaScript
+            let aiCalculatedMarks = (correctPointsFound / expectedItems) * maxMarks;
+
+            // Prevent NaN if math somehow fails
+            aiCalculatedMarks = isNaN(aiCalculatedMarks) ? 0 : aiCalculatedMarks;
 
             // Re-assign back to marks_awarded_by_ai to preserve schema for downstream logic
             q.marks_awarded_by_ai = aiCalculatedMarks;
@@ -521,7 +525,6 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             return {
                 ...questionData,
                 total_correct_points_found: parsed.total_correct_points_found !== undefined ? parseInt(parsed.total_correct_points_found, 10) : 0,
-                mark_value_per_point: parsed.mark_value_per_point !== undefined ? parseFloat(parsed.mark_value_per_point) : 1,
                 is_entirely_blank: parsed.is_entirely_blank || false,
                 justification: parsed.justification || "No justification provided.",
                 constructive_feedback: parsed.constructive_feedback || "Review rubric.",
@@ -533,7 +536,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             console.warn(`[Invisible Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
             if (attempt >= maxRetries) {
                 console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
-                return { ...questionData, total_correct_points_found: 0, mark_value_per_point: 1, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
+                return { ...questionData, total_correct_points_found: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
             }
             
             // Exponential backoff with jitter
