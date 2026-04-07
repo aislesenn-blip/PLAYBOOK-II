@@ -15,7 +15,7 @@ You must analyze the student's exam and segment their answers based on the provi
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
 5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
-6. ONLY output valid JSON using the exact schema below. No markdown formatting.
+6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
 
 *** SCHEMA ***
 {
@@ -38,7 +38,7 @@ const PASS2_SYSTEM_PROMPT = `
 You are the Chief Evaluator for an Examination Board. You are tasked with grading exactly ONE question for ONE student.
 
 *** THE 4 TIERS OF EVALUATION (GRADING CONSTRAINTS) ***
-Tier 1: Semantic Equivalence: Evaluate based on meaning, not exact keyword matching.
+Tier 1: Strict Binary Logic: If the student's answer does not explicitly contain the exact concept or scientific fact defined in the rubric, give a 0. Do not give the benefit of the doubt. Do not guess.
 Tier 2: Item Counting: Strictly count the number of correct, distinct facts the student provided based on the rubric.
 Tier 3: The Fatal Flaw Rule: Fundamental violations of scientific/logical facts mean zero marks for that specific concept.
 Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/structural logic over artistic quality.
@@ -59,7 +59,7 @@ CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys an
 Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
 
 *** SCHEMA ***
-You MUST output ONLY valid JSON using the schema below. No markdown formatting.
+You MUST output ONLY valid JSON using the schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
 
 {
   "justification": "The rubric requires X and the student provided X...",
@@ -261,6 +261,9 @@ function parseLLMJSON(content) {
 
         if (endIndex !== -1) {
             content = content.substring(startIndex, endIndex + 1);
+        } else {
+            // Truncated JSON detected (e.g. AI token limit reached before closing '}')
+            content = content.substring(startIndex);
         }
     }
 
@@ -280,94 +283,6 @@ function parseLLMJSON(content) {
 
     // STEP 6: THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
     content = content.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
-
-    // STEP 7: THE FIX: Magically escape illegal double quotes inside known string values
-    function sanitizeStringValue(str, key, nextKey) {
-        let keyStr = `"${key}":`;
-        let startIndex = str.indexOf(keyStr);
-        if (startIndex === -1) {
-            // AI might have added spaces: "key" :
-            keyStr = `"${key}" :`;
-            startIndex = str.indexOf(keyStr);
-            if (startIndex === -1) {
-                // Try single quotes just in case Step 4 missed it somehow
-                keyStr = `'${key}':`;
-                startIndex = str.indexOf(keyStr);
-            }
-        }
-
-        let nextKeyStr = `"${nextKey}":`;
-        let endIndex = str.indexOf(nextKeyStr);
-        if (endIndex === -1) {
-             nextKeyStr = `"${nextKey}" :`;
-             endIndex = str.indexOf(nextKeyStr);
-        }
-
-        if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
-            let startVal = startIndex + keyStr.length;
-            let rawValueBlock = str.substring(startVal, endIndex);
-
-            // The rawValueBlock looks like:   "The student said "hello" today", \n
-            // We need to find the FIRST quote and the LAST quote before the comma.
-            let firstQuote = rawValueBlock.indexOf('"');
-            let lastQuote = rawValueBlock.lastIndexOf('"');
-
-            // If the AI used single quotes for the boundary, we need to find those instead
-            if (firstQuote === -1 || lastQuote === firstQuote) {
-                firstQuote = rawValueBlock.indexOf("'");
-                lastQuote = rawValueBlock.lastIndexOf("'");
-                if (firstQuote !== -1 && lastQuote !== firstQuote) {
-                     let innerString = rawValueBlock.substring(firstQuote + 1, lastQuote);
-                     // Escape double quotes inside
-                     innerString = innerString.replace(/"/g, '\\"');
-                     // Reconstruct the block with double quotes on the boundary
-                     let newBlock = rawValueBlock.substring(0, firstQuote) + '"' + innerString + '"' + rawValueBlock.substring(lastQuote + 1);
-                     return str.substring(0, startVal) + newBlock + str.substring(endIndex);
-                }
-                return str;
-            }
-
-            let innerString = rawValueBlock.substring(firstQuote + 1, lastQuote);
-
-            // Now, innerString is: The student said "hello" today
-            // We must escape all unescaped double quotes inside it!
-            // First, temporarily unescape any already-escaped quotes so we don't double-escape
-            innerString = innerString.replace(/\\"/g, '"');
-            // Then escape all of them
-            innerString = innerString.replace(/"/g, '\\"');
-
-            let newBlock = rawValueBlock.substring(0, firstQuote + 1) + innerString + rawValueBlock.substring(lastQuote);
-            return str.substring(0, startVal) + newBlock + str.substring(endIndex);
-        }
-
-        // Handle if nextKey is null (meaning it's the last key in the JSON, like constructive_feedback)
-        if (startIndex !== -1 && !nextKey) {
-             let startVal = startIndex + keyStr.length;
-             let rawValueBlock = str.substring(startVal);
-
-             // Find first quote
-             let firstQuote = rawValueBlock.indexOf('"');
-             // Find last quote before the closing brace '}'
-             let closingBrace = rawValueBlock.lastIndexOf('}');
-             if (closingBrace !== -1) {
-                 let lastQuote = rawValueBlock.lastIndexOf('"', closingBrace - 1);
-
-                 if (firstQuote !== -1 && lastQuote !== -1 && firstQuote < lastQuote) {
-                     let innerString = rawValueBlock.substring(firstQuote + 1, lastQuote);
-                     innerString = innerString.replace(/\\"/g, '"');
-                     innerString = innerString.replace(/"/g, '\\"');
-
-                     let newBlock = rawValueBlock.substring(0, firstQuote + 1) + innerString + rawValueBlock.substring(lastQuote);
-                     return str.substring(0, startVal) + newBlock;
-                 }
-             }
-        }
-
-        return str;
-    }
-
-    content = sanitizeStringValue(content, "justification", "total_correct_points_found");
-    content = sanitizeStringValue(content, "constructive_feedback", null);
 
     try {
         return JSON.parse(content);
@@ -490,7 +405,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'anthropic/claude-3.7-sonnet',
+                        model: 'google/gemini-2.0-flash-001',
                         temperature: 0.0,
                         top_p: 0.1,
                         seed: 42,
@@ -581,7 +496,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'anthropic/claude-3.7-sonnet',
+                    model: 'google/gemini-2.0-flash-001',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
@@ -691,7 +606,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            model: 'anthropic/claude-3.7-sonnet',
+                            model: 'google/gemini-2.0-flash-001',
                             temperature: 0.0,
                             top_p: 0.1,
                             seed: 42,
@@ -764,7 +679,7 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'anthropic/claude-3.7-sonnet',
+                    model: 'google/gemini-2.0-flash-001',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
