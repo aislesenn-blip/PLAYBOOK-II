@@ -3,6 +3,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sessionUser = requireAuth(['professor', 'admin']);
     if (!sessionUser) return;
 
+    // Utility to check if string is a valid UUID
+    const isValidUUID = (id) => {
+        const regexExp = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/gi;
+        return regexExp.test(id);
+    };
+
     // Display Name
     const nameDisplay = document.getElementById('prof-name-display');
     if (nameDisplay) {
@@ -247,7 +253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pulseCanvas) {
             // Filter only completed sessions with scores, sort oldest to newest
             const completedSessions = sessions
-                .filter(s => s.status === 'completed' && s.average_score !== null)
+                .filter(s => s.status === 'completed' && s.average_score !== null && isValidUUID(s.id))
                 .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
             if (completedSessions.length > 0) {
@@ -335,7 +341,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             scaleData.forEach(s => gradeCounts[s.label] = 0);
 
             // Fetch all submissions to calculate exact grade distribution
-            const completedSessions = sessions.filter(s => s.status === 'completed');
+            const completedSessions = sessions.filter(s => s.status === 'completed' && isValidUUID(s.id));
             for (const s of completedSessions) {
                 try {
                     const subs = await window.PlaybookDB.getSubmissionsBySession(s.id);
@@ -498,11 +504,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Fetch submissions for all sessions
                 for (const s of allSessions) {
-                    const subs = await window.PlaybookDB.getSubmissionsBySession(s.id);
-                    if (subs && subs.length > 0) {
-                        totalSubmissions += subs.length;
-                        sessionData.push({ session: s, submissions: subs });
-                    }
+                    if (!isValidUUID(s.id)) continue;
+                    try {
+                        const subs = await window.PlaybookDB.getSubmissionsBySession(s.id);
+                        if (subs && subs.length > 0) {
+                            totalSubmissions += subs.length;
+                            sessionData.push({ session: s, submissions: subs });
+                        }
+                    } catch(e) {}
                 }
 
                 if (sessionData.length === 0) {

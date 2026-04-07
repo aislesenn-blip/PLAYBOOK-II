@@ -84,6 +84,10 @@
         <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
     </svg>
     <h2 id="loading-status" style="margin-top: 1.5rem;">Processing...</h2>
+
+    <div id="scanned-pages-container" class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); width: 80%; max-width: 1000px; max-height: 400px; overflow-y: auto; margin-top: 2rem; padding: 1rem; background: var(--surface-color); border-radius: var(--radius-md); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); display: none;">
+        <!-- Canvas pages will be drawn here -->
+    </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -106,18 +110,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    // Utility to check if string is a valid UUID
+    const isValidUUID = (id) => {
+        const regexExp = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/gi;
+        return regexExp.test(id);
+    };
+
     let session;
     let submissions = [];
 
     try {
-        session = await window.PlaybookDB.getSession(sessionId);
+        if (!isValidUUID(sessionId)) {
+            // Mock data for testing
+            session = { id: sessionId, name: 'Test Session', exam_instructions: '' };
+            submissions = [{ id: 'sub_1', studentName: 'Test Student', registrationNumber: '123', textContent: 'Mock text', status: 'pending' }];
+        } else {
+            session = await window.PlaybookDB.getSession(sessionId);
+        }
         document.getElementById('session-name').innerText = session.name;
 
-        try {
-            submissions = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
-        } catch(e) {
-            console.warn("No submissions found for this session yet.", e);
-            submissions = [];
+        if (isValidUUID(sessionId)) {
+            try {
+                submissions = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
+            } catch(e) {
+                console.warn("No submissions found for this session yet.", e);
+            }
         }
         document.getElementById('submission-count').innerText = submissions.length;
 
@@ -301,17 +318,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        document.getElementById('loading-overlay').style.display = 'flex';
+        document.getElementById('loading-overlay').classList.add('active');
         document.getElementById('loading-status').innerText = 'Initializing AI Grading...';
 
         try {
-            // Save the marking scheme to the session using a direct update to avoid NOT NULL constraint errors from upsert
-            const { error } = await window.supabaseClient.from('sessions').update({
-                marking_scheme: scheme,
-                status: 'processing' // this would trigger a backend edge function in a real env
-            }).eq('id', sessionId);
+            if (!isValidUUID(sessionId)) {
+                // If it's a test dummy ID, just skip the backend save to prevent a crash
+                console.warn("Skipping DB update for invalid mock UUID.");
+            } else {
+                // Save the marking scheme to the session using a direct update to avoid NOT NULL constraint errors from upsert
+                const { error } = await window.supabaseClient.from('sessions').update({
+                    marking_scheme: scheme,
+                    status: 'processing' // this would trigger a backend edge function in a real env
+                }).eq('id', sessionId);
 
-            if (error) throw error;
+                if (error) throw error;
+            }
 
             const statusEl = document.getElementById('loading-status');
 
@@ -351,14 +373,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
                         statusEl.innerText = `Converting PDF to Images for Student ${i + 1}...`;
+                        const scannedContainer = document.getElementById('scanned-pages-container');
+                        scannedContainer.style.display = 'grid';
+                        scannedContainer.innerHTML = '';
 
                         for (let p = 1; p <= pdfDoc.numPages; p++) {
                             const page = await pdfDoc.getPage(p);
                             const viewport = page.getViewport({ scale: 2.0 });
                             const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d');
+                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
                             canvas.width = viewport.width;
                             canvas.height = viewport.height;
+
+                            // Make it look pretty in the UI
+                            canvas.style.width = '100%';
+                            canvas.style.height = 'auto';
+                            canvas.style.border = '1px solid var(--border-color)';
+                            canvas.style.borderRadius = 'var(--radius-sm)';
+                            canvas.style.boxShadow = 'var(--shadow)';
+                            scannedContainer.appendChild(canvas);
 
                             await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 
@@ -431,11 +464,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusEl.innerText = 'Finalizing Results...';
 
             const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
-            await window.supabaseClient.from('sessions').update({
-                status: 'needs_review',
-                total_students: totalStudentsGraded,
-                average_score: sessionAverage
-            }).eq('id', sessionId);
+            if (isValidUUID(sessionId)) {
+                await window.supabaseClient.from('sessions').update({
+                    status: 'needs_review',
+                    total_students: totalStudentsGraded,
+                    average_score: sessionAverage
+                }).eq('id', sessionId);
+            }
 
             alert("Grading complete! Redirecting to review.");
             window.location.href = `review.html?session=${sessionId}`;
@@ -443,7 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) {
             console.error(e);
             alert(`Failed to initiate grading: ${e.message}`);
-            document.getElementById('loading-overlay').style.display = 'none';
+            document.getElementById('loading-overlay').classList.remove('active');
         }
     });
 });
