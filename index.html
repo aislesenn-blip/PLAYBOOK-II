@@ -76,14 +76,16 @@
     </div>
 
     <!-- Grade Spectrum -->
-    <div class="card" style="display: flex; flex-direction: column; height: 350px; align-items: center; justify-content: center;">
+    <div class="card" style="display: flex; flex-direction: column; height: 350px; align-items: center; justify-content: flex-start;">
         <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem; align-self: flex-start; width: 100%;">Grade Spectrum</h3>
-        <div style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center;">
-            <canvas id="gradeSpectrumChart"></canvas>
-            <!-- Center Text for Doughnut -->
-            <div id="grade-spectrum-center" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
-                <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);" id="doughnut-center-val">--%</div>
-                <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Overall</div>
+        <div style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; min-height: 0;">
+            <div style="position: relative; width: 100%; max-width: 250px; height: 100%; max-height: 250px;">
+                <canvas id="gradeSpectrumChart"></canvas>
+                <!-- Center Text for Doughnut -->
+                <div id="grade-spectrum-center" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
+                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);" id="doughnut-center-val">--%</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Overall</div>
+                </div>
             </div>
         </div>
     </div>
