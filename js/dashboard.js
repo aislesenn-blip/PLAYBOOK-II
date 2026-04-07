@@ -352,28 +352,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             let gradeCounts = {};
             scaleData.forEach(s => gradeCounts[s.label] = 0);
 
-            // Fetch all submissions to calculate exact grade distribution
+            // Fetch all submissions to calculate exact grade distribution concurrently (N+1 Fix)
             const completedSessions = sessions.filter(s => s.status === 'completed' && isValidUUID(s.id));
-            for (const s of completedSessions) {
+
+            const sessionPromises = completedSessions.map(async (s) => {
                 try {
                     const subs = await window.PlaybookDB.getSubmissionsBySession(s.id);
-                    subs.forEach(st => {
-                        if (st.grading) {
-                            totalSubs++;
-                            totalScoreSum += st.grading.totalScore;
-                            totalMaxSum += st.grading.maxScore;
+                    return subs || [];
+                } catch(e) {
+                    return [];
+                }
+            });
 
-                            const percentage = (st.grading.totalScore / st.grading.maxScore) * 100;
-                            for (const scale of scaleData) {
-                                if (percentage >= scale.min && percentage <= scale.max) {
-                                    gradeCounts[scale.label]++;
-                                    break;
-                                }
+            const allSubmissionsArrays = await Promise.all(sessionPromises);
+
+            allSubmissionsArrays.forEach(subs => {
+                subs.forEach(st => {
+                    if (st.grading) {
+                        totalSubs++;
+                        totalScoreSum += st.grading.totalScore;
+                        totalMaxSum += st.grading.maxScore;
+
+                        const percentage = (st.grading.totalScore / st.grading.maxScore) * 100;
+                        for (const scale of scaleData) {
+                            if (percentage >= scale.min && percentage <= scale.max) {
+                                gradeCounts[scale.label]++;
+                                break;
                             }
                         }
-                    });
-                } catch(e) {}
-            }
+                    }
+                });
+            });
 
             if (totalSubs > 0) {
                 // Update the center text
@@ -401,8 +410,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         plugins: {
                             legend: {
                                 position: 'right',
-                                labels: { usePointStyle: true, padding: 20 }
+                                labels: { usePointStyle: true, padding: 15, boxWidth: 8 }
                             }
+                        },
+                        layout: {
+                            padding: { top: 10, bottom: 10 }
                         }
                     }
                 });
@@ -514,17 +526,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let totalSubmissions = 0;
                 const sessionData = [];
 
-                // Fetch submissions for all sessions
-                for (const s of allSessions) {
-                    if (!isValidUUID(s.id)) continue;
+                // Fetch submissions for all sessions concurrently
+                const reportPromises = allSessions.map(async (s) => {
+                    if (!isValidUUID(s.id)) return null;
                     try {
                         const subs = await window.PlaybookDB.getSubmissionsBySession(s.id);
                         if (subs && subs.length > 0) {
-                            totalSubmissions += subs.length;
-                            sessionData.push({ session: s, submissions: subs });
+                            return { session: s, submissions: subs };
                         }
                     } catch(e) {}
-                }
+                    return null;
+                });
+
+                const reportResults = await Promise.all(reportPromises);
+                reportResults.forEach(res => {
+                    if (res) {
+                        totalSubmissions += res.submissions.length;
+                        sessionData.push(res);
+                    }
+                });
 
                 if (sessionData.length === 0) {
                     alert("No submissions found across any sessions.");

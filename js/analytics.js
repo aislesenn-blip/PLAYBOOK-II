@@ -110,19 +110,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         document.getElementById('stat-lowest-q').textContent = lowestQ;
 
-        // Render Chart
-        const chartContainer = document.getElementById('chart-container');
-        let maxCount = Math.max(...Object.values(distribution));
-        if (maxCount === 0) maxCount = 1;
+        // Render Chart using Chart.js
+        const canvas = document.getElementById('scoreDistributionChart');
+        if (canvas && typeof Chart !== 'undefined') {
+            Chart.defaults.font.family = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+            Chart.defaults.color = '#64748b'; // slate-500
+            Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)'; // slate-900
+            Chart.defaults.plugins.tooltip.padding = 12;
+            Chart.defaults.plugins.tooltip.cornerRadius = 8;
+            Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
+            Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
 
-        for (const [label, count] of Object.entries(distribution)) {
-            const height = (count / maxCount) * 100;
-            chartContainer.innerHTML += `
-                <div class="bar" style="height: ${height}%;">
-                    <span class="bar-value">${count}</span>
-                    <span class="bar-label">${label}</span>
-                </div>
-            `;
+            const labels = Object.keys(distribution);
+            const dataValues = Object.values(distribution);
+
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Number of Students',
+                        data: dataValues,
+                        backgroundColor: '#3b82f6', // blue-500
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        barPercentage: 0.7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }, // Only whole numbers for student count
+                            grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                        },
+                        x: {
+                            grid: { display: false, drawBorder: false }
+                        }
+                    }
+                }
+            });
+        } else {
+            const chartContainer = document.getElementById('chart-container');
+            if (chartContainer) {
+                chartContainer.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-align: center; padding: 1rem;">Failed to load chart engine.</div>';
+            }
         }
 
         try {

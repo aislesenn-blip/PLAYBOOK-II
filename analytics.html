@@ -5,6 +5,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Playbook - Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link href="css/style.css" rel="stylesheet"/>
 <style>
         .chart-container {
@@ -105,11 +106,11 @@
 </div>
 </section>
 <div class="grid gap-2" style="grid-template-columns: 2fr 1fr;">
-<!-- Distribution Chart (Pure CSS) -->
-<section class="card">
+<!-- Distribution Chart (Chart.js) -->
+<section class="card" style="display: flex; flex-direction: column; min-height: 250px;">
 <h3 class="mb-1">Score Distribution</h3>
-<div class="chart-container" id="chart-container">
-<!-- Populated by JS -->
+<div id="chart-container" style="flex-grow: 1; position: relative; width: 100%;">
+    <canvas id="scoreDistributionChart"></canvas>
 </div>
 </section>
 <!-- Insights -->
