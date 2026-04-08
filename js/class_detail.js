@@ -129,6 +129,94 @@ document.addEventListener('DOMContentLoaded', async () => {
             createModal.style.display = 'none';
         });
 
+        // Setup Auto-Pilot Toggle Logic
+        const autoGradeToggle = document.getElementById('enable-auto-grade');
+        const autoGradeSettings = document.getElementById('auto-grade-settings');
+        if (autoGradeToggle && autoGradeSettings) {
+            autoGradeToggle.addEventListener('change', (e) => {
+                autoGradeSettings.style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
+
+        // Scheme Pre-processor UI Logic
+        const schemeFileInput = document.getElementById('scheme-file');
+        const optimizeSchemeBtn = document.getElementById('optimize-scheme-btn');
+        const rawSchemeText = document.getElementById('raw-scheme-text');
+        const rawSchemeContainer = document.getElementById('raw-scheme-container');
+        const optimizedSchemeContainer = document.getElementById('optimized-scheme-container');
+        const optimizedSchemeText = document.getElementById('optimized-scheme-text');
+        const resetSchemeBtn = document.getElementById('reset-scheme-btn');
+
+        if (schemeFileInput) {
+            schemeFileInput.addEventListener('change', async (e) => {
+                if (!e.target.files.length) return;
+                const file = e.target.files[0];
+                rawSchemeText.value = 'Extracting text... please wait.';
+
+                try {
+                    let text = '';
+                    if (file.type === 'application/pdf' && window.pdfjsLib) {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const content = await page.getTextContent();
+                            text += content.items.map(item => item.str).join(' ') + '\n';
+                        }
+                    } else if (file.name.endsWith('.docx') && window.mammoth) {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+                        text = result.value;
+                    } else if (file.type.startsWith('image/') && window.Tesseract) {
+                         rawSchemeText.value = 'Running OCR on image...';
+                         const result = await Tesseract.recognize(file, 'eng');
+                         text = result.data.text;
+                    } else {
+                        text = await file.text();
+                    }
+                    rawSchemeText.value = text;
+                } catch (err) {
+                    console.error('File extraction failed:', err);
+                    alert('Failed to extract text. Please paste it manually.');
+                    rawSchemeText.value = '';
+                }
+            });
+        }
+
+        if (optimizeSchemeBtn) {
+            optimizeSchemeBtn.addEventListener('click', async () => {
+                const rawText = rawSchemeText.value.trim();
+                if (!rawText) {
+                    alert('Please paste or upload a scheme first.');
+                    return;
+                }
+                optimizeSchemeBtn.disabled = true;
+                optimizeSchemeBtn.innerText = 'Standardizing via AI...';
+
+                try {
+                    // Call out to the AI singleton for the Builder prompt
+                    const formatted = await window.PlaybookAI.formatMarkingScheme(rawText);
+                    optimizedSchemeText.value = formatted;
+                    rawSchemeContainer.style.display = 'none';
+                    optimizedSchemeContainer.style.display = 'block';
+                } catch (err) {
+                    console.error("Failed to format scheme:", err);
+                    alert("AI formatting failed. Please write the rules manually.");
+                } finally {
+                    optimizeSchemeBtn.disabled = false;
+                    optimizeSchemeBtn.innerText = 'Auto-Format Scheme';
+                }
+            });
+        }
+
+        if (resetSchemeBtn) {
+            resetSchemeBtn.addEventListener('click', () => {
+                optimizedSchemeContainer.style.display = 'none';
+                rawSchemeContainer.style.display = 'block';
+            });
+        }
+
+
         // Setup Upload Materials Modal
         const uploadMaterialBtn = document.getElementById('upload-material-btn');
         const uploadMaterialModal = document.getElementById('upload-material-modal');
@@ -199,11 +287,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             try {
                 const name = document.getElementById('new-assign-name').value;
-                const desc = document.getElementById('new-assign-desc').value;
+                let desc = document.getElementById('new-assign-desc').value;
                 const due = document.getElementById('new-assign-due').value;
+
+                // Auto-grade settings
+                const isAutoPilot = document.getElementById('enable-auto-grade').checked;
+                let instructions = null;
+
+                if (isAutoPilot) {
+                    const finalScheme = optimizedSchemeContainer.style.display === 'block' ?
+                        optimizedSchemeText.value.trim() : rawSchemeText.value.trim();
+
+                    if (!finalScheme) {
+                        alert("Please provide a marking scheme for Auto-Pilot grading.");
+                        btn.disabled = false;
+                        btn.innerText = 'Publish to Students';
+                        return;
+                    }
+
+                    const totalMarks = document.getElementById('total-marks').value;
+
+                    // We save the marking scheme in 'exam_instructions' column
+                    // and prefix the description so the student knows it's auto-graded
+                    instructions = finalScheme;
+                    desc = `[AUTO-PILOT ENABLED] ${desc}\n\nMax Score: ${totalMarks}`;
+                }
 
                 const { data: userData } = await window.supabaseClient.auth.getUser();
 
+                // Save session. Notice we pass auto_grade_enabled and exam_instructions
                 await window.PlaybookDB.saveSession({
                     course_id: courseId,
                     professor_id: userData.user.id,
@@ -212,7 +324,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     due_date: new Date(due).toISOString(),
                     session_type: 'digital',
                     status: 'pending',
-                    publish_status: 'published' // It's visible to students immediately as an open assignment
+                    publish_status: 'published', // It's visible to students immediately as an open assignment
+                    auto_grade_enabled: isAutoPilot,
+                    exam_instructions: instructions
                 });
 
                 alert('Online assignment published to students!');

@@ -344,6 +344,7 @@ DECLARE
     v_student_name TEXT;
     v_reg_num TEXT;
     v_submission_id UUID;
+    v_auto_grade BOOLEAN;
 BEGIN
     SELECT id, full_name, registration_number INTO v_student_id, v_student_name, v_reg_num
     FROM public.students WHERE auth_id = auth.uid() LIMIT 1;
@@ -351,11 +352,27 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Student not found');
     END IF;
 
+    -- Check if session has auto-pilot grading enabled
+    SELECT auto_grade_enabled INTO v_auto_grade
+    FROM public.sessions WHERE id = p_session_id;
+
     INSERT INTO public.exam_submissions (
         session_id, student_name, registration_number, text_content, pdf_storage_path, status
     ) VALUES (
         p_session_id, v_student_name, v_reg_num, p_text_content, p_pdf_path, 'pending'
     ) RETURNING id INTO v_submission_id;
+
+    -- If Auto-Pilot is enabled, invoke the Edge Function using pg_net
+    IF v_auto_grade THEN
+        PERFORM net.http_post(
+            url := current_setting('app.settings.supabase_url') || '/functions/v1/auto-grade-single',
+            headers := jsonb_build_object(
+                'Content-Type', 'application/json',
+                'Authorization', 'Bearer ' || current_setting('app.settings.supabase_anon_key')
+            ),
+            body := jsonb_build_object('submission_id', v_submission_id)
+        );
+    END IF;
 
     RETURN jsonb_build_object('success', true, 'submission_id', v_submission_id);
 END;
