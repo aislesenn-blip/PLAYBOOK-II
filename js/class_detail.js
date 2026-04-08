@@ -16,10 +16,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             animate: true,
             overlayOpacity: 0.65,
             steps: [
-                { element: '#class-join-code', popover: { title: 'The Join Code', description: 'Give this 6-character code to your students. They will use it to enroll in your class portal.', side: "bottom", align: 'start' } },
+                { element: '#class-join-code', popover: { title: 'The Join Code', description: 'Provide this 6-character code to your students so they can enroll via the Student Portal.', side: "bottom", align: 'start' } },
                 { element: '#create-assignment-btn', popover: { title: 'Online Assignments', description: 'Create digital homework. Enable the Auto-Pilot to have the AI grade it the moment the student hits submit.', side: "bottom", align: 'start' } },
-                { element: 'button[data-tab="gradebook-tab"]', popover: { title: 'Master Gradebook', description: 'This is the control center. View all scores, edit grades manually, and compile final coursework.', side: "bottom", align: 'start' } },
-                { popover: { title: 'Setup Complete ✨', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+                { element: 'button[data-tab="materials-tab"]', popover: { title: 'Course Materials', description: 'Upload PDFs, notes, or syllabi here so enrolled students can access them securely.', side: "bottom", align: 'start' } },
+                { element: 'button[data-tab="students-tab"]', popover: { title: 'Student Roster', description: 'Track everyone who has joined your class via the unique code.', side: "bottom", align: 'start' } },
+                { element: 'button[data-tab="gradebook-tab"]', popover: { title: 'Master Gradebook', description: 'The control center. View all scores across the semester, edit grades manually, and use the Compiler to generate final coursework.', side: "bottom", align: 'start' } },
+                { popover: { title: 'Class setup is complete', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
             ]
         });
 

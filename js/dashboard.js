@@ -27,11 +27,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             animate: true,
             overlayOpacity: 0.65,
             steps: [
-                { popover: { title: 'Welcome to Playbook 👋', description: 'The intelligent platform that automatically grades exams and compiles coursework instantly.', side: "left", align: 'start' } },
+                { popover: { title: 'Welcome to Playbook', description: 'The intelligent platform that automatically grades exams and compiles coursework instantly.', side: "left", align: 'start' } },
                 { element: '#create-class-btn', popover: { title: '1. Create a Class', description: 'Start by creating a virtual classroom. This generates a unique Join Code for your students.', side: "bottom", align: 'start' } },
-                { element: '#sessions-table-body', popover: { title: '2. Track Assessments', description: 'Once you upload exams, their grading status and analytics will appear right here.', side: "top", align: 'start' } },
-                { element: 'nav ul li:nth-child(2) a', popover: { title: '3. Upload Exams', description: 'Click here to upload offline, handwritten exams for the AI to grade.', side: "bottom", align: 'start' } },
-                { popover: { title: 'You are ready!', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to restart this tour.', side: "left", align: 'start' } }
+                { element: '.stats-grid', popover: { title: '2. High-Level Metrics', description: 'Track how many total students you have graded, how many exams are pending your review, and your global class average.', side: "bottom", align: 'start' } },
+                { element: '#performancePulseChart', popover: { title: '3. Performance Pulse', description: 'This timeline automatically visualizes whether your students are improving over the course of the semester.', side: "top", align: 'start' } },
+                { element: '#sessions-table-body', popover: { title: '4. Active Assessments', description: 'Once you upload exams, their real-time grading status and analytics will appear right here.', side: "top", align: 'start' } },
+                { element: 'nav ul li:nth-child(2) a', popover: { title: '5. Upload Offline Exams', description: 'Click here to upload offline, handwritten exams or PDFs for the AI to grade.', side: "bottom", align: 'start' } },
+                { popover: { title: 'You are ready to begin', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
             ]
         });
 
