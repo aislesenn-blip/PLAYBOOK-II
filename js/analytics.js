@@ -74,6 +74,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    let sessionData = null;
+    try {
+        sessionData = await window.PlaybookDB.getSession(sessionId);
+    } catch(e) {}
+
+    // Marking Scheme Modal Logic
+    const viewSchemeBtn = document.getElementById('view-scheme-btn');
+    const schemeModal = document.getElementById('scheme-modal');
+    const closeSchemeModal = document.getElementById('close-scheme-modal');
+    if (viewSchemeBtn && schemeModal) {
+        viewSchemeBtn.addEventListener('click', () => {
+            const pre = document.getElementById('scheme-modal-content');
+            pre.textContent = sessionData && sessionData.exam_instructions ? sessionData.exam_instructions : "No marking scheme was saved for this assessment.";
+            schemeModal.style.display = 'flex';
+        });
+        closeSchemeModal.addEventListener('click', () => schemeModal.style.display = 'none');
+    }
+
     // Load custom scale for letter grading (Moved outside try block for scope access by renderTable)
     // Update default colors to use semantic CSS variable names
     let scaleData = [

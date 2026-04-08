@@ -191,19 +191,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Use for...of to allow await inside loop
             for (const session of sessions) {
-                const totalStudents = session.total_students || 0;
-                totalGraded += totalStudents;
-
+                let totalStudents = session.total_students || 0;
                 const currentStatus = session.status || 'pending';
 
                 // Fetch submissions to determine true action state (prevent late submission lockout)
                 let hasPending = false;
                 let hasNeedsReview = false;
+                let actualSubCount = 0;
                 try {
                     const subs = await window.PlaybookDB.getSubmissionsBySession(session.id);
                     hasPending = subs.some(s => s.status === 'pending');
                     hasNeedsReview = subs.some(s => s.status === 'needs_review');
+                    actualSubCount = subs.length;
                 } catch(e) {}
+
+                // Fix: Sync total_students dynamically if missing or misaligned from background Autopilot
+                if (actualSubCount > 0 && totalStudents !== actualSubCount) {
+                    totalStudents = actualSubCount;
+                }
+                totalGraded += totalStudents;
 
                 // Update metrics based on derived state
                 if (currentStatus === 'needs_review' || hasNeedsReview || hasPending) {
