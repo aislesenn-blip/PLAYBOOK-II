@@ -1,0 +1,6 @@
+echo "Run this in the Supabase SQL Editor:"
+echo "---"
+echo "ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS auto_grade_enabled BOOLEAN DEFAULT false;"
+echo "CREATE EXTENSION IF NOT EXISTS pg_net;"
+echo "NOTIFY pgrst, 'reload schema';"
+echo "---"
