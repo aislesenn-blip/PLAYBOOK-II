@@ -462,7 +462,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let actionBtn = `<a href="analytics.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Report</a>`;
 
                 // If ANY submission is pending, the Grade button MUST be shown to allow processing of late students
-                if (isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
+                // However, if auto-pilot is enabled, the cloud handles grading, so they should go to Review/Analytics instead.
+                if (session.auto_grade_enabled && (session.status === 'pending' || session.status === 'processing' || hasPendingSubmissions)) {
+                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
+                } else if (isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
                     actionBtn = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
                 } else if (!isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
                     actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;

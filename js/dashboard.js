@@ -184,7 +184,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 let actionLink = '-';
-                if (hasPending) {
+                if (session.auto_grade_enabled && (currentStatus === 'pending' || currentStatus === 'processing' || hasPending)) {
+                    actionLink = `<a href="review.html?session=${session.id}">Review (Auto-Pilot)</a>`;
+                } else if (hasPending) {
                     actionLink = `<a href="grade_digital.html?session_id=${session.id}">Grade Submissions</a>`;
                 } else if (currentStatus === 'completed' && !hasNeedsReview) {
                     actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
