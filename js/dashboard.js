@@ -43,13 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => {
         if (!localStorage.getItem('playbook_dashboard_tour_seen')) {
             runDashboardTour();
-        } else {
-            // Show the hotkey hint briefly
-            const hint = document.getElementById('global-hotkey-hint');
-            if (hint) {
-                hint.style.opacity = '1';
-                setTimeout(() => hint.style.opacity = '0', 5000);
-            }
         }
     }, 1000);
 
@@ -60,6 +53,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             runDashboardTour();
         }
     });
+
+    const navTourBtn = document.getElementById('nav-tour-btn');
+    if (navTourBtn) {
+        navTourBtn.addEventListener('click', runDashboardTour);
+    }
 
     // Handle Logout
     const logoutBtn = document.getElementById('logout-btn');
