@@ -30,12 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => {
         if (!localStorage.getItem('playbook_class_tour_seen')) {
             runClassTour();
-        } else {
-            const hint = document.getElementById('global-hotkey-hint');
-            if (hint) {
-                hint.style.opacity = '1';
-                setTimeout(() => hint.style.opacity = '0', 5000);
-            }
         }
     }, 1000);
 
@@ -46,6 +40,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    const navTourBtn = document.getElementById('nav-tour-btn');
+    if (navTourBtn) {
+        navTourBtn.addEventListener('click', runClassTour);
+    }
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('playbook_session');
