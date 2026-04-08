@@ -15,10 +15,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             overlayOpacity: 0.65,
             steps: [
                 { popover: { title: 'Exam Analytics', description: 'See exactly how your class performed and where they struggled.', side: "left", align: 'start' } },
-                { element: '.stats-grid', popover: { title: '1. Class Overview', description: 'Instantly view the highest, lowest, and average scores for the exam.', side: "bottom", align: 'start' } },
+                { element: 'section.grid', popover: { title: '1. Class Overview', description: 'Instantly view the highest, lowest, and average scores for the exam.', side: "bottom", align: 'start' } },
                 { element: '#scoreDistributionChart', popover: { title: '2. The Grade Curve', description: 'See the visual distribution of A, B, C, D, and F grades.', side: "top", align: 'start' } },
                 { element: '.table-container', popover: { title: '3. Question Analysis', description: 'This breaks down exactly which questions caused the most failures. Use this to focus your next review session.', side: "top", align: 'start' } },
-                { element: '#download-report-btn', popover: { title: '4. Print the Report', description: 'Generate a beautiful, formal PDF report to print or share with your department.', side: "bottom", align: 'start' } },
+                { element: '#download-csv-btn', popover: { title: '4. Download CSV', description: 'Export the raw scores to Excel to upload to your university grading portal.', side: "bottom", align: 'start' } },
+                { element: '#download-all-feedback-btn', popover: { title: '5. Student Feedback PDFs', description: 'Download a beautifully formatted, individualized PDF for every single student containing their personal AI feedback.', side: "bottom", align: 'start' } },
+                { element: '#publish-grades-btn', popover: { title: '6. Publish Grades', description: 'Click this to release the grades and AI feedback directly to the Student Portal.', side: "bottom", align: 'start' } },
                 { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
             ]
         });
@@ -165,38 +167,80 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const labels = Object.keys(distribution);
             const dataValues = Object.values(distribution);
+            const hasData = dataValues.some(val => val > 0);
 
-            new Chart(canvas, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Number of Students',
-                        data: dataValues,
-                        backgroundColor: '#3b82f6', // blue-500
-                        borderRadius: 8,
-                        borderSkipped: false,
-                        barPercentage: 0.7
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
+            if (hasData) {
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Number of Students',
+                            data: dataValues,
+                            backgroundColor: '#3b82f6', // blue-500
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barPercentage: 0.7
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { precision: 0 }, // Only whole numbers for student count
-                            grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
                         },
-                        x: {
-                            grid: { display: false, drawBorder: false }
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }, // Only whole numbers for student count
+                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false }
+                            }
                         }
                     }
-                }
-            });
+                });
+            } else {
+                // Ghost Chart (Zero State)
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: ['A', 'B', 'C', 'D', 'F'],
+                        datasets: [{
+                            label: 'Waiting for Exams',
+                            data: [3, 5, 8, 4, 1], // Fake curve shape
+                            backgroundColor: 'rgba(226, 232, 240, 0.6)', // slate-200 ghost
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barPercentage: 0.7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function() { return 'Awaiting graded exams to populate curve'; }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { display: false, drawBorder: false },
+                                ticks: { display: false }
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false },
+                                ticks: { color: 'rgba(148, 163, 184, 0.8)' }
+                            }
+                        }
+                    }
+                });
+            }
         } else {
             const chartContainer = document.getElementById('chart-container');
             if (chartContainer) {

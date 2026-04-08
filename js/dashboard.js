@@ -367,7 +367,52 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
             } else {
-                pulseCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">Not enough data yet.</div>';
+                // Ghost Chart (Zero State)
+                const ctx = pulseCanvas.getContext('2d');
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(148, 163, 184, 0.2)'); // slate-400 very light
+                gradient.addColorStop(1, 'rgba(148, 163, 184, 0.0)');
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
+                        datasets: [{
+                            label: 'Waiting for Exams',
+                            data: [0, 0, 0, 0, 0],
+                            borderColor: 'rgba(148, 163, 184, 0.4)', // slate-400
+                            backgroundColor: gradient,
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointBackgroundColor: 'transparent',
+                            pointBorderColor: 'transparent',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function() { return 'Awaiting your first graded exam'; }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false }
+                            }
+                        }
+                    }
+                });
             }
         }
 
@@ -466,7 +511,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
             } else {
-                spectrumCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">No graded submissions yet.</div>';
+                // Ghost Doughnut (Zero State)
+                const centerVal = document.getElementById('doughnut-center-val');
+                if (centerVal) centerVal.textContent = `--%`;
+
+                new Chart(spectrumCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Awaiting Data'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['rgba(226, 232, 240, 0.8)'], // slate-200
+                            borderWidth: 0,
+                            hoverOffset: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function() { return 'Awaiting your first graded exam'; }
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: { top: 10, bottom: 10 }
+                        }
+                    }
+                });
             }
         }
 
@@ -533,12 +609,51 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 }
                             }
                         });
-                    } else {
-                        leaderboardCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">Complete a session to see class rankings.</div>';
+                        return; // Successfully rendered real data
                     }
-                } else {
-                     leaderboardCanvas.parentElement.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">Create classes to see the leaderboard.</div>';
                 }
+
+                // Ghost Leaderboard (Zero State)
+                new Chart(leaderboardCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Class Alpha', 'Class Beta', 'Class Gamma'],
+                        datasets: [{
+                            label: 'Waiting for Exams',
+                            data: [75, 50, 25], // Ghost data just to show the bars
+                            backgroundColor: 'rgba(226, 232, 240, 0.6)', // slate-200
+                            borderRadius: 20,
+                            borderSkipped: false,
+                            barPercentage: 0.6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function() { return 'Awaiting your first graded exam'; }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                max: 100,
+                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false },
+                                ticks: { color: 'transparent' } // hide ghost numbers
+                            },
+                            y: {
+                                grid: { display: false, drawBorder: false },
+                                ticks: { color: 'rgba(148, 163, 184, 0.8)' } // light text for ghost classes
+                            }
+                        }
+                    }
+                });
+
             } catch(e) {
                 console.error("Failed to load class leaderboard", e);
             }

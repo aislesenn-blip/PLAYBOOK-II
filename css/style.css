@@ -1293,10 +1293,7 @@ select.form-control option {
 }
 
 .driver-popover-footer {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    margin-top: 1rem !important;
+    margin-top: 1.5rem !important;
 }
 
 .driver-popover-footer button {
@@ -1307,7 +1304,6 @@ select.form-control option {
     border: none !important;
     transition: all 0.2s ease !important;
     cursor: pointer !important;
-    display: inline-block !important; /* Force visibility */
 }
 
 .driver-popover-footer .driver-popover-next-btn {
