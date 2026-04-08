@@ -22,11 +22,11 @@ serve(async (req) => {
     }
 
     // Initialize Supabase client
+    // We use the service role key to bypass RLS for background tasks,
+    // ensuring we can access secrets and update submissions securely.
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    })
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Fetch the submission details
     const { data: submission, error: submissionError } = await supabase

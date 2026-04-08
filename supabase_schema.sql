@@ -365,10 +365,10 @@ BEGIN
     -- If Auto-Pilot is enabled, invoke the Edge Function using pg_net
     IF v_auto_grade THEN
         PERFORM net.http_post(
-            url := current_setting('app.settings.supabase_url') || '/functions/v1/auto-grade-single',
+            url := current_setting('app.settings.supabase_url', true) || '/functions/v1/auto-grade-single',
             headers := jsonb_build_object(
                 'Content-Type', 'application/json',
-                'Authorization', 'Bearer ' || current_setting('app.settings.supabase_anon_key')
+                'Authorization', 'Bearer ' || current_setting('app.settings.supabase_anon_key', true)
             ),
             body := jsonb_build_object('submission_id', v_submission_id)
         );

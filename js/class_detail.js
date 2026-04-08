@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 try {
                     // Call out to the AI singleton for the Builder prompt
-                    const formatted = await window.PlaybookAI.formatMarkingScheme(rawText);
+                    const formatted = await window.PlaybookAI.optimizeMarkingScheme(rawText);
                     optimizedSchemeText.value = formatted;
                     rawSchemeContainer.style.display = 'none';
                     optimizedSchemeContainer.style.display = 'block';
