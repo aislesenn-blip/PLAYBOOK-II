@@ -17,13 +17,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             animate: true,
             overlayOpacity: 0.65,
             steps: [
-                { popover: { title: 'Upload Offline Exams', description: 'This is where you bring handwritten, offline exams into the Playbook intelligence cluster.', side: "left", align: 'start' } },
-                { element: '#course-select', popover: { title: '1. Select Class', description: 'Choose the class that just took the exam.', side: "bottom", align: 'start' } },
-                { element: '#raw-scheme-container', popover: { title: '2. The Marking Scheme', description: 'Upload a PDF rubric or paste the rules here. Our AI pre-processor will automatically format it for strict grading.', side: "top", align: 'start' } },
-                { element: '#total-marks', popover: { title: '3. Exam Weight', description: 'Set the maximum possible score for this entire assessment.', side: "bottom", align: 'start' } },
-                { element: '#exam-files', popover: { title: '4. Upload Scripts', description: 'Select the scanned PDF exams or photos of your students\' work.', side: "top", align: 'start' } },
-                { element: '#grade-btn', popover: { title: '5. Initiate Grading', description: 'Click this to dispatch the exams to the AI grading cluster.', side: "top", align: 'start' } },
-                { popover: { title: 'Setup complete', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+                { popover: { title: 'Upload Scanned Exams', description: 'Easily grade handwritten, paper exams by turning them into digital insights.', side: "left", align: 'start' } },
+                { element: '#course-select', popover: { title: '1. Select Class', description: 'Choose which class took this exam.', side: "bottom", align: 'start' } },
+                { element: '#raw-scheme-container', popover: { title: '2. The Marking Scheme', description: 'Paste the exam rules or upload a PDF. We will automatically format it to ensure 100% fair, unbiased grading.', side: "top", align: 'start' } },
+                { element: '#total-marks', popover: { title: '3. Total Points', description: 'What is the maximum possible score a student can get?', side: "bottom", align: 'start' } },
+                { element: '#exam-files', popover: { title: '4. Upload Papers', description: 'Select the scanned PDFs or photos of the students\' handwritten work.', side: "top", align: 'start' } },
+                { element: '#grade-btn', popover: { title: '5. Start Grading', description: 'Click here to start the automatic grading process. You can review the results when it finishes.', side: "top", align: 'start' } },
+                { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
             ]
         });
 
