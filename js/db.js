@@ -113,18 +113,34 @@ const PlaybookDB = {
 
     // 2.5 COURSES
     async getCourses() {
+        const cacheKey = 'playbook_cache_courses';
+        const cached = sessionStorage.getItem(cacheKey);
+
         // Fetch definitively based on auth token instead of localstorage since RLS depends on auth.uid()
         const { data: authData, error: authErr } = await supabaseClient.auth.getUser();
         if (authErr || !authData?.user?.id) return [];
         const userId = authData.user.id;
 
-        const { data, error } = await supabaseClient
+        // Start background fetch to update cache silently
+        const fetchPromise = supabaseClient
             .from('courses')
             .select('*')
             .eq('professor_id', userId)
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data;
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+                if (!error && data) {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(data));
+                }
+                return data;
+            });
+
+        // Return instant cache if available, otherwise await the network call
+        if (cached) {
+            return JSON.parse(cached);
+        } else {
+            const data = await fetchPromise;
+            return data || [];
+        }
     },
 
     async getCourseMaterials(courseId) {
@@ -160,12 +176,30 @@ const PlaybookDB = {
 
     // 3. SESSIONS (EXAMS)
     async getSessions() {
-        const { data, error } = await supabaseClient
+        const cacheKey = 'playbook_cache_sessions';
+        const cached = sessionStorage.getItem(cacheKey);
+
+        const fetchPromise = supabaseClient
             .from('sessions')
             .select('*')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data;
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+                if (!error && data) {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(data));
+                }
+                return data;
+            });
+
+        if (cached) {
+            // Because sessions update frequently (grading status),
+            // returning cache provides instant UI, but we should force a quick re-render or let background update handle next load.
+            // For true real-time without sockets, returning cache makes navigation instant.
+            return JSON.parse(cached);
+        } else {
+            const data = await fetchPromise;
+            if (!data) throw new Error("Failed to load sessions");
+            return data;
+        }
     },
 
     async getSession(id) {

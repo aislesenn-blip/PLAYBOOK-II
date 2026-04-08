@@ -567,6 +567,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusEl.textContent = 'Building Queue...';
             detailEl.textContent = `Saving ${studentChunks.length} students to local storage to prevent data loss...`;
 
+            // IMPORTANT: Save the AI-formatted marking scheme to the session row so the teacher can view it later
+            await window.supabaseClient.from('sessions').update({
+                exam_instructions: finalScheme
+            }).eq('id', savedSession.id);
+
             const meta = {
                 sessionId: savedSession.id,
                 sessionName: document.getElementById('session-name').value,

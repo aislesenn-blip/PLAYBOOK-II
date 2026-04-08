@@ -46,6 +46,32 @@
     </style>
 </head>
 <body>
+<!-- Marking Scheme Modal -->
+<div id="scheme-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div class="card" style="width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; padding: 2rem; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">AI Marking Scheme</h2>
+            <button id="close-scheme-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <div style="flex: 1; overflow-y: auto; background: #f8fafc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <pre id="scheme-modal-content" style="white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; color: var(--text-primary); margin: 0;"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- View Work Modal -->
+<div id="submission-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div class="card" style="width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; padding: 2rem; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">Student's Original Work</h2>
+            <button id="close-submission-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <div id="submission-content-area" style="flex: 1; overflow-y: auto; background: #f8fafc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); font-family: monospace; white-space: pre-wrap;">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+</div>
+
 <div class="app-container">
 <!-- Minimalist Top Navigation -->
 <nav class="top-nav">
@@ -85,6 +111,7 @@
 <p>Review class performance, score distributions, and export results.</p>
 </div>
 <div class="flex gap-1">
+<button class="btn btn-secondary" id="view-scheme-btn" style="border-color: var(--border-color); background: white;">View Marking Scheme</button>
 <button class="btn btn-secondary" onclick="window.print()">Print Report</button>
 <button class="btn" id="download-csv-btn">Download CSV</button>
 <button class="btn" id="download-all-feedback-btn">Download All Feedback (PDF)</button>
