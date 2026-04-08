@@ -1292,6 +1292,13 @@ select.form-control option {
     line-height: 1.5 !important;
 }
 
+.driver-popover-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-top: 1rem !important;
+}
+
 .driver-popover-footer button {
     border-radius: 99px !important; /* Pill shape */
     padding: 0.4rem 1rem !important;
@@ -1299,6 +1306,8 @@ select.form-control option {
     font-size: 0.85rem !important;
     border: none !important;
     transition: all 0.2s ease !important;
+    cursor: pointer !important;
+    display: inline-block !important; /* Force visibility */
 }
 
 .driver-popover-footer .driver-popover-next-btn {
@@ -1323,4 +1332,10 @@ select.form-control option {
     font-size: 0.8rem !important;
     color: var(--text-secondary) !important;
     font-weight: 500 !important;
+}
+
+.driver-popover-close-btn {
+    color: var(--text-secondary) !important;
+    top: 10px !important;
+    right: 10px !important;
 }

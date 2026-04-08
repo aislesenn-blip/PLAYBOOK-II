@@ -6,6 +6,49 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
 
+    // ==========================================
+    // ONBOARDING TOUR (DRIVER.JS)
+    // ==========================================
+    const runUploadTour = () => {
+        if (typeof window.driver === 'undefined') return;
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayOpacity: 0.65,
+            steps: [
+                { popover: { title: 'Upload Offline Exams', description: 'This is where you bring handwritten, offline exams into the Playbook intelligence cluster.', side: "left", align: 'start' } },
+                { element: '#course-select', popover: { title: '1. Select Class', description: 'Choose the class that just took the exam.', side: "bottom", align: 'start' } },
+                { element: '#raw-scheme-container', popover: { title: '2. The Marking Scheme', description: 'Upload a PDF rubric or paste the rules here. Our AI pre-processor will automatically format it for strict grading.', side: "top", align: 'start' } },
+                { element: '#total-marks', popover: { title: '3. Exam Weight', description: 'Set the maximum possible score for this entire assessment.', side: "bottom", align: 'start' } },
+                { element: '#exam-files', popover: { title: '4. Upload Scripts', description: 'Select the scanned PDF exams or photos of your students\' work.', side: "top", align: 'start' } },
+                { element: '#grade-btn', popover: { title: '5. Initiate Grading', description: 'Click this to dispatch the exams to the AI grading cluster.', side: "top", align: 'start' } },
+                { popover: { title: 'Setup complete', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+            ]
+        });
+
+        driverObj.drive();
+        localStorage.setItem('playbook_upload_tour_seen', 'true');
+    };
+
+    setTimeout(() => {
+        if (!localStorage.getItem('playbook_upload_tour_seen')) {
+            runUploadTour();
+        }
+    }, 1000);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            runUploadTour();
+        }
+    });
+
+    const navTourBtn = document.getElementById('nav-tour-btn');
+    if (navTourBtn) {
+        navTourBtn.addEventListener('click', runUploadTour);
+    }
+
     const overlay = document.getElementById('loading-overlay');
     const statusEl = document.getElementById('loading-status');
     const detailEl = document.getElementById('loading-detail');

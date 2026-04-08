@@ -3,6 +3,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sessionUser = requireAuth(['professor', 'admin']);
     if (!sessionUser) return;
 
+    // ==========================================
+    // ONBOARDING TOUR (DRIVER.JS)
+    // ==========================================
+    const runAnalyticsTour = () => {
+        if (typeof window.driver === 'undefined') return;
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayOpacity: 0.65,
+            steps: [
+                { popover: { title: 'Assessment Analytics', description: 'Deep dive into how your class performed on this specific assessment.', side: "left", align: 'start' } },
+                { element: '.stats-grid', popover: { title: '1. Core Metrics', description: 'Quickly see the highest, lowest, and average scores to gauge overall difficulty.', side: "bottom", align: 'start' } },
+                { element: '#scoreDistributionChart', popover: { title: '2. The Grade Spectrum', description: 'Visually identify if the scores follow a standard bell curve or if they skew towards failure/success.', side: "top", align: 'start' } },
+                { element: '.table-container', popover: { title: '3. Item Analysis', description: 'The most powerful tool here. This breaks down exactly which questions students failed the most. Use this to identify concepts you need to re-teach.', side: "top", align: 'start' } },
+                { element: '#download-report-btn', popover: { title: '4. Export PDF', description: 'Generate a beautiful, printable report with full item analysis to share with the department head.', side: "bottom", align: 'start' } },
+                { popover: { title: 'Ready to analyze', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+            ]
+        });
+
+        driverObj.drive();
+        localStorage.setItem('playbook_analytics_tour_seen', 'true');
+    };
+
+    setTimeout(() => {
+        if (!localStorage.getItem('playbook_analytics_tour_seen')) {
+            runAnalyticsTour();
+        }
+    }, 1000);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            runAnalyticsTour();
+        }
+    });
+
+    const navTourBtn = document.getElementById('nav-tour-btn');
+    if (navTourBtn) {
+        navTourBtn.addEventListener('click', runAnalyticsTour);
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
 
