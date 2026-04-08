@@ -160,6 +160,8 @@ const PlaybookDB = {
             .select()
             .single();
         if (error) throw error;
+        // Invalidate course cache so new classes appear instantly
+        sessionStorage.removeItem('playbook_cache_courses');
         return data;
     },
 
@@ -170,6 +172,8 @@ const PlaybookDB = {
             .select()
             .single();
         if (error) throw error;
+        // Invalidate sessions cache
+        sessionStorage.removeItem('playbook_cache_sessions');
         return data;
     },
 
