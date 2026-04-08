@@ -462,7 +462,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let actionBtn = `<a href="analytics.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Report</a>`;
 
                 // If ANY submission is pending, the Grade button MUST be shown to allow processing of late students
-                if (isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
+                // However, if auto-pilot is enabled, the cloud handles grading, so they should go to Review/Analytics instead.
+                if (session.auto_grade_enabled && (session.status === 'pending' || session.status === 'processing' || hasPendingSubmissions)) {
+                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
+                } else if (isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
                     actionBtn = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
                 } else if (!isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
                     actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
@@ -510,6 +513,331 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (validAvgs > 0) {
             document.getElementById('stat-class-avg').textContent = Math.round(totalAvgSum / validAvgs) + '%';
         }
+
+        // ========================================================
+        // MASTER GRADEBOOK LOGIC
+        // ========================================================
+        const gradebookHeaderRow = document.getElementById('gradebook-header-row');
+        const gradebookBody = document.getElementById('gradebook-table-body');
+        const saveGradebookBtn = document.getElementById('save-gradebook-btn');
+        let editedGrades = {}; // Stores { submission_id: { newValue, maxScore } }
+
+        // Render Gradebook Structure
+        const renderGradebook = () => {
+            gradebookHeaderRow.innerHTML = `
+                <th class="sticky-col" style="min-width: 150px;">Student Name</th>
+                <th style="min-width: 120px;">Reg Number</th>
+            `;
+
+            // Sort sessions oldest to newest for chronological columns
+            const sortedSessions = [...sessions].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+            sortedSessions.forEach(session => {
+                const th = document.createElement('th');
+                th.style.textAlign = 'center';
+                th.innerHTML = `
+                    <div style="font-weight: 700; color: var(--primary-color);">${window.escapeHTML(session.name)}</div>
+                    <div style="font-size: 0.65rem; color: var(--text-secondary);">${new Date(session.created_at).toLocaleDateString()}</div>
+                `;
+                gradebookHeaderRow.appendChild(th);
+            });
+
+            // Add final Coursework column
+            gradebookHeaderRow.innerHTML += `<th style="min-width: 120px; text-align: center; background: #e0e7ff; color: #4338ca; border-left: 2px solid #818cf8;" id="coursework-header-col">Coursework (CA)</th>`;
+
+            if (allStudents.length === 0) {
+                gradebookBody.innerHTML = `<tr><td colspan="${sortedSessions.length + 3}" class="text-center text-secondary" style="padding: 2rem;">No students to display.</td></tr>`;
+                return;
+            }
+
+            gradebookBody.innerHTML = '';
+
+            // Sort students alphabetically
+            const sortedStudents = [...allStudents].sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+            sortedStudents.forEach(student => {
+                const tr = document.createElement('tr');
+                tr.dataset.studentId = student.registration_number || student.full_name;
+
+                tr.innerHTML = `
+                    <td class="sticky-col" style="font-weight: 500; color: var(--text-primary);">${window.escapeHTML(student.full_name)}</td>
+                    <td style="color: var(--text-secondary); font-family: monospace;">${window.escapeHTML(student.registration_number || '-')}</td>
+                `;
+
+                // Calculate total coursework
+                let courseworkScore = 0;
+
+                sortedSessions.forEach(session => {
+                    const sessionSubs = sessionSubmissionsMap.get(session.id) || [];
+                    // Match by reg number first, then by name
+                    const match = sessionSubs.find(s =>
+                        (s.registrationNumber && s.registrationNumber === student.registration_number) ||
+                        (s.studentName && s.studentName === student.full_name)
+                    );
+
+                    let displayVal = '-';
+                    let maxVal = 100;
+                    let submissionId = null;
+
+                    if (match && match.grading) {
+                        displayVal = match.grading.totalScore;
+                        maxVal = match.grading.maxScore || 100;
+                        submissionId = match.id;
+                    } else if (match && (match.status === 'pending' || match.status === 'needs_review' || match.status === 'processing')) {
+                        displayVal = 'Pending';
+                    }
+
+                    const td = document.createElement('td');
+                    td.style.textAlign = 'center';
+
+                    if (displayVal !== '-' && displayVal !== 'Pending') {
+                        td.innerHTML = `
+                            <input type="number" class="grade-input"
+                                data-sub-id="${submissionId}"
+                                data-max="${maxVal}"
+                                data-original="${displayVal}"
+                                value="${displayVal}" step="0.1" min="0" max="${maxVal}">
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">/ ${maxVal}</span>
+                        `;
+                    } else if (displayVal === 'Pending') {
+                        td.innerHTML = `<span style="font-size: 0.75rem; color: #f59e0b; font-weight: 600;">Pending</span>`;
+                    } else {
+                        td.innerHTML = `<span style="color: var(--border-color);">-</span>`;
+                    }
+
+                    tr.appendChild(td);
+                });
+
+                tr.innerHTML += `<td style="text-align: center; font-weight: 700; color: #4338ca; border-left: 2px solid #818cf8; background: #e0e7ff;" class="coursework-cell">-</td>`;
+                gradebookBody.appendChild(tr);
+            });
+
+            // Attach Input Listeners
+            document.querySelectorAll('.grade-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const subId = e.target.dataset.subId;
+                    const maxScore = parseFloat(e.target.dataset.max);
+                    const original = parseFloat(e.target.dataset.original);
+                    let newVal = parseFloat(e.target.value);
+
+                    if (isNaN(newVal) || newVal < 0) newVal = 0;
+                    if (newVal > maxScore) newVal = maxScore;
+
+                    if (newVal !== original) {
+                        e.target.classList.add('dirty');
+                        editedGrades[subId] = { score: newVal, max: maxScore };
+                        saveGradebookBtn.style.display = 'inline-block';
+                    } else {
+                        e.target.classList.remove('dirty');
+                        delete editedGrades[subId];
+                        if (Object.keys(editedGrades).length === 0) saveGradebookBtn.style.display = 'none';
+                    }
+                });
+            });
+        };
+
+        renderGradebook();
+
+        // Save Overrides
+        saveGradebookBtn.addEventListener('click', async () => {
+            saveGradebookBtn.disabled = true;
+            saveGradebookBtn.textContent = 'Saving...';
+            try {
+                const updatePromises = Object.keys(editedGrades).map(async (subId) => {
+                    const updateData = editedGrades[subId];
+                    // Fetch existing submission to preserve grading_data structure
+                    const sub = await window.PlaybookDB.getSubmission(subId);
+
+                    await window.PlaybookDB.saveSubmission({
+                        id: subId,
+                        total_score: updateData.score,
+                        session_id: sub.session_id,
+                        student_name: sub.student_name,
+                        registration_number: sub.registration_number,
+                        text_content: sub.text_content,
+                        status: sub.status,
+                        grading_data: sub.grading_data
+                    });
+                });
+
+                await Promise.all(updatePromises);
+
+                // Clear dirty state
+                editedGrades = {};
+                saveGradebookBtn.style.display = 'none';
+                saveGradebookBtn.disabled = false;
+                saveGradebookBtn.textContent = 'Save All Changes';
+
+                document.querySelectorAll('.grade-input.dirty').forEach(input => {
+                    input.classList.remove('dirty');
+                    input.dataset.original = input.value;
+                });
+
+                window.toast("Grades updated successfully");
+            } catch (err) {
+                console.error("Failed to save grade overrides", err);
+                alert("Failed to save some grades. Please try again.");
+                saveGradebookBtn.disabled = false;
+                saveGradebookBtn.textContent = 'Save All Changes';
+            }
+        });
+
+        // ========================================================
+        // COURSEWORK AGGREGATOR ENGINE
+        // ========================================================
+        const courseworkModal = document.getElementById('coursework-modal');
+        const courseworkAssessmentList = document.getElementById('coursework-assessment-list');
+
+        document.getElementById('compile-coursework-btn').addEventListener('click', () => {
+            courseworkAssessmentList.innerHTML = '';
+            // Populate checkboxes
+            [...sessions].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).forEach(session => {
+                const div = document.createElement('div');
+                div.style.display = 'flex';
+                div.style.alignItems = 'center';
+                div.style.gap = '10px';
+                div.style.background = 'white';
+                div.style.padding = '10px';
+                div.style.borderRadius = '8px';
+                div.style.border = '1px solid #e2e8f0';
+
+                div.innerHTML = `
+                    <input type="checkbox" class="cw-checkbox" value="${session.id}" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-color);">
+                    <div>
+                        <span style="font-weight: 500; color: var(--text-primary); display: block;">${window.escapeHTML(session.name)}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">${session.session_type.toUpperCase()}</span>
+                    </div>
+                `;
+                courseworkAssessmentList.appendChild(div);
+            });
+
+            courseworkModal.style.display = 'flex';
+        });
+
+        document.getElementById('close-coursework-modal').addEventListener('click', () => courseworkModal.style.display = 'none');
+        document.getElementById('cancel-coursework-btn').addEventListener('click', () => courseworkModal.style.display = 'none');
+
+        document.getElementById('generate-coursework-btn').addEventListener('click', () => {
+            const selectedSessionIds = Array.from(document.querySelectorAll('.cw-checkbox:checked')).map(cb => cb.value);
+            const keepBestStr = document.getElementById('coursework-keep-best').value;
+            let keepBest = parseInt(keepBestStr, 10);
+            if (isNaN(keepBest) || keepBest <= 0) keepBest = null;
+
+            let finalScale = parseFloat(document.getElementById('coursework-scale').value);
+            if (isNaN(finalScale) || finalScale <= 0) finalScale = 100;
+
+            if (selectedSessionIds.length === 0) {
+                alert("Please select at least one assessment.");
+                return;
+            }
+
+            document.getElementById('coursework-header-col').textContent = `Coursework (/${finalScale})`;
+
+            // Run Calculation per Student Row
+            const rows = gradebookBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const cwCell = row.querySelector('.coursework-cell');
+                if (!cwCell) return; // Empty state row
+
+                const studentId = row.dataset.studentId;
+                const student = allStudents.find(s => (s.registration_number === studentId || s.full_name === studentId));
+                if (!student) return;
+
+                let percentages = [];
+
+                selectedSessionIds.forEach(sessId => {
+                    const sessionSubs = sessionSubmissionsMap.get(sessId) || [];
+                    const match = sessionSubs.find(s =>
+                        (s.registrationNumber && s.registrationNumber === student.registration_number) ||
+                        (s.studentName && s.studentName === student.full_name)
+                    );
+
+                    if (match && match.grading) {
+                        // Normalize to percentage before comparing "Best Of" to handle different max marks fairly
+                        const max = match.grading.maxScore || 100;
+                        const score = match.grading.totalScore || 0;
+                        percentages.push((score / max));
+                    } else {
+                        // If they missed it, it's a 0 for aggregation purposes
+                        percentages.push(0);
+                    }
+                });
+
+                // Apply "Best Of" Rule
+                if (keepBest && keepBest < percentages.length) {
+                    percentages.sort((a, b) => b - a); // Descending
+                    percentages = percentages.slice(0, keepBest);
+                }
+
+                // Average the kept percentages, then scale
+                if (percentages.length > 0) {
+                    const sumPerc = percentages.reduce((sum, p) => sum + p, 0);
+                    const avgPerc = sumPerc / percentages.length;
+                    const finalScore = Math.round(avgPerc * finalScale * 100) / 100;
+                    cwCell.textContent = finalScore;
+                    cwCell.dataset.rawScore = finalScore; // Store clean number for export
+                } else {
+                    cwCell.textContent = '0';
+                    cwCell.dataset.rawScore = 0;
+                }
+            });
+
+            courseworkModal.style.display = 'none';
+            window.toast("Coursework calculated successfully!");
+        });
+
+        // ========================================================
+        // CSV EXPORT LOGIC
+        // ========================================================
+        document.getElementById('export-csv-btn').addEventListener('click', () => {
+            const rows = gradebookBody.querySelectorAll('tr');
+            if (rows.length === 0 || rows[0].cells.length === 1) {
+                alert("No data to export.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            // Build Headers
+            const headers = [];
+            document.querySelectorAll('#gradebook-header-row th').forEach(th => {
+                // Clean HTML from headers
+                const text = th.textContent.replace(/[\n\r]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+                headers.push(`"${text}"`);
+            });
+            csvContent += headers.join(",") + "\r\n";
+
+            // Build Rows
+            rows.forEach(row => {
+                const rowData = [];
+                row.querySelectorAll('td').forEach((td, index) => {
+                    let cellVal = "";
+                    // For input fields, grab the value
+                    const input = td.querySelector('input');
+                    if (input) {
+                        cellVal = input.value;
+                    } else if (td.classList.contains('coursework-cell') && td.dataset.rawScore !== undefined) {
+                        cellVal = td.dataset.rawScore;
+                    } else {
+                        cellVal = td.textContent.replace(/[\n\r]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+                    }
+                    // Handle missing/pending visual indicators cleanly
+                    if (cellVal === '-' || cellVal.includes('Pending')) cellVal = "";
+                    rowData.push(`"${cellVal}"`);
+                });
+                csvContent += rowData.join(",") + "\r\n";
+            });
+
+            // Trigger Download
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            const cleanCourseName = document.getElementById('class-title').textContent.replace(/[^a-zA-Z0-9]/g, '_');
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Playbook_Gradebook_${cleanCourseName}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
 
     } catch (e) {
         console.error("Error loading class details", e);
