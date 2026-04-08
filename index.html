@@ -7,6 +7,7 @@
 <title>Playbook - Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link href="css/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
 </head>
 <body>
 <div class="app-container">
@@ -141,6 +142,13 @@
 </section>
 </main>
 </div>
+
+<!-- Global Hotkey Hint -->
+<div id="global-hotkey-hint" style="position: fixed; bottom: 20px; right: 20px; background: rgba(15, 23, 42, 0.85); color: white; padding: 8px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: 500; backdrop-filter: blur(4px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 50; display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity 0.5s ease; pointer-events: none;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #60a5fa;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+    Press <kbd style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace; letter-spacing: 1px;">Ctrl + /</kbd> for a tour
+</div>
+
 <!-- Loading Overlay -->
 <div id="loading-overlay">
 <!-- SVG Line Drawing Animation for PLAYBOOK -->
@@ -228,6 +236,7 @@
 <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/queue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
 <script src="js/dashboard.js"></script>
 
 <!-- Bolt-Style Bottom Tab Bar (Mobile Only) -->
