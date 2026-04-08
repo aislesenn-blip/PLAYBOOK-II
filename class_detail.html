@@ -144,8 +144,8 @@
         </div>
 
         <!-- Create Assignment Modal -->
-        <div class="modal" id="create-assignment-modal">
-            <div class="modal-content" style="max-width: 500px;">
+        <div class="modal" id="create-assignment-modal" style="z-index: 1000;">
+            <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
                 <div class="flex justify-between items-center mb-1">
                     <h2>Create Online Assignment</h2>
                     <span class="close-modal" id="close-assignment-modal" style="cursor: pointer; font-size: 1.5rem;">&times;</span>
@@ -163,7 +163,45 @@
                         <label>Due Date</label>
                         <input type="datetime-local" class="form-control" id="new-assign-due" required>
                     </div>
-                    <button type="submit" class="btn mt-2">Publish to Students</button>
+
+                    <!-- Auto-Pilot Toggle -->
+                    <div class="form-group mt-2" style="background: var(--surface-color); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                        <label class="flex items-center" style="cursor: pointer; font-weight: 600; font-size: 1.1rem; color: var(--primary-color);">
+                            <input type="checkbox" id="enable-auto-grade" style="margin-right: 10px; width: 18px; height: 18px; accent-color: var(--primary-color);">
+                            Enable Auto-Pilot Grading (Cloud Engine)
+                        </label>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 0;">If enabled, students' submissions will be instantly and automatically graded by the Playbook Intelligence Cluster in the cloud without waiting for manual initiation.</p>
+
+                        <!-- Auto-Pilot Settings Container -->
+                        <div id="auto-grade-settings" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                            <label class="form-label">Marking Scheme Rubric</label>
+
+                            <div id="raw-scheme-container" style="display: block; width: 100%;">
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste raw text below or upload a .txt, .pdf, .docx, or image to let the pre-processor standardize it.</p>
+                                <textarea class="form-control" id="raw-scheme-text" placeholder="Paste raw unstructured marking scheme here..." style="height: 150px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
+                                <div class="flex justify-between items-center">
+                                    <label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                                        Upload Document
+                                        <input accept=".txt, .pdf, .doc, .docx, image/png, image/jpeg, image/jpg" id="scheme-file" style="display: none;" type="file"/>
+                                    </label>
+                                    <button class="btn" id="optimize-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Auto-Format Scheme</button>
+                                </div>
+                            </div>
+
+                            <div id="optimized-scheme-container" style="display: none; width: 100%;">
+                                <p style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.5rem;">Review &amp; Tweak Standardized Scheme:</p>
+                                <textarea class="form-control" id="optimized-scheme-text" style="height: 200px; resize: vertical; border-color: var(--success-color);"></textarea>
+                                <div class="flex justify-between mt-1">
+                                    <button class="btn btn-secondary" id="reset-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Reset</button>
+                                </div>
+                            </div>
+
+                            <label class="form-label mt-1">Total Assignment Marks</label>
+                            <input class="form-control" id="total-marks" type="number" value="100"/>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn mt-2" style="width: 100%;">Publish to Students</button>
                 </form>
             </div>
         </div>
@@ -214,7 +252,14 @@
 <script src="js/app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/db.js"></script>
+<!-- Required dependencies for Parsing & AI Formatting -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <script src="js/auth.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/class_detail.js"></script>
 
 <!-- Bolt-Style Bottom Tab Bar (Mobile Only) -->
