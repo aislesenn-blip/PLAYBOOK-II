@@ -396,8 +396,8 @@ class Semaphore {
 // Pass 2: Single-Question Grading
 async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
     let attempt = 0;
-    const maxRetries = 5;
-    while (attempt < maxRetries) {
+
+    while (true) {
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
@@ -456,24 +456,22 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
 
         } catch (error) {
             attempt++;
-            console.warn(`[Invisible Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
-            if (attempt >= maxRetries) {
-                console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
-                return { ...questionData, total_correct_points_found: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
-            }
+            console.warn(`[Infinite Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
             
-            // Exponential backoff with jitter
+            // Capped Exponential backoff with jitter
             const baseDelay = 4000;
-            const backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            if (backoffTime > 60000) backoffTime = 60000;
+
             await delay(backoffTime);
         }
     }
 }
 
 // Client-Side Distributed Grading Engine (Map-Reduce Architecture)
-async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100, maxRetries = 3) {
+async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
     let attempt = 0;
-    while (attempt < maxRetries) {
+    while (true) {
         try {
             const apiKey = await getSecureKey();
 
@@ -566,12 +564,9 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             attempt++;
             console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
 
-            if (attempt >= maxRetries) {
-                console.error("Error in Playbook grading engine (All retries exhausted):", error);
-                throw error;
-            }
+            let backoffTime = attempt * 3000;
+            if (backoffTime > 60000) backoffTime = 60000;
 
-            const backoffTime = attempt * 3000;
             console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
             await delay(backoffTime);
         }
@@ -603,9 +598,9 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
 =========================================
 `;
 
-        async function optimizeMarkingScheme(rawText, maxRetries = 3) {
+        async function optimizeMarkingScheme(rawText) {
             let attempt = 0;
-            while (attempt < maxRetries) {
+            while (true) {
                 try {
                     const apiKey = await getSecureKey();
 
@@ -651,12 +646,9 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                     attempt++;
                     console.warn(`Optimization Attempt ${attempt} failed: ${error.message}`);
 
-                    if (attempt >= maxRetries) {
-                        console.error("Error in Playbook optimization engine (All retries exhausted):", error);
-                        throw error;
-                    }
+                    let backoffTime = attempt * 3000;
+                    if (backoffTime > 60000) backoffTime = 60000;
 
-                    const backoffTime = attempt * 3000;
                     console.log(`Self-Healing Loop activated for optimization: Retrying in ${backoffTime / 1000} seconds...`);
                     await delay(backoffTime);
                 }
@@ -664,9 +656,9 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
         }
 
 // OCR Fallback for Scanned Marking Schemes
-async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
+async function extractMarkingSchemeOCR(base64Images) {
     let attempt = 0;
-    while (attempt < maxRetries) {
+    while (true) {
         try {
             const apiKey = await getSecureKey();
 
@@ -715,12 +707,9 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
             attempt++;
             console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
 
-            if (attempt >= maxRetries) {
-                console.error("Error in Playbook OCR engine (All retries exhausted):", error);
-                throw error;
-            }
+            let backoffTime = attempt * 3000;
+            if (backoffTime > 60000) backoffTime = 60000;
 
-            const backoffTime = attempt * 3000;
             console.log(`Self-Healing Loop activated for OCR: Retrying in ${backoffTime / 1000} seconds...`);
             await delay(backoffTime);
         }
