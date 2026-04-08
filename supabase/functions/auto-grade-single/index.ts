@@ -432,35 +432,54 @@ async function processGrading(supabase: any, submission: any) {
   }
 }
 
-async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent: any, title: string) {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://playbook.edu",
-            "X-Title": title
-        },
-        body: JSON.stringify({
-            model: "anthropic/claude-3.7-sonnet",
-            temperature: 0.0,
-            seed: 42,
-            top_p: 0.1,
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userContent }
-            ],
-            response_format: { type: "json_object" }
-        })
-    });
+async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent: any, title: string, requireJSON: boolean) {
+    let attempt = 0;
+    while (true) {
+        try {
+            const bodyPayload: any = {
+                model: "anthropic/claude-3.7-sonnet",
+                temperature: 0.0,
+                seed: 42,
+                top_p: 0.1,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userContent }
+                ]
+            };
 
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+            if (requireJSON) {
+                bodyPayload.response_format = { type: "json_object" };
+            }
+
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://playbook.edu",
+                    "X-Title": title
+                },
+                body: JSON.stringify(bodyPayload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content.trim();
+
+        } catch (error: any) {
+            attempt++;
+            console.warn(`[Infinite Retry] fetchOpenRouter attempt ${attempt} failed for ${title}: ${error.message}`);
+
+            let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            if (backoffTime > 60000) backoffTime = 60000;
+
+            await delay(backoffTime);
+        }
     }
-
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
 }
 
 async function gradeBatchExamsCloud(studentText: string, rawInstructions: string, apiKey: string) {
@@ -468,7 +487,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     let optimizedScheme = rawInstructions;
     if (rawInstructions && rawInstructions.length > 20) {
         try {
-            optimizedScheme = await fetchOpenRouter(apiKey, OPTIMIZE_PROMPT, rawInstructions, "Playbook Autopilot Optimizer");
+            optimizedScheme = await fetchOpenRouter(apiKey, OPTIMIZE_PROMPT, rawInstructions, "Playbook Autopilot Optimizer", false);
             optimizedScheme = optimizedScheme.replace(/^```[^\n]*\n|\n```$/g, '');
         } catch (e: any) {
             console.warn("Scheme optimization failed, using raw scheme. Error:", e.message);
@@ -481,7 +500,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 
     let mapDataStr;
     try {
-        mapDataStr = await fetchOpenRouter(apiKey, PASS1_SYSTEM_PROMPT, promptText, "Playbook Autopilot Map");
+        mapDataStr = await fetchOpenRouter(apiKey, PASS1_SYSTEM_PROMPT, promptText, "Playbook Autopilot Map", true);
     } catch(e: any) {
          throw new Error("Pass 1 Map failed: " + e.message);
     }
@@ -523,13 +542,12 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 
 async function gradeSingleQuestionCloud(apiKey: string, questionData: any, markingSchemeText: string) {
     let attempt = 0;
-    const maxRetries = 5;
 
-    while (attempt < maxRetries) {
+    while (true) {
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
-            const rawContent = await fetchOpenRouter(apiKey, PASS2_SYSTEM_PROMPT, promptText, "Playbook Autopilot Reduce");
+            const rawContent = await fetchOpenRouter(apiKey, PASS2_SYSTEM_PROMPT, promptText, "Playbook Autopilot Reduce", true);
             const parsed = parseLLMJSON(rawContent);
 
             if (parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
@@ -546,13 +564,13 @@ async function gradeSingleQuestionCloud(apiKey: string, questionData: any, marki
 
         } catch (error: any) {
             attempt++;
-            console.warn(`[Invisible Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}: ${error.message}`);
-            if (attempt >= maxRetries) {
-                console.error(`Failed to grade question ${questionData.questionId} after ${maxRetries} attempts:`, error);
-                return { ...questionData, total_correct_points_found: 0, is_entirely_blank: true, justification: "Error grading.", constructive_feedback: "Error grading." };
-            }
+            console.warn(`[Infinite Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}: ${error.message}`);
+
+            // Exponential backoff capped at ~60 seconds to prevent massive delays
             const baseDelay = 4000;
-            const backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            if (backoffTime > 60000) backoffTime = 60000;
+
             await delay(backoffTime);
         }
     }
