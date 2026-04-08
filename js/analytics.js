@@ -14,12 +14,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             animate: true,
             overlayOpacity: 0.65,
             steps: [
-                { popover: { title: 'Assessment Analytics', description: 'Deep dive into how your class performed on this specific assessment.', side: "left", align: 'start' } },
-                { element: '.stats-grid', popover: { title: '1. Core Metrics', description: 'Quickly see the highest, lowest, and average scores to gauge overall difficulty.', side: "bottom", align: 'start' } },
-                { element: '#scoreDistributionChart', popover: { title: '2. The Grade Spectrum', description: 'Visually identify if the scores follow a standard bell curve or if they skew towards failure/success.', side: "top", align: 'start' } },
-                { element: '.table-container', popover: { title: '3. Item Analysis', description: 'The most powerful tool here. This breaks down exactly which questions students failed the most. Use this to identify concepts you need to re-teach.', side: "top", align: 'start' } },
-                { element: '#download-report-btn', popover: { title: '4. Export PDF', description: 'Generate a beautiful, printable report with full item analysis to share with the department head.', side: "bottom", align: 'start' } },
-                { popover: { title: 'Ready to analyze', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+                { popover: { title: 'Exam Analytics', description: 'See exactly how your class performed and where they struggled.', side: "left", align: 'start' } },
+                { element: '.stats-grid', popover: { title: '1. Class Overview', description: 'Instantly view the highest, lowest, and average scores for the exam.', side: "bottom", align: 'start' } },
+                { element: '#scoreDistributionChart', popover: { title: '2. The Grade Curve', description: 'See the visual distribution of A, B, C, D, and F grades.', side: "top", align: 'start' } },
+                { element: '.table-container', popover: { title: '3. Question Analysis', description: 'This breaks down exactly which questions caused the most failures. Use this to focus your next review session.', side: "top", align: 'start' } },
+                { element: '#download-report-btn', popover: { title: '4. Print the Report', description: 'Generate a beautiful, formal PDF report to print or share with your department.', side: "bottom", align: 'start' } },
+                { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
             ]
         });
 
