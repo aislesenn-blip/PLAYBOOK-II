@@ -494,6 +494,8 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://playbook.edu',
+                    'X-Title': 'Playbook Grading Engine'
                 },
                 body: JSON.stringify({
                     model: 'google/gemini-2.0-flash-001',
@@ -604,6 +606,8 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                         headers: {
                             'Authorization': `Bearer ${apiKey}`,
                             'Content-Type': 'application/json',
+                            'HTTP-Referer': 'https://playbook.edu',
+                            'X-Title': 'Playbook Marking Scheme Optimizer'
                         },
                         body: JSON.stringify({
                             model: 'google/gemini-2.0-flash-001',
@@ -677,6 +681,8 @@ async function extractMarkingSchemeOCR(base64Images, maxRetries = 3) {
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://playbook.edu',
+                    'X-Title': 'Playbook OCR Engine'
                 },
                 body: JSON.stringify({
                     model: 'google/gemini-2.0-flash-001',
