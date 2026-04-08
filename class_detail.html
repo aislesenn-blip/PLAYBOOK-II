@@ -5,6 +5,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Playbook - Class Management</title>
     <link href="css/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
 </head>
 <body>
 <div class="app-container">
@@ -95,6 +96,23 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                         Export CSV
                     </button>
+                </div>
+            </div>
+
+            <!-- Beautiful Gradebook Mini-Guide -->
+            <div id="gradebook-mini-guide" style="background: linear-gradient(to right, #f8fafc, #f1f5f9); border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; display: flex; gap: 1.5rem; align-items: flex-start; position: relative;">
+                <button onclick="document.getElementById('gradebook-mini-guide').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; cursor: pointer; color: var(--text-secondary);">&times;</button>
+                <div style="background: white; padding: 0.75rem; border-radius: 50%; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                </div>
+                <div>
+                    <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text-primary);">How to use the Master Gradebook</h4>
+                    <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">This view aggregates every assessment across your class. You can click directly into any cell to manually override an AI grade.</p>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="background: white; border: 1px dashed #cbd5e1; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.8rem; color: var(--text-secondary);">
+                            <strong style="color: var(--primary-color);">Compile Example:</strong> Select <span style="font-style: italic;">Test 1</span>, <span style="font-style: italic;">Test 2</span>, and <span style="font-style: italic;">Quiz</span>. Set "Keep Best <strong style="color: var(--text-primary);">2</strong>". The system will drop the lowest score, sum the remaining two, and scale the final result out of <strong style="color: var(--text-primary);">40 marks</strong>.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -277,6 +295,13 @@
     </main>
 </div>
 
+
+<!-- Global Hotkey Hint -->
+<div id="global-hotkey-hint" style="position: fixed; bottom: 20px; right: 20px; background: rgba(15, 23, 42, 0.85); color: white; padding: 8px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: 500; backdrop-filter: blur(4px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 50; display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity 0.5s ease; pointer-events: none;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #60a5fa;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+    Press <kbd style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace; letter-spacing: 1px;">Ctrl + /</kbd> for a tour
+</div>
+
 <!-- Loading Overlay -->
 <div id="loading-overlay">
     <svg class="playbook-loader" viewbox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
@@ -343,6 +368,7 @@
 
 <script src="js/auth.js"></script>
 <script src="js/ai.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
 <script src="js/class_detail.js"></script>
 
 <!-- Bolt-Style Bottom Tab Bar (Mobile Only) -->

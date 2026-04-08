@@ -16,6 +16,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         nameDisplay.textContent = sessionUser.full_name;
     }
 
+    // ==========================================
+    // ONBOARDING TOUR (DRIVER.JS)
+    // ==========================================
+    const runDashboardTour = () => {
+        if (typeof window.driver === 'undefined') return;
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayOpacity: 0.65,
+            steps: [
+                { popover: { title: 'Welcome to Playbook 👋', description: 'The intelligent platform that automatically grades exams and compiles coursework instantly.', side: "left", align: 'start' } },
+                { element: '#create-class-btn', popover: { title: '1. Create a Class', description: 'Start by creating a virtual classroom. This generates a unique Join Code for your students.', side: "bottom", align: 'start' } },
+                { element: '#sessions-table-body', popover: { title: '2. Track Assessments', description: 'Once you upload exams, their grading status and analytics will appear right here.', side: "top", align: 'start' } },
+                { element: 'nav ul li:nth-child(2) a', popover: { title: '3. Upload Exams', description: 'Click here to upload offline, handwritten exams for the AI to grade.', side: "bottom", align: 'start' } },
+                { popover: { title: 'You are ready!', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to restart this tour.', side: "left", align: 'start' } }
+            ]
+        });
+
+        driverObj.drive();
+        localStorage.setItem('playbook_dashboard_tour_seen', 'true');
+    };
+
+    // Auto-start tour for first-time users
+    setTimeout(() => {
+        if (!localStorage.getItem('playbook_dashboard_tour_seen')) {
+            runDashboardTour();
+        } else {
+            // Show the hotkey hint briefly
+            const hint = document.getElementById('global-hotkey-hint');
+            if (hint) {
+                hint.style.opacity = '1';
+                setTimeout(() => hint.style.opacity = '0', 5000);
+            }
+        }
+    }, 1000);
+
+    // Global Hotkey Listener
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            runDashboardTour();
+        }
+    });
+
     // Handle Logout
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {

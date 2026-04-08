@@ -4,6 +4,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Handle Logout
     const logoutBtn = document.getElementById('logout-btn');
+
+    // ==========================================
+    // ONBOARDING TOUR (DRIVER.JS)
+    // ==========================================
+    const runClassTour = () => {
+        if (typeof window.driver === 'undefined') return;
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayOpacity: 0.65,
+            steps: [
+                { element: '#class-join-code', popover: { title: 'The Join Code', description: 'Give this 6-character code to your students. They will use it to enroll in your class portal.', side: "bottom", align: 'start' } },
+                { element: '#create-assignment-btn', popover: { title: 'Online Assignments', description: 'Create digital homework. Enable the Auto-Pilot to have the AI grade it the moment the student hits submit.', side: "bottom", align: 'start' } },
+                { element: 'button[data-tab="gradebook-tab"]', popover: { title: 'Master Gradebook', description: 'This is the control center. View all scores, edit grades manually, and compile final coursework.', side: "bottom", align: 'start' } },
+                { popover: { title: 'Setup Complete ✨', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+            ]
+        });
+
+        driverObj.drive();
+        localStorage.setItem('playbook_class_tour_seen', 'true');
+    };
+
+    setTimeout(() => {
+        if (!localStorage.getItem('playbook_class_tour_seen')) {
+            runClassTour();
+        } else {
+            const hint = document.getElementById('global-hotkey-hint');
+            if (hint) {
+                hint.style.opacity = '1';
+                setTimeout(() => hint.style.opacity = '0', 5000);
+            }
+        }
+    }, 1000);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            runClassTour();
+        }
+    });
+
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('playbook_session');
