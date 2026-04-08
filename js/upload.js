@@ -49,6 +49,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         navTourBtn.addEventListener('click', runUploadTour);
     }
 
+    // Rules Cheat Sheet Modal
+    const rulesModal = document.getElementById('rules-cheat-sheet-modal');
+    const openRulesBtn = document.getElementById('open-rules-cheat-sheet');
+    const closeRulesBtn = document.getElementById('close-rules-cheat-sheet');
+    const gotItBtn = document.getElementById('got-it-rules-btn');
+
+    if (rulesModal && openRulesBtn) {
+        openRulesBtn.addEventListener('click', () => rulesModal.style.display = 'flex');
+        closeRulesBtn.addEventListener('click', () => rulesModal.style.display = 'none');
+        gotItBtn.addEventListener('click', () => rulesModal.style.display = 'none');
+    }
+
     const overlay = document.getElementById('loading-overlay');
     const statusEl = document.getElementById('loading-status');
     const detailEl = document.getElementById('loading-detail');
