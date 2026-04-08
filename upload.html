@@ -64,8 +64,14 @@
 </div>
 </div>
 <div class="form-group mb-2">
-    <label class="form-label">Exam Logic &amp; Instructions (Optional)</label>
-    <textarea class="form-control" id="exam-instructions" placeholder="e.g. 'Answer all questions in Section A', 'Answer 2 questions in Section B', or 'Answer 3 questions overall'" style="height: 80px; resize: vertical;"></textarea>
+    <div class="flex justify-between items-center w-100">
+        <label class="form-label mb-0">Exam Logic &amp; Instructions (Optional)</label>
+        <button type="button" id="open-rules-cheat-sheet" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+            How to write rules
+        </button>
+    </div>
+    <textarea class="form-control mt-1" id="exam-instructions" placeholder="e.g. 'Answer 2 questions in Section B', or 'Attempt 3 questions overall'" style="height: 80px; resize: vertical;"></textarea>
 </div>
 <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
 <!-- Smart Marking Scheme Builder -->
@@ -113,6 +119,33 @@
 </form>
 </main>
 </div>
+<!-- Rules Cheat Sheet Modal -->
+<div id="rules-cheat-sheet-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div class="card" style="width: 100%; max-width: 550px; padding: 2.5rem; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">How to Write Exam Rules</h2>
+            <button id="close-rules-cheat-sheet" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5;">
+            Playbook's AI grading engine reads every single answer a student writes. If a student answers 3 questions when they were only supposed to answer 2, Playbook will grade all 3, but it will <strong>automatically drop their lowest score</strong> so they don't get an unfair advantage.
+        </p>
+        <p style="font-size: 0.95rem; color: var(--text-primary); font-weight: 600; margin-bottom: 0.75rem;">To enable this, you MUST type your rules exactly like these examples:</p>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Example 1 (Specific Section):</p>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500;">Section B: answer 2</code>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500; margin-top: 0.5rem;">Answer 2 questions in Section C</code>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 2rem;">
+            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Example 2 (Entire Exam):</p>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500;">Attempt 3 questions</code>
+        </div>
+
+        <button id="got-it-rules-btn" class="btn" style="width: 100%; background: var(--accent-color);">Got it</button>
+    </div>
+</div>
+
 <!-- Loading Overlay -->
 <div id="loading-overlay">
 <!-- SVG Line Drawing Animation for PLAYBOOK -->

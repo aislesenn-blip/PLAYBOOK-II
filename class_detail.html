@@ -239,6 +239,16 @@
 
                         <!-- Auto-Pilot Settings Container -->
                         <div id="auto-grade-settings" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+
+                            <div class="flex justify-between items-center w-100" style="margin-bottom: 0.5rem;">
+                                <label class="form-label mb-0">Exam Logic &amp; Instructions (Optional)</label>
+                                <button type="button" id="open-rules-cheat-sheet" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                                    How to write rules
+                                </button>
+                            </div>
+                            <textarea class="form-control" id="exam-instructions" placeholder="e.g. 'Answer 2 questions in Section B', or 'Attempt 3 questions overall'" style="height: 60px; resize: vertical; margin-bottom: 1.5rem;"></textarea>
+
                             <label class="form-label">Marking Scheme</label>
 
                             <div id="raw-scheme-container" style="display: block; width: 100%;">
@@ -317,44 +327,80 @@
 
     <!-- Compile Coursework Modal -->
     <div id="coursework-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
-        <div class="card" style="width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2.5rem; border-radius: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0;">Compile Coursework (CA)</h2>
+        <div class="card" style="width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; padding: 2.5rem; border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0;">Compile Final Coursework</h2>
                 <button id="close-coursework-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
             </div>
 
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 2rem;">Build a custom formula to calculate your students' final semester coursework grades automatically.</p>
+
             <div style="margin-bottom: 2rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
-                <p style="margin-bottom: 1rem; font-weight: 600; color: var(--text-primary);">1. Select Assessments to Include</p>
-                <div id="coursework-assessment-list" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 200px; overflow-y: auto; padding-right: 10px;">
+                <p style="margin-bottom: 1rem; font-weight: 600; color: var(--text-primary);">1. Which assessments should be included?</p>
+                <div id="coursework-assessment-list" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 180px; overflow-y: auto; padding-right: 10px;">
                     <!-- Checkboxes injected here -->
                 </div>
             </div>
 
             <div style="margin-bottom: 2rem;">
-                <p style="margin-bottom: 0.75rem; font-weight: 600; color: var(--text-primary);">2. Apply "Best Of" Rule (Optional)</p>
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <span class="text-secondary">Keep the best</span>
-                    <input type="number" id="coursework-keep-best" class="form-control" style="width: 80px; text-align: center; display: inline-block;" placeholder="All">
-                    <span class="text-secondary">assessments per student.</span>
+                <p style="margin-bottom: 0.75rem; font-weight: 600; color: var(--text-primary);">2. Apply dropping rules (Optional)</p>
+                <div style="display: flex; align-items: center; gap: 1rem; background: white; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <span style="color: var(--text-primary); font-weight: 500;">Calculate the final grade by keeping the best</span>
+                    <input type="number" id="coursework-keep-best" class="form-control" style="width: 70px; text-align: center; display: inline-block; padding: 0.3rem;" placeholder="All">
+                    <span style="color: var(--text-primary); font-weight: 500;">assessments.</span>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Leave empty to keep all selected assessments.</p>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Leave this blank to average all selected assessments.</p>
             </div>
 
             <div style="margin-bottom: 2.5rem;">
-                <p style="margin-bottom: 0.75rem; font-weight: 600; color: var(--text-primary);">3. Final Scale (Max Marks)</p>
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <span class="text-secondary">Scale final sum to out of:</span>
-                    <input type="number" id="coursework-scale" class="form-control" style="width: 100px; font-weight: bold; color: var(--primary-color); display: inline-block;" value="40">
-                    <span class="text-secondary">marks.</span>
+                <p style="margin-bottom: 0.75rem; font-weight: 600; color: var(--text-primary);">3. Scale the final score</p>
+                <div style="display: flex; align-items: center; gap: 1rem; background: white; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <span style="color: var(--text-primary); font-weight: 500;">Scale the student's final average so it is out of:</span>
+                    <input type="number" id="coursework-scale" class="form-control" style="width: 80px; font-weight: bold; color: var(--primary-color); display: inline-block; padding: 0.3rem;" value="40">
+                    <span style="color: var(--text-primary); font-weight: 500;">total marks.</span>
+                </div>
+
+                <!-- Live Explainer Box -->
+                <div style="margin-top: 1rem; background: #eff6ff; border: 1px dashed #818cf8; padding: 1rem; border-radius: 8px; font-size: 0.85rem; color: #4338ca;">
+                    <strong style="display: block; margin-bottom: 0.25rem;">How this math works:</strong>
+                    If a student scores 90% and 80% on the assessments you selected above, their average is 85%. <br>
+                    Because you set the scale to <span id="live-scale-val" style="font-weight: bold;">40</span> marks, their final Coursework score will be <strong>34</strong>.
                 </div>
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 1rem;">
                 <button type="button" id="cancel-coursework-btn" class="btn btn-secondary">Cancel</button>
-                <button type="button" id="generate-coursework-btn" class="btn" style="background: var(--accent-color);">Generate Column</button>
+                <button type="button" id="generate-coursework-btn" class="btn" style="background: var(--accent-color);">Generate Coursework Column</button>
             </div>
         </div>
     </div>
+
+<!-- Rules Cheat Sheet Modal -->
+<div id="rules-cheat-sheet-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div class="card" style="width: 100%; max-width: 550px; padding: 2.5rem; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">How to Write Exam Rules</h2>
+            <button id="close-rules-cheat-sheet" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5;">
+            Playbook's AI grading engine reads every single answer a student writes. If a student answers 3 questions when they were only supposed to answer 2, Playbook will grade all 3, but it will <strong>automatically drop their lowest score</strong> so they don't get an unfair advantage.
+        </p>
+        <p style="font-size: 0.95rem; color: var(--text-primary); font-weight: 600; margin-bottom: 0.75rem;">To enable this, you MUST type your rules exactly like these examples:</p>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Example 1 (Specific Section):</p>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500;">Section B: answer 2</code>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500; margin-top: 0.5rem;">Answer 2 questions in Section C</code>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 2rem;">
+            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Example 2 (Entire Exam):</p>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500;">Attempt 3 questions</code>
+        </div>
+
+        <button id="got-it-rules-btn" class="btn" style="width: 100%; background: var(--accent-color);">Got it</button>
+    </div>
+</div>
 
 <script src="js/app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

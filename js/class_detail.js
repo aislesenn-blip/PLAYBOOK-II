@@ -180,6 +180,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        // Rules Cheat Sheet Modal
+        const rulesModal = document.getElementById('rules-cheat-sheet-modal');
+        const openRulesBtn = document.getElementById('open-rules-cheat-sheet');
+        const closeRulesBtn = document.getElementById('close-rules-cheat-sheet');
+        const gotItBtn = document.getElementById('got-it-rules-btn');
+
+        if (rulesModal && openRulesBtn) {
+            openRulesBtn.addEventListener('click', () => rulesModal.style.display = 'flex');
+            closeRulesBtn.addEventListener('click', () => rulesModal.style.display = 'none');
+            gotItBtn.addEventListener('click', () => rulesModal.style.display = 'none');
+        }
+
         // Scheme Pre-processor UI Logic
         const schemeFileInput = document.getElementById('scheme-file');
         const optimizeSchemeBtn = document.getElementById('optimize-scheme-btn');
@@ -421,11 +433,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return;
                     }
 
+                    // We now combine the explicitly typed rules from the new textarea
+                    // with the marking scheme so the AI engine gets both during grading
+                    const explicitRules = document.getElementById('exam-instructions').value.trim();
                     const totalMarks = document.getElementById('total-marks').value;
 
-                    // We save the marking scheme in 'exam_instructions' column
-                    // and prefix the description so the student knows it's auto-graded
-                    instructions = finalScheme;
+                    instructions = explicitRules ? `${explicitRules}\n\n${finalScheme}` : finalScheme;
                     desc = `[AUTO-PILOT ENABLED] ${desc}\n\nMax Score: ${totalMarks}`;
                 }
 
@@ -729,6 +742,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         // ========================================================
         const courseworkModal = document.getElementById('coursework-modal');
         const courseworkAssessmentList = document.getElementById('coursework-assessment-list');
+
+        const scaleInput = document.getElementById('coursework-scale');
+        const liveScaleVal = document.getElementById('live-scale-val');
+
+        if (scaleInput && liveScaleVal) {
+            scaleInput.addEventListener('input', (e) => {
+                liveScaleVal.textContent = e.target.value || '0';
+            });
+        }
 
         document.getElementById('compile-coursework-btn').addEventListener('click', () => {
             courseworkAssessmentList.innerHTML = '';
