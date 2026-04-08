@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Finished all chunks
-        statusEl.textContent = 'Finalizing Results...';
+        statusEl.textContent = 'Wrapping up...';
         detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
 
         const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.PlaybookQueue.deleteMeta(sessionId);
 
         statusEl.textContent = 'Grading Complete!';
-        detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
+        detailEl.textContent = 'Taking you to the Review screen to check the results...';
 
         setTimeout(() => {
             window.location.href = `review.html?session=${sessionId}`;
