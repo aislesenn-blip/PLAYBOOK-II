@@ -151,34 +151,108 @@ document.addEventListener('DOMContentLoaded', async () => {
             schemeFileInput.addEventListener('change', async (e) => {
                 if (!e.target.files.length) return;
                 const file = e.target.files[0];
-                rawSchemeText.value = 'Extracting text... please wait.';
+                const fileType = file.type;
+                const fileName = file.name.toLowerCase();
+                const parentLabel = schemeFileInput.parentElement;
 
                 try {
-                    let text = '';
-                    if (file.type === 'application/pdf' && window.pdfjsLib) {
+                    if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+                        parentLabel.innerText = 'Analyzing Layout...';
                         const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            const page = await pdf.getPage(i);
-                            const content = await page.getTextContent();
-                            text += content.items.map(item => item.str).join(' ') + '\n';
+                        const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+
+                        if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                         }
-                    } else if (file.name.endsWith('.docx') && window.mammoth) {
-                        const arrayBuffer = await file.arrayBuffer();
-                        const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
-                        text = result.value;
-                    } else if (file.type.startsWith('image/') && window.Tesseract) {
-                         rawSchemeText.value = 'Running OCR on image...';
-                         const result = await Tesseract.recognize(file, 'eng');
-                         text = result.data.text;
+
+                        const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        let extractedText = "";
+
+                        for (let i = 1; i <= pdfDoc.numPages; i++) {
+                            const page = await pdfDoc.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            extractedText += pageText + "\n";
+                        }
+
+                        const sanitizedText = extractedText.replace(/CamScanner/gi, '').replace(/Scanned with/gi, '').trim();
+
+                        if (sanitizedText.length > 50) {
+                            rawSchemeText.value = extractedText;
+                            parentLabel.innerText = 'Upload Document';
+                            parentLabel.appendChild(schemeFileInput);
+                        } else {
+                            let base64Images = [];
+
+                            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                                const page = await pdfDoc.getPage(i);
+                                const viewport = page.getViewport({ scale: 1.5 });
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                                base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                            }
+
+                            try {
+                                parentLabel.innerText = 'Running AI Vision...';
+                                const fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
+                                rawSchemeText.value = fullText;
+                            } catch (ocrError) {
+                                console.error("OCR Failed:", ocrError);
+                                alert("Failed to extract text from PDF via AI Vision.");
+                            } finally {
+                                parentLabel.innerText = 'Upload Document';
+                                parentLabel.appendChild(schemeFileInput);
+                            }
+                        }
+                    } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
+                        try {
+                            parentLabel.innerText = 'Extracting Word Doc...';
+                            const arrayBuffer = await file.arrayBuffer();
+                            const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                            rawSchemeText.value = result.value;
+                        } catch (error) {
+                            console.error("Error reading Word document:", error);
+                            alert("Failed to read Word document. Try saving as PDF instead.");
+                        } finally {
+                            parentLabel.innerText = 'Upload Document';
+                            parentLabel.appendChild(schemeFileInput);
+                        }
+                    } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+                        try {
+                            parentLabel.innerText = 'Running OCR on Image...';
+                            const reader = new FileReader();
+                            reader.onload = async (event) => {
+                                const base64Image = event.target.result;
+                                try {
+                                    const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
+                                    rawSchemeText.value = fullText;
+                                } catch (ocrError) {
+                                    console.error("OCR Failed:", ocrError);
+                                    alert("Failed to extract text from image via OCR.");
+                                } finally {
+                                    parentLabel.innerText = 'Upload Document';
+                                    parentLabel.appendChild(schemeFileInput);
+                                }
+                            };
+                            reader.readAsDataURL(file);
+                        } catch (error) {
+                            console.error("Error reading image:", error);
+                            alert("Failed to process image.");
+                        }
                     } else {
-                        text = await file.text();
+                        const text = await file.text();
+                        rawSchemeText.value = text;
                     }
-                    rawSchemeText.value = text;
                 } catch (err) {
                     console.error('File extraction failed:', err);
-                    alert('Failed to extract text. Please paste it manually.');
-                    rawSchemeText.value = '';
+                    alert('Failed to process file.');
+                    parentLabel.innerText = 'Upload Document';
+                    parentLabel.appendChild(schemeFileInput);
                 }
             });
         }
