@@ -137,6 +137,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Load Appeals (if they exist)
+    async function loadAppealsData() {
+        if (!window.PlaybookDB || !window.PlaybookDB.getPendingAppealsForProfessor) return;
+        try {
+            // Fix: Use the authenticated sessionUser object retrieved by requireAuth()
+            const appeals = await window.PlaybookDB.getPendingAppealsForProfessor(sessionUser.user_id);
+            const appealsSection = document.getElementById('appeals-inbox-section');
+            const appealsTableBody = document.getElementById('appeals-table-body');
+
+            if (appealsSection && appealsTableBody) {
+                if (appeals && appeals.length > 0) {
+                    appealsSection.style.display = 'block';
+                    appealsTableBody.innerHTML = '';
+
+                    appeals.forEach(appeal => {
+                        const studentName = appeal.student ? appeal.student.full_name : 'Unknown Student';
+                        const examName = appeal.submission && appeal.submission.sessions ? appeal.submission.sessions.exam_name : 'Unknown Exam';
+                        const date = new Date(appeal.created_at).toLocaleDateString();
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-weight: 500;">${window.escapeHTML ? window.escapeHTML(studentName) : studentName}</td>
+                            <td>${window.escapeHTML ? window.escapeHTML(examName) : examName}</td>
+                            <td>${date}</td>
+                            <td>
+                                <a href="review.html?session=${appeal.submission.session_id}&appeal=${appeal.id}" class="btn btn-primary btn-sm" style="text-decoration: none;">Review Appeal</a>
+                            </td>
+                        `;
+                        appealsTableBody.appendChild(tr);
+                    });
+                } else {
+                    appealsSection.style.display = 'none';
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load appeals data", err);
+        }
+    }
+
+    await loadAppealsData();
+
     // Load Classes
     try {
         const courses = await window.PlaybookDB.getCourses();
