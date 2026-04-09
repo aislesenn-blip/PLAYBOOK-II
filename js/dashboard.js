@@ -240,13 +240,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 let actionLink = '-';
                 if (session.auto_grade_enabled && (currentStatus === 'pending' || currentStatus === 'processing' || hasPending)) {
-                    actionLink = `<a href="review.html?session=${session.id}">Review (Auto-Pilot)</a>`;
+                    actionLink = `<a href="review.html?session=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
                 } else if (hasPending) {
-                    actionLink = `<a href="grade_digital.html?session_id=${session.id}">Grade Submissions</a>`;
+                    actionLink = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
                 } else if (currentStatus === 'completed' && !hasNeedsReview) {
-                    actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
+                    actionLink = `<a href="analytics.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Analytics</a>`;
                 } else if (currentStatus === 'needs_review' || hasNeedsReview || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
-                    actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
+                    actionLink = `<a href="review.html?session=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
                 }
 
                 const safeSessionName = window.escapeHTML(String(session.name || ''));
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <td style="font-weight: 600;">${safeSessionName}</td>
                     <td>${totalStudents}</td>
                     <td>${safeSessionDate}</td>
-                    <td><span class="score-badge ${badgeClass}" style="color: ${statusBadgeColor};">${safeSessionStatus}</span></td>
+                    <td><span style="color: ${statusBadgeColor}; font-weight: 500;">${safeSessionStatus}</span></td>
                     <td>${actionLink}</td>
                 `;
                 tbody.appendChild(tr);
