@@ -137,10 +137,83 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Load Appeals (Tier 2 Escalated and Tier 1 Audit Log)
+    async function loadAppealsData() {
+        if (!window.PlaybookDB || !window.PlaybookDB.getPendingAppealsForProfessor) return;
+        try {
+            const appeals = await window.PlaybookDB.getPendingAppealsForProfessor(sessionUser.user_id);
+            const appealsSection = document.getElementById('appeals-inbox-section');
+            const appealsTableBody = document.getElementById('appeals-table-body');
+
+            if (appealsSection && appealsTableBody) {
+                if (appeals && appeals.length > 0) {
+                    appealsSection.style.display = 'block';
+                    appealsTableBody.innerHTML = '';
+
+                    appeals.forEach(appeal => {
+                        const studentName = appeal.student ? appeal.student.full_name : 'Unknown Student';
+                        const examName = appeal.submission && appeal.submission.sessions ? appeal.submission.sessions.exam_name : 'Unknown Exam';
+                        const date = new Date(appeal.created_at).toLocaleDateString();
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-weight: 500;">${window.escapeHTML ? window.escapeHTML(studentName) : studentName}</td>
+                            <td>${window.escapeHTML ? window.escapeHTML(examName) : examName}</td>
+                            <td>${date}</td>
+                            <td>
+                                <a href="review.html?session=${appeal.submission.session_id}&appeal=${appeal.id}" class="btn btn-primary btn-sm" style="text-decoration: none;">Review Appeal</a>
+                            </td>
+                        `;
+                        appealsTableBody.appendChild(tr);
+                    });
+                } else {
+                    appealsSection.style.display = 'none';
+                }
+            }
+
+            // Load Audit Log
+            if (window.PlaybookDB.getAIResolvedAppealsForProfessor) {
+                const auditAppeals = await window.PlaybookDB.getAIResolvedAppealsForProfessor(sessionUser.user_id);
+                const auditSection = document.getElementById('ai-audit-log-section');
+                const auditTableBody = document.getElementById('ai-audit-table-body');
+
+                if (auditSection && auditTableBody) {
+                    if (auditAppeals && auditAppeals.length > 0) {
+                        auditSection.style.display = 'block';
+                        auditTableBody.innerHTML = '';
+
+                        auditAppeals.forEach(appeal => {
+                            const studentName = appeal.student ? appeal.student.full_name : 'Unknown Student';
+                            const examName = appeal.submission && appeal.submission.sessions ? appeal.submission.sessions.exam_name : 'Unknown Exam';
+                            const date = new Date(appeal.created_at).toLocaleDateString();
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight: 500; color: #475569;">${window.escapeHTML ? window.escapeHTML(studentName) : studentName}</td>
+                                <td style="color: #475569;">${window.escapeHTML ? window.escapeHTML(examName) : examName}</td>
+                                <td style="color: #475569;">${date}</td>
+                                <td><span style="background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">Resolved by AI</span></td>
+                            `;
+                            auditTableBody.appendChild(tr);
+                        });
+                    } else {
+                        auditSection.style.display = 'none';
+                    }
+                }
+            }
+
+        } catch (err) {
+            console.error("Failed to load appeals data", err);
+        }
+    }
+
+    await loadAppealsData();
+
     // Load Classes
     try {
         const courses = await window.PlaybookDB.getCourses();
         const classesTbody = document.getElementById('classes-table-body');
+        const stuckAutopilotSubmissions = [];
         if (classesTbody) {
             classesTbody.innerHTML = '';
             if (courses.length === 0) {
@@ -179,6 +252,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const tbody = document.getElementById('sessions-table-body');
 
+        const stuckAutopilotSubmissions = [];
+
         if (sessions.length === 0) {
             // Action-Oriented Empty State
             tbody.innerHTML = `
@@ -207,6 +282,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     hasPending = subs.some(s => s.status === 'pending');
                     hasNeedsReview = subs.some(s => s.status === 'needs_review');
                     actualSubCount = subs.length;
+
+                    // Trap stuck autopilot submissions
+                    if (session.auto_grade_enabled) {
+                        subs.forEach(s => {
+                            if (s.status === 'pending') {
+                                stuckAutopilotSubmissions.push(s.id);
+                            }
+                        });
+                    }
                 } catch(e) {}
 
                 // Fix: Sync total_students dynamically if missing or misaligned from background Autopilot
@@ -240,13 +324,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 let actionLink = '-';
                 if (session.auto_grade_enabled && (currentStatus === 'pending' || currentStatus === 'processing' || hasPending)) {
-                    actionLink = `<a href="review.html?session=${session.id}">Review (Auto-Pilot)</a>`;
+                    actionLink = `<a href="review.html?session=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
                 } else if (hasPending) {
-                    actionLink = `<a href="grade_digital.html?session_id=${session.id}">Grade Submissions</a>`;
+                    actionLink = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
                 } else if (currentStatus === 'completed' && !hasNeedsReview) {
-                    actionLink = `<a href="analytics.html?session=${session.id}">View Analytics</a>`;
+                    actionLink = `<a href="analytics.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">View Analytics</a>`;
                 } else if (currentStatus === 'needs_review' || hasNeedsReview || currentStatus.toLowerCase() === 'pending review' || currentStatus.toLowerCase() === 'pending' || currentStatus.toLowerCase().includes('partial')) {
-                    actionLink = `<a href="review.html?session=${session.id}">Review</a>`;
+                    actionLink = `<a href="review.html?session=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review</a>`;
                 }
 
                 const safeSessionName = window.escapeHTML(String(session.name || ''));
@@ -271,7 +355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <td style="font-weight: 600;">${safeSessionName}</td>
                     <td>${totalStudents}</td>
                     <td>${safeSessionDate}</td>
-                    <td><span class="score-badge ${badgeClass}" style="color: ${statusBadgeColor};">${safeSessionStatus}</span></td>
+                    <td><span style="color: ${statusBadgeColor}; font-weight: 500;">${safeSessionStatus}</span></td>
                     <td>${actionLink}</td>
                 `;
                 tbody.appendChild(tr);
@@ -284,6 +368,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         const overallAvg = sessionsWithScore > 0 ? Math.round(totalScoreSum / sessionsWithScore) : 0;
         document.getElementById('stat-avg').textContent = `${overallAvg}%`;
 
+        // FALLBACK: Kickstart stuck Autopilot submissions synchronously
+        if (stuckAutopilotSubmissions.length > 0) {
+            console.log(`Detected ${stuckAutopilotSubmissions.length} stuck Autopilot submissions on dashboard. Triggering Edge Function fallback...`);
+
+            if (window.showToast) {
+                window.showToast(`Auto-grading ${stuckAutopilotSubmissions.length} recent submissions...`, 'info');
+            }
+
+            Promise.all(stuckAutopilotSubmissions.map(async (subId) => {
+                try {
+                    // Use Supabase client directly to trigger Edge Function securely without hardcoding domains
+                    await window.supabaseClient.functions.invoke('auto-grade-single', {
+                        body: { submission_id: subId }
+                    });
+                } catch (err) {
+                    console.error(`Fallback auto-grade failed for submission ${subId}:`, err);
+                }
+            })).then(() => console.log("Dashboard fallback auto-grading tasks initiated."));
+        }
+
         // Wait a tick to let DOM settle, then render charts
         setTimeout(() => {
             renderDashboardCharts(sessions);
@@ -292,6 +396,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch(err) {
         console.error("Error loading dashboard", err);
     }
+
+    // Store Chart Instances globally to allow destroying them when cache updates
+    let pulseChartInstance = null;
+    let spectrumChartInstance = null;
+    let leaderboardChartInstance = null;
 
     // Chart.js Rendering Logic
     async function renderDashboardCharts(sessions) {
@@ -317,130 +426,279 @@ document.addEventListener('DOMContentLoaded', async () => {
         Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
         Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
 
-        // 1. Performance Pulse (Line Chart)
-        const pulseCanvas = document.getElementById('performancePulseChart');
-        if (pulseCanvas) {
-            // Filter only completed sessions with scores, sort oldest to newest
+        // Determine if we should use cached data for instant render
+        const CACHE_KEY = 'playbook_dashboard_charts_cache';
+        const cachedDataStr = sessionStorage.getItem(CACHE_KEY);
+        let cachedData = null;
+
+        if (cachedDataStr) {
+            try {
+                cachedData = JSON.parse(cachedDataStr);
+            } catch(e) {}
+        }
+
+        // Helper to destroy existing charts before re-rendering
+        const destroyExistingCharts = () => {
+            if (pulseChartInstance) pulseChartInstance.destroy();
+            if (spectrumChartInstance) spectrumChartInstance.destroy();
+            if (leaderboardChartInstance) leaderboardChartInstance.destroy();
+        };
+
+        const renderFromData = (data) => {
+            destroyExistingCharts();
+
+            // 1. Performance Pulse (Line Chart)
+            const pulseCanvas = document.getElementById('performancePulseChart');
+            if (pulseCanvas) {
+                const skeleton = document.getElementById('pulse-skeleton');
+                if (skeleton) skeleton.style.display = 'none';
+                pulseCanvas.style.display = 'block';
+
+                if (data.pulse && data.pulse.labels && data.pulse.labels.length > 0) {
+                    const ctx = pulseCanvas.getContext('2d');
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
+                    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+                    pulseChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.pulse.labels,
+                            datasets: [{
+                                label: 'Average Score (%)',
+                                data: data.pulse.dataPoints,
+                                borderColor: '#3b82f6',
+                                backgroundColor: gradient,
+                                borderWidth: 3,
+                                pointBackgroundColor: '#ffffff',
+                                pointBorderColor: '#3b82f6',
+                                pointBorderWidth: 2,
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false } },
+                                x: { grid: { display: false, drawBorder: false } }
+                            }
+                        }
+                    });
+                } else {
+                    // Ghost Chart (Zero State)
+                    const ctx = pulseCanvas.getContext('2d');
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, 'rgba(148, 163, 184, 0.2)');
+                    gradient.addColorStop(1, 'rgba(148, 163, 184, 0.0)');
+
+                    pulseChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
+                            datasets: [{
+                                label: 'Waiting for Exams',
+                                data: [0, 0, 0, 0, 0],
+                                borderColor: 'rgba(148, 163, 184, 0.4)',
+                                backgroundColor: gradient,
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointBackgroundColor: 'transparent',
+                                pointBorderColor: 'transparent',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { label: function() { return 'Awaiting your first graded exam'; } } } },
+                            scales: {
+                                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false } },
+                                x: { grid: { display: false, drawBorder: false } }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 2. Grade Spectrum (Doughnut Chart)
+            const spectrumCanvas = document.getElementById('gradeSpectrumChart');
+            if (spectrumCanvas) {
+                const skeleton = document.getElementById('spectrum-skeleton');
+                if (skeleton) skeleton.style.display = 'none';
+                const container = document.getElementById('spectrum-canvas-container');
+                if (container) container.style.display = 'block';
+
+                if (data.spectrum && data.spectrum.totalSubs > 0) {
+                    const centerVal = document.getElementById('doughnut-center-val');
+                    if (centerVal) {
+                        const avgPerc = Math.round((data.spectrum.totalScoreSum / data.spectrum.totalMaxSum) * 100);
+                        centerVal.textContent = `${avgPerc}%`;
+                    }
+
+                    spectrumChartInstance = new Chart(spectrumCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.spectrum.labels,
+                            datasets: [{
+                                data: data.spectrum.dataPoints,
+                                backgroundColor: data.spectrum.colors,
+                                borderWidth: 0,
+                                hoverOffset: 10
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '75%',
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                    labels: { usePointStyle: true, padding: 15, boxWidth: 8 }
+                                }
+                            },
+                            layout: { padding: { top: 10, bottom: 10 } }
+                        }
+                    });
+                } else {
+                    // Ghost Doughnut (Zero State)
+                    const centerVal = document.getElementById('doughnut-center-val');
+                    if (centerVal) centerVal.textContent = `--%`;
+
+                    spectrumChartInstance = new Chart(spectrumCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Awaiting Data'],
+                            datasets: [{
+                                data: [1],
+                                backgroundColor: ['rgba(226, 232, 240, 0.8)'],
+                                borderWidth: 0,
+                                hoverOffset: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '75%',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { callbacks: { label: function() { return 'Awaiting your first graded exam'; } } }
+                            },
+                            layout: { padding: { top: 10, bottom: 10 } }
+                        }
+                    });
+                }
+            }
+
+            // 3. Class Leaderboard (Bar Chart)
+            const leaderboardCanvas = document.getElementById('classLeaderboardChart');
+            if (leaderboardCanvas) {
+                const skeleton = document.getElementById('leaderboard-skeleton');
+                if (skeleton) skeleton.style.display = 'none';
+                leaderboardCanvas.style.display = 'block';
+
+                if (data.leaderboard && data.leaderboard.labels && data.leaderboard.labels.length > 0) {
+                    leaderboardChartInstance = new Chart(leaderboardCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: data.leaderboard.labels,
+                            datasets: [{
+                                label: 'Overall Average (%)',
+                                data: data.leaderboard.dataPoints,
+                                backgroundColor: '#8b5cf6',
+                                borderRadius: 20,
+                                borderSkipped: false,
+                                barPercentage: 0.6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            indexAxis: 'y',
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { beginAtZero: true, max: 100, grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false } },
+                                y: { grid: { display: false, drawBorder: false } }
+                            }
+                        }
+                    });
+                } else {
+                    // Ghost Leaderboard (Zero State)
+                    leaderboardChartInstance = new Chart(leaderboardCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Class Alpha', 'Class Beta', 'Class Gamma'],
+                            datasets: [{
+                                label: 'Waiting for Exams',
+                                data: [75, 50, 25], // Ghost data
+                                backgroundColor: 'rgba(226, 232, 240, 0.6)',
+                                borderRadius: 20,
+                                borderSkipped: false,
+                                barPercentage: 0.6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            indexAxis: 'y',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { callbacks: { label: function() { return 'Awaiting your first graded exam'; } } }
+                            },
+                            scales: {
+                                x: { beginAtZero: true, max: 100, grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }, ticks: { color: 'transparent' } },
+                                y: { grid: { display: false, drawBorder: false }, ticks: { color: 'rgba(148, 163, 184, 0.8)' } }
+                            }
+                        }
+                    });
+                }
+            }
+        };
+
+        // If we have cached data, render it immediately while the background job processes
+        if (cachedData) {
+            renderFromData(cachedData);
+        }
+
+        // BACKGROUND AGGREGATION JOB
+        // --------------------------
+        try {
+            const aggregatedData = {
+                pulse: { labels: [], dataPoints: [] },
+                spectrum: { labels: [], dataPoints: [], colors: [], totalSubs: 0, totalScoreSum: 0, totalMaxSum: 0 },
+                leaderboard: { labels: [], dataPoints: [] }
+            };
+
             const completedSessions = sessions
                 .filter(s => s.status === 'completed' && s.average_score !== null && isValidUUID(s.id))
                 .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
+            // Pulse Aggregation
             if (completedSessions.length > 0) {
-                const labels = completedSessions.map(s => {
+                aggregatedData.pulse.labels = completedSessions.map(s => {
                     const date = new Date(s.created_at);
                     return `${date.getMonth()+1}/${date.getDate()} - ${s.name.substring(0, 10)}...`;
                 });
-                const dataPoints = completedSessions.map(s => Number(s.average_score));
-
-                const ctx = pulseCanvas.getContext('2d');
-
-                // Create gradient
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)'); // blue-500 semi
-                gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
-
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Average Score (%)',
-                            data: dataPoints,
-                            borderColor: '#3b82f6', // blue-500
-                            backgroundColor: gradient,
-                            borderWidth: 3,
-                            pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#3b82f6',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: true,
-                            tension: 0.4 // Smooth bezier curves
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 100,
-                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false } // slate-200
-                            },
-                            x: {
-                                grid: { display: false, drawBorder: false }
-                            }
-                        }
-                    }
-                });
-            } else {
-                // Ghost Chart (Zero State)
-                const ctx = pulseCanvas.getContext('2d');
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(148, 163, 184, 0.2)'); // slate-400 very light
-                gradient.addColorStop(1, 'rgba(148, 163, 184, 0.0)');
-
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
-                        datasets: [{
-                            label: 'Waiting for Exams',
-                            data: [0, 0, 0, 0, 0],
-                            borderColor: 'rgba(148, 163, 184, 0.4)', // slate-400
-                            backgroundColor: gradient,
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            pointBackgroundColor: 'transparent',
-                            pointBorderColor: 'transparent',
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function() { return 'Awaiting your first graded exam'; }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 100,
-                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
-                            },
-                            x: {
-                                grid: { display: false, drawBorder: false }
-                            }
-                        }
-                    }
-                });
+                aggregatedData.pulse.dataPoints = completedSessions.map(s => Number(s.average_score));
             }
-        }
 
-        // 2. Grade Spectrum (Doughnut Chart)
-        const spectrumCanvas = document.getElementById('gradeSpectrumChart');
-        if (spectrumCanvas) {
+            // Spectrum Aggregation
             let scaleData = [
-                { min: 90, max: 100, label: 'A', color: '#10b981' }, // emerald-500
-                { min: 80, max: 89.9, label: 'B', color: '#3b82f6' }, // blue-500
-                { min: 70, max: 79.9, label: 'C', color: '#f59e0b' }, // amber-500
-                { min: 60, max: 69.9, label: 'D', color: '#f97316' }, // orange-500
-                { min: 0, max: 59.9, label: 'F', color: '#ef4444' }   // red-500
+                { min: 90, max: 100, label: 'A', color: '#10b981' },
+                { min: 80, max: 89.9, label: 'B', color: '#3b82f6' },
+                { min: 70, max: 79.9, label: 'C', color: '#f59e0b' },
+                { min: 60, max: 69.9, label: 'D', color: '#f97316' },
+                { min: 0, max: 59.9, label: 'F', color: '#ef4444' }
             ];
 
             try {
                 const savedScale = await window.PlaybookDB.getSetting('grading_scale');
                 if (savedScale && Array.isArray(savedScale.value)) {
-                    // Update colors if custom scale is loaded
                     scaleData = savedScale.value.map((s, i) => {
                         const defaultColors = ['#10b981', '#3b82f6', '#f59e0b', '#f97316', '#ef4444', '#8b5cf6'];
                         return { ...s, color: defaultColors[i % defaultColors.length] };
@@ -448,22 +706,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             } catch(e) {}
 
-            let totalSubs = 0;
-            let totalScoreSum = 0;
-            let totalMaxSum = 0;
+            aggregatedData.spectrum.labels = scaleData.map(s => s.label);
+            aggregatedData.spectrum.colors = scaleData.map(s => s.color);
             let gradeCounts = {};
             scaleData.forEach(s => gradeCounts[s.label] = 0);
 
-            // Fetch all submissions to calculate exact grade distribution concurrently (N+1 Fix)
-            const completedSessions = sessions.filter(s => s.status === 'completed' && isValidUUID(s.id));
-
             const sessionPromises = completedSessions.map(async (s) => {
-                try {
-                    const subs = await window.PlaybookDB.getSubmissionsBySession(s.id);
-                    return subs || [];
-                } catch(e) {
-                    return [];
-                }
+                try { return await window.PlaybookDB.getSubmissionsBySession(s.id) || []; } catch(e) { return []; }
             });
 
             const allSubmissionsArrays = await Promise.all(sessionPromises);
@@ -471,9 +720,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             allSubmissionsArrays.forEach(subs => {
                 subs.forEach(st => {
                     if (st.grading) {
-                        totalSubs++;
-                        totalScoreSum += st.grading.totalScore;
-                        totalMaxSum += st.grading.maxScore;
+                        aggregatedData.spectrum.totalSubs++;
+                        aggregatedData.spectrum.totalScoreSum += st.grading.totalScore;
+                        aggregatedData.spectrum.totalMaxSum += st.grading.maxScore;
 
                         const percentage = (st.grading.totalScore / st.grading.maxScore) * 100;
                         for (const scale of scaleData) {
@@ -485,189 +734,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
             });
+            aggregatedData.spectrum.dataPoints = scaleData.map(s => gradeCounts[s.label]);
 
-            if (totalSubs > 0) {
-                // Update the center text
-                const centerVal = document.getElementById('doughnut-center-val');
-                if (centerVal) {
-                    const avgPerc = Math.round((totalScoreSum / totalMaxSum) * 100);
-                    centerVal.textContent = `${avgPerc}%`;
-                }
-
-                new Chart(spectrumCanvas, {
-                    type: 'doughnut',
-                    data: {
-                        labels: scaleData.map(s => s.label),
-                        datasets: [{
-                            data: scaleData.map(s => gradeCounts[s.label]),
-                            backgroundColor: scaleData.map(s => s.color),
-                            borderWidth: 0,
-                            hoverOffset: 10
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '75%', // Make it a thin, modern ring
-                        plugins: {
-                            legend: {
-                                position: 'right',
-                                labels: { usePointStyle: true, padding: 15, boxWidth: 8 }
-                            }
-                        },
-                        layout: {
-                            padding: { top: 10, bottom: 10 }
-                        }
-                    }
-                });
-            } else {
-                // Ghost Doughnut (Zero State)
-                const centerVal = document.getElementById('doughnut-center-val');
-                if (centerVal) centerVal.textContent = `--%`;
-
-                new Chart(spectrumCanvas, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Awaiting Data'],
-                        datasets: [{
-                            data: [1],
-                            backgroundColor: ['rgba(226, 232, 240, 0.8)'], // slate-200
-                            borderWidth: 0,
-                            hoverOffset: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '75%',
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function() { return 'Awaiting your first graded exam'; }
-                                }
-                            }
-                        },
-                        layout: {
-                            padding: { top: 10, bottom: 10 }
-                        }
-                    }
-                });
-            }
-        }
-
-        // 3. Class Leaderboard (Bar Chart)
-        const leaderboardCanvas = document.getElementById('classLeaderboardChart');
-        if (leaderboardCanvas) {
-            try {
-                const courses = await window.PlaybookDB.getCourses();
-                if (courses && courses.length > 0) {
-                    let courseData = [];
-
-                    for (const course of courses) {
-                        // Find all sessions for this course
-                        const courseSessions = sessions.filter(s => s.course_id === course.id && s.status === 'completed' && s.average_score !== null);
-
-                        if (courseSessions.length > 0) {
-                            let sumAvg = 0;
-                            courseSessions.forEach(s => sumAvg += Number(s.average_score));
-                            const overallCourseAvg = sumAvg / courseSessions.length;
-
-                            courseData.push({
-                                name: course.name,
-                                avg: Math.round(overallCourseAvg)
-                            });
-                        }
-                    }
-
-                    // Sort by highest average
-                    courseData.sort((a, b) => b.avg - a.avg);
-
-                    if (courseData.length > 0) {
-                        // Take top 5
-                        courseData = courseData.slice(0, 5);
-
-                        new Chart(leaderboardCanvas, {
-                            type: 'bar',
-                            data: {
-                                labels: courseData.map(c => c.name),
-                                datasets: [{
-                                    label: 'Overall Average (%)',
-                                    data: courseData.map(c => c.avg),
-                                    backgroundColor: '#8b5cf6', // violet-500
-                                    borderRadius: 20, // High-end pill shape
-                                    borderSkipped: false,
-                                    barPercentage: 0.6
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                indexAxis: 'y', // Horizontal bar chart
-                                plugins: {
-                                    legend: { display: false }
-                                },
-                                scales: {
-                                    x: {
-                                        beginAtZero: true,
-                                        max: 100,
-                                        grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
-                                    },
-                                    y: {
-                                        grid: { display: false, drawBorder: false }
-                                    }
-                                }
-                            }
-                        });
-                        return; // Successfully rendered real data
+            // Leaderboard Aggregation
+            const courses = await window.PlaybookDB.getCourses();
+            if (courses && courses.length > 0) {
+                let courseData = [];
+                for (const course of courses) {
+                    const courseSessions = sessions.filter(s => s.course_id === course.id && s.status === 'completed' && s.average_score !== null);
+                    if (courseSessions.length > 0) {
+                        let sumAvg = 0;
+                        courseSessions.forEach(s => sumAvg += Number(s.average_score));
+                        courseData.push({ name: course.name, avg: Math.round(sumAvg / courseSessions.length) });
                     }
                 }
+                courseData.sort((a, b) => b.avg - a.avg);
+                courseData = courseData.slice(0, 5);
 
-                // Ghost Leaderboard (Zero State)
-                new Chart(leaderboardCanvas, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Class Alpha', 'Class Beta', 'Class Gamma'],
-                        datasets: [{
-                            label: 'Waiting for Exams',
-                            data: [75, 50, 25], // Ghost data just to show the bars
-                            backgroundColor: 'rgba(226, 232, 240, 0.6)', // slate-200
-                            borderRadius: 20,
-                            borderSkipped: false,
-                            barPercentage: 0.6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function() { return 'Awaiting your first graded exam'; }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                beginAtZero: true,
-                                max: 100,
-                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false },
-                                ticks: { color: 'transparent' } // hide ghost numbers
-                            },
-                            y: {
-                                grid: { display: false, drawBorder: false },
-                                ticks: { color: 'rgba(148, 163, 184, 0.8)' } // light text for ghost classes
-                            }
-                        }
-                    }
-                });
-
-            } catch(e) {
-                console.error("Failed to load class leaderboard", e);
+                aggregatedData.leaderboard.labels = courseData.map(c => c.name);
+                aggregatedData.leaderboard.dataPoints = courseData.map(c => c.avg);
             }
+
+            // Only re-render if the newly aggregated data is different from the cache
+            if (JSON.stringify(aggregatedData) !== JSON.stringify(cachedData)) {
+                sessionStorage.setItem(CACHE_KEY, JSON.stringify(aggregatedData));
+                renderFromData(aggregatedData);
+            }
+
+        } catch (e) {
+            console.error("Background chart aggregation failed:", e);
         }
+
     }
 
     // Comprehensive Report

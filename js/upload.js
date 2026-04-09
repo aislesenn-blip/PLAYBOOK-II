@@ -438,6 +438,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        // Strict file type validation before processing
+        const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+        if (!validTypes.includes(examsFile.type)) {
+            alert(`Invalid file type selected: ${examsFile.name}. Only PDF and images are supported.`);
+            return;
+        }
+
 
         overlay.classList.add('active');
 
@@ -586,7 +593,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // IMPORTANT: Save the AI-formatted marking scheme to the session row so the teacher can view it later
             await window.supabaseClient.from('sessions').update({
-                exam_instructions: finalScheme
+                exam_instructions: markingSchemeText
             }).eq('id', savedSession.id);
 
             const meta = {

@@ -93,6 +93,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const allStudentsMap = new Map();
         const sessionSubmissionsMap = new Map();
 
+        // Track stuck autopilot submissions for auto-resolution
+        const stuckAutopilotSubmissions = [];
+
         // Add enrolled students first
         enrolledStudents.forEach(s => {
             const key = s.registration_number || s.full_name;
@@ -105,6 +108,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const subs = await window.PlaybookDB.getSubmissionsBySession(session.id);
                 sessionSubmissionsMap.set(session.id, subs);
+
+                if (session.auto_grade_enabled) {
+                    subs.forEach(sub => {
+                        if (sub.status === 'pending') {
+                            stuckAutopilotSubmissions.push(sub.id);
+                        }
+                    });
+                }
 
                 subs.forEach(sub => {
                     // db.js getSubmissionsBySession returns mapped objects with camelCase keys: studentName, registrationNumber
@@ -128,6 +139,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         await Promise.all(submissionPromises);
 
         const allStudents = Array.from(allStudentsMap.values());
+
+        // FALLBACK: Kickstart stuck Autopilot submissions synchronously
+        if (stuckAutopilotSubmissions.length > 0) {
+            console.log(`Detected ${stuckAutopilotSubmissions.length} stuck Autopilot submissions. Triggering Edge Function fallback...`);
+
+            // Optional: Show a subtle toast or indicator so the teacher knows grading is happening
+            if (window.showToast) {
+                window.showToast(`Auto-grading ${stuckAutopilotSubmissions.length} recent submissions...`, 'info');
+            }
+
+            // We do not await this block; we fire it and let it process in the background.
+            // It uses Promise.all to trigger them concurrently, allowing the dashboard to render instantly.
+            Promise.all(stuckAutopilotSubmissions.map(async (subId) => {
+                try {
+                    // Use Supabase client directly to trigger Edge Function securely without hardcoding domains
+                    await window.supabaseClient.functions.invoke('auto-grade-single', {
+                        body: { submission_id: subId }
+                    });
+                } catch (err) {
+                    console.error(`Fallback auto-grade failed for submission ${subId}:`, err);
+                }
+            })).then(() => {
+                console.log("Fallback auto-grading tasks initiated.");
+                // We could reload here, but that might disrupt the user.
+                // They will see the updated status on their next navigation or refresh.
+            });
+        }
 
         document.getElementById('stat-students-count').textContent = allStudents.length;
 
@@ -500,11 +538,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 let statusBadge = '';
                 if (session.status === 'completed') {
-                    statusBadge = `<span class="badge" style="background: var(--success-bg); color: var(--success-text); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Completed</span>`;
+                    statusBadge = `<span style="color: var(--success-text); font-weight: 500;">Completed</span>`;
                 } else if (session.status === 'pending' || session.status === 'processing') {
-                    statusBadge = `<span class="badge" style="background: var(--warning-bg); color: var(--warning-text); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Processing</span>`;
+                    statusBadge = `<span style="color: var(--partial-text); font-weight: 500;">Processing</span>`;
                 } else {
-                    statusBadge = `<span class="badge" style="background: var(--surface-color); color: var(--text-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-color);">${session.status}</span>`;
+                    statusBadge = `<span style="color: var(--text-secondary); font-weight: 500;">${session.status}</span>`;
                 }
 
                 // Add to overall class average if completed
@@ -523,7 +561,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // If ANY submission is pending, the Grade button MUST be shown to allow processing of late students
                 // However, if auto-pilot is enabled, the cloud handles grading, so they should go to Review/Analytics instead.
                 if (session.auto_grade_enabled && (session.status === 'pending' || session.status === 'processing' || hasPendingSubmissions)) {
-                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
+                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
                 } else if (isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
                     actionBtn = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
                 } else if (!isDigital && (session.status === 'pending' || hasPendingSubmissions)) {

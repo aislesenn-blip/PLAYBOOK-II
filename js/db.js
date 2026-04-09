@@ -269,7 +269,67 @@ const PlaybookDB = {
         return data;
     },
 
-    // 5. SETTINGS (using localStorage temporarily for user specific non-relational settings like scale)
+    // 5. APPEALS (Dispute Resolution)
+    // Fetches Tier-2 appeals that require human intervention
+    async getPendingAppealsForProfessor(professorId) {
+        const { data, error } = await supabaseClient
+            .from('appeals')
+            .select(`
+                id, reason, created_at, status, question_id, ai_response, escalation_reason,
+                student:student_id ( full_name, registration_number ),
+                submission:submission_id (
+                    id, session_id, text_content, pdf_storage_path, total_score, max_score,
+                    sessions:session_id ( course_id, exam_name, courses:course_id ( name ) )
+                )
+            `)
+            .in('status', ['escalated_to_teacher', 'pending']); // Include legacy 'pending' just in case
+
+        if (error) {
+            console.error("Error fetching escalated appeals:", error);
+            throw error;
+        }
+        return data || [];
+    },
+
+    // Fetches Tier-1 appeals successfully resolved by the AI for the audit log
+    async getAIResolvedAppealsForProfessor(professorId) {
+        const { data, error } = await supabaseClient
+            .from('appeals')
+            .select(`
+                id, reason, created_at, status, question_id, ai_response,
+                student:student_id ( full_name, registration_number ),
+                submission:submission_id (
+                    id, session_id, text_content, pdf_storage_path, total_score, max_score,
+                    sessions:session_id ( course_id, exam_name, courses:course_id ( name ) )
+                )
+            `)
+            .eq('status', 'ai_resolved')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Error fetching AI resolved appeals:", error);
+            throw error;
+        }
+        return data || [];
+    },
+
+    async resolveAppeal(appealId, newStatus, teacherResponse) {
+        const { data, error } = await supabaseClient
+            .from('appeals')
+            .update({
+                status: newStatus,
+                teacher_response: teacherResponse,
+                resolved_at: new Date().toISOString()
+            })
+            .eq('id', appealId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // 6. SETTINGS (using localStorage temporarily for user specific non-relational settings like scale)
     async getSetting(key) {
         const val = localStorage.getItem(`playbook_setting_${key}`);
         return val ? JSON.parse(val) : null;
