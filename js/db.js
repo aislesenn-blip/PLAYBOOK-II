@@ -270,26 +270,46 @@ const PlaybookDB = {
     },
 
     // 5. APPEALS (Dispute Resolution)
+    // Fetches Tier-2 appeals that require human intervention
     async getPendingAppealsForProfessor(professorId) {
         const { data, error } = await supabaseClient
             .from('appeals')
             .select(`
-                id, reason, created_at, status, question_id,
+                id, reason, created_at, status, question_id, ai_response, escalation_reason,
                 student:student_id ( full_name, registration_number ),
                 submission:submission_id (
                     id, session_id, text_content, pdf_storage_path, total_score, max_score,
                     sessions:session_id ( course_id, exam_name, courses:course_id ( name ) )
                 )
             `)
-            .eq('status', 'pending');
+            .in('status', ['escalated_to_teacher', 'pending']); // Include legacy 'pending' just in case
 
         if (error) {
-            console.error("Error fetching pending appeals:", error);
+            console.error("Error fetching escalated appeals:", error);
             throw error;
         }
+        return data || [];
+    },
 
-        // Filter out appeals that do not belong to this professor's courses
-        // (If RLs is set up correctly, this might be redundant, but safe to filter if RLs is broad)
+    // Fetches Tier-1 appeals successfully resolved by the AI for the audit log
+    async getAIResolvedAppealsForProfessor(professorId) {
+        const { data, error } = await supabaseClient
+            .from('appeals')
+            .select(`
+                id, reason, created_at, status, question_id, ai_response,
+                student:student_id ( full_name, registration_number ),
+                submission:submission_id (
+                    id, session_id, text_content, pdf_storage_path, total_score, max_score,
+                    sessions:session_id ( course_id, exam_name, courses:course_id ( name ) )
+                )
+            `)
+            .eq('status', 'ai_resolved')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Error fetching AI resolved appeals:", error);
+            throw error;
+        }
         return data || [];
     },
 

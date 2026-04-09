@@ -255,21 +255,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const { data: userData } = await window.supabaseClient.auth.getUser();
                 if(userData && userData.user) {
                     const appeals = await window.PlaybookDB.getPendingAppealsForProfessor(userData.user.id);
-                    const activeAppeal = appeals.find(a => a.submission.id === student.id && a.status === 'pending');
+                    const activeAppeal = appeals.find(a => a.submission.id === student.id && (a.status === 'escalated_to_teacher' || a.status === 'pending'));
 
                     if (activeAppeal) {
                         const appealCard = document.createElement('div');
                         appealCard.style.cssText = 'background-color: #fffbeb; border: 2px solid #f59e0b; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);';
+
+                        // Build Timeline HTML
+                        let timelineHtml = `
+                            <p style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">1. Initial Student Dispute:</p>
+                            <p style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #d1d5db; font-style: italic; color: #4b5563; margin-bottom: 1.5rem;">"${window.escapeHTML ? window.escapeHTML(activeAppeal.reason) : activeAppeal.reason}"</p>
+                        `;
+
+                        if (activeAppeal.ai_response) {
+                            timelineHtml += `
+                                <p style="font-weight: 600; color: #2563eb; margin-bottom: 0.5rem;">2. AI Tier-1 Re-Evaluation:</p>
+                                <p style="background: #eff6ff; padding: 1rem; border-radius: 6px; border: 1px solid #bfdbfe; color: #1e3a8a; margin-bottom: 1.5rem;">${window.escapeHTML ? window.escapeHTML(activeAppeal.ai_response) : activeAppeal.ai_response}</p>
+                            `;
+                        }
+
+                        if (activeAppeal.escalation_reason) {
+                            timelineHtml += `
+                                <p style="font-weight: 600; color: #ef4444; margin-bottom: 0.5rem;">3. Student Escalation Reason:</p>
+                                <p style="background: #fef2f2; padding: 1rem; border-radius: 6px; border: 1px solid #fecaca; font-style: italic; color: #991b1b; margin-bottom: 1.5rem;">"${window.escapeHTML ? window.escapeHTML(activeAppeal.escalation_reason) : activeAppeal.escalation_reason}"</p>
+                            `;
+                        }
+
                         appealCard.innerHTML = `
                             <h3 style="margin-top: 0; color: #b45309; display: flex; align-items: center; gap: 8px;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                                Active Student Appeal
+                                Escalated Student Appeal
                             </h3>
-                            <p style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Student's Reason for Dispute:</p>
-                            <p style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #d1d5db; font-style: italic; color: #4b5563; margin-bottom: 1.5rem;">"${window.escapeHTML ? window.escapeHTML(activeAppeal.reason) : activeAppeal.reason}"</p>
+                            ${timelineHtml}
 
-                            <div class="form-group">
-                                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 0.5rem;">Your Response to Student:</label>
+                            <div class="form-group" style="margin-top: 1.5rem; border-top: 2px dashed #fcd34d; padding-top: 1.5rem;">
+                                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 0.5rem;">Your Final Response to Student:</label>
                                 <textarea id="appeal-response-text" class="form-control" rows="3" placeholder="Provide feedback or justification for your decision..."></textarea>
                             </div>
 
@@ -281,7 +301,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         gradingContainer.appendChild(appealCard);
 
                         // Bind actions
-                        const resolveHandler = async (newStatus) => {
+                        const resolveHandler = async (actionType) => {
+                            // If approved, update DB status to teacher_resolved
+                            const newStatus = actionType === 'approved' ? 'teacher_resolved' : 'rejected';
                             const responseText = document.getElementById('appeal-response-text').value;
                             if (!responseText) {
                                 window.showToast ? window.showToast('Please provide a response.', 'error') : alert('Please provide a response.');

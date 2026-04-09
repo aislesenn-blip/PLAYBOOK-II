@@ -137,11 +137,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Load Appeals (if they exist)
+    // Load Appeals (Tier 2 Escalated and Tier 1 Audit Log)
     async function loadAppealsData() {
         if (!window.PlaybookDB || !window.PlaybookDB.getPendingAppealsForProfessor) return;
         try {
-            // Fix: Use the authenticated sessionUser object retrieved by requireAuth()
             const appeals = await window.PlaybookDB.getPendingAppealsForProfessor(sessionUser.user_id);
             const appealsSection = document.getElementById('appeals-inbox-section');
             const appealsTableBody = document.getElementById('appeals-table-body');
@@ -171,6 +170,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                     appealsSection.style.display = 'none';
                 }
             }
+
+            // Load Audit Log
+            if (window.PlaybookDB.getAIResolvedAppealsForProfessor) {
+                const auditAppeals = await window.PlaybookDB.getAIResolvedAppealsForProfessor(sessionUser.user_id);
+                const auditSection = document.getElementById('ai-audit-log-section');
+                const auditTableBody = document.getElementById('ai-audit-table-body');
+
+                if (auditSection && auditTableBody) {
+                    if (auditAppeals && auditAppeals.length > 0) {
+                        auditSection.style.display = 'block';
+                        auditTableBody.innerHTML = '';
+
+                        auditAppeals.forEach(appeal => {
+                            const studentName = appeal.student ? appeal.student.full_name : 'Unknown Student';
+                            const examName = appeal.submission && appeal.submission.sessions ? appeal.submission.sessions.exam_name : 'Unknown Exam';
+                            const date = new Date(appeal.created_at).toLocaleDateString();
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight: 500; color: #475569;">${window.escapeHTML ? window.escapeHTML(studentName) : studentName}</td>
+                                <td style="color: #475569;">${window.escapeHTML ? window.escapeHTML(examName) : examName}</td>
+                                <td style="color: #475569;">${date}</td>
+                                <td><span style="background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">Resolved by AI</span></td>
+                            `;
+                            auditTableBody.appendChild(tr);
+                        });
+                    } else {
+                        auditSection.style.display = 'none';
+                    }
+                }
+            }
+
         } catch (err) {
             console.error("Failed to load appeals data", err);
         }
