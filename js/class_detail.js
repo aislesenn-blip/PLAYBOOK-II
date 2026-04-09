@@ -860,14 +860,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            let csvContent = "data:text/csv;charset=utf-8,";
+            let csvContent = "";
 
             // Build Headers
             const headers = [];
             document.querySelectorAll('#gradebook-header-row th').forEach(th => {
                 // Clean HTML from headers
                 const text = th.textContent.replace(/[\n\r]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-                headers.push(`"${text}"`);
+                headers.push(`"${text.replace(/"/g, '""')}"`);
             });
             csvContent += headers.join(",") + "\r\n";
 
@@ -887,16 +887,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     // Handle missing/pending visual indicators cleanly
                     if (cellVal === '-' || cellVal.includes('Pending')) cellVal = "";
-                    rowData.push(`"${cellVal}"`);
+                    rowData.push(`"${String(cellVal).replace(/"/g, '""')}"`);
                 });
                 csvContent += rowData.join(",") + "\r\n";
             });
 
-            // Trigger Download
-            const encodedUri = encodeURI(csvContent);
+            // Trigger Download via Blob to handle large files and special characters safely
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
+            link.setAttribute("href", url);
             const cleanCourseName = document.getElementById('class-title').textContent.replace(/[^a-zA-Z0-9]/g, '_');
-            link.setAttribute("href", encodedUri);
             link.setAttribute("download", `Playbook_Gradebook_${cleanCourseName}.csv`);
             document.body.appendChild(link);
             link.click();

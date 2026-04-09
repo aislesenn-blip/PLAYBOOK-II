@@ -120,6 +120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             publishBtn.textContent = 'Published';
             publishBtn.disabled = true;
             publishBtn.style.backgroundColor = 'var(--text-secondary)';
+            publishBtn.style.borderColor = 'var(--text-secondary)';
+            publishBtn.style.cursor = 'not-allowed';
         }
         document.getElementById('stat-high').textContent = `${session.highest_score || 0}%`; // Note: highest_score might need to be computed or added to schema
 
@@ -328,8 +330,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         await window.PlaybookDB.publishSession(sessionId);
 
-                        alert("Grades have been successfully published!");
+                        window.toast("Grades have been successfully published!");
                         publishBtn.textContent = 'Published';
+                        publishBtn.style.backgroundColor = 'var(--text-secondary)';
+                        publishBtn.style.borderColor = 'var(--text-secondary)';
+                        publishBtn.style.cursor = 'not-allowed';
                         // Keep it disabled after publishing
                     } catch (err) {
                         console.error("Failed to publish grades", err);
@@ -633,7 +638,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 submissionContentArea.innerHTML = `<span style="color: red;">Error: Could not load the PDF document from storage.</span><br><br>The file may have been deleted or there is a permission issue.`;
             }
         } else if (student.textContent) {
-            submissionContentArea.textContent = student.textContent;
+            if (typeof window.marked !== 'undefined') {
+                const rawHtml = window.marked.parse(student.textContent);
+                submissionContentArea.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(rawHtml) : rawHtml;
+                if (typeof window.renderMathInElement === 'function') {
+                    window.renderMathInElement(submissionContentArea, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false},
+                            {left: '\\[', right: '\\]', display: true}
+                        ]
+                    });
+                }
+                if (typeof window.hljs !== 'undefined') {
+                    submissionContentArea.querySelectorAll('pre code').forEach((block) => {
+                        window.hljs.highlightElement(block);
+                    });
+                }
+            } else {
+                submissionContentArea.textContent = student.textContent;
+            }
         } else {
             submissionContentArea.innerHTML = '<span style="color: var(--text-secondary);">No submitted work (neither text nor PDF) found for this student.</span>';
         }

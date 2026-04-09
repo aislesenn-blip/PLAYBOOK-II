@@ -78,7 +78,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                     submissionContentArea.innerHTML = `<span style="color: red;">Error: Could not load the PDF document from storage.</span><br><br>The file may have been deleted or there is a permission issue.`;
                 }
             } else if (currentStudent.textContent) {
-                submissionContentArea.textContent = currentStudent.textContent;
+                if (typeof window.marked !== 'undefined') {
+                    const rawHtml = window.marked.parse(currentStudent.textContent);
+                    submissionContentArea.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(rawHtml) : rawHtml;
+                    if (typeof window.renderMathInElement === 'function') {
+                        window.renderMathInElement(submissionContentArea, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false},
+                                {left: '\\(', right: '\\)', display: false},
+                                {left: '\\[', right: '\\]', display: true}
+                            ]
+                        });
+                    }
+                    if (typeof window.hljs !== 'undefined') {
+                        submissionContentArea.querySelectorAll('pre code').forEach((block) => {
+                            window.hljs.highlightElement(block);
+                        });
+                    }
+                } else {
+                    submissionContentArea.textContent = currentStudent.textContent;
+                }
             } else {
                 submissionContentArea.innerHTML = '<span style="color: var(--text-secondary);">No submitted work (neither text nor PDF) found for this student.</span>';
             }
