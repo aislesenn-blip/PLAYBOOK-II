@@ -276,10 +276,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     if (index === 0) {
                         // First page is generated automatically by toPdf()
-                        worker = worker.from(template).toContainer().toCanvas().toPdf();
+                        await worker.from(template).toContainer().toCanvas().toPdf();
                     } else {
                         // For subsequent students, we first add a new page to the pdf
-                        worker = worker.get('pdf').then(pdf => {
+                        await worker.get('pdf').then(pdf => {
                             pdf.addPage();
                             return pdf;
                         }).from(template).toContainer().toCanvas().toPdf();
