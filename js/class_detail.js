@@ -693,6 +693,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         renderGradebook();
 
+        // Gradebook Live Search
+        const gradebookSearch = document.getElementById('gradebook-search');
+        if (gradebookSearch) {
+            gradebookSearch.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                const rows = gradebookBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    if (row.cells.length <= 1) return; // Skip empty state row
+                    const name = row.cells[0].textContent.toLowerCase();
+                    const regNum = row.cells[1].textContent.toLowerCase();
+                    if (name.includes(term) || regNum.includes(term)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+
         // Save Overrides
         saveGradebookBtn.addEventListener('click', async () => {
             saveGradebookBtn.disabled = true;

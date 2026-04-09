@@ -116,6 +116,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // Speed-Grading Hotkeys
+    document.addEventListener('keydown', (e) => {
+        // Do not trigger if typing inside an input or textarea
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            nextBtn.click();
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            prevBtn.click();
+        }
+    });
+
     nextBtn.addEventListener('click', () => {
         if (currentIndex < students.length - 1) {
             currentIndex++;
