@@ -1064,7 +1064,9 @@ a:hover {
         left: 0;
         width: 100%;
         height: 84px; /* Taller, premium feel */
-        background-color: var(--surface-color);
+        background-color: rgba(255, 255, 255, 0.85); /* Translucent */
+        backdrop-filter: blur(12px); /* Apple-style blur */
+        -webkit-backdrop-filter: blur(12px);
         border-top: 1px solid rgba(0,0,0,0.04);
         justify-content: space-around;
         align-items: center;
@@ -1294,6 +1296,15 @@ select.form-control option {
 
 .driver-popover-footer {
     margin-top: 1.5rem !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+.driver-popover-navigation-btns {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
 }
 
 .driver-popover-footer button {
@@ -1304,6 +1315,7 @@ select.form-control option {
     border: none !important;
     transition: all 0.2s ease !important;
     cursor: pointer !important;
+    display: block !important;
 }
 
 .driver-popover-footer .driver-popover-next-btn {
