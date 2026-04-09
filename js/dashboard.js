@@ -213,6 +213,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const courses = await window.PlaybookDB.getCourses();
         const classesTbody = document.getElementById('classes-table-body');
+        const stuckAutopilotSubmissions = [];
         if (classesTbody) {
             classesTbody.innerHTML = '';
             if (courses.length === 0) {
@@ -251,6 +252,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const tbody = document.getElementById('sessions-table-body');
 
+        const stuckAutopilotSubmissions = [];
+
         if (sessions.length === 0) {
             // Action-Oriented Empty State
             tbody.innerHTML = `
@@ -279,6 +282,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     hasPending = subs.some(s => s.status === 'pending');
                     hasNeedsReview = subs.some(s => s.status === 'needs_review');
                     actualSubCount = subs.length;
+
+                    // Trap stuck autopilot submissions
+                    if (session.auto_grade_enabled) {
+                        subs.forEach(s => {
+                            if (s.status === 'pending') {
+                                stuckAutopilotSubmissions.push(s.id);
+                            }
+                        });
+                    }
                 } catch(e) {}
 
                 // Fix: Sync total_students dynamically if missing or misaligned from background Autopilot
@@ -355,6 +367,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const overallAvg = sessionsWithScore > 0 ? Math.round(totalScoreSum / sessionsWithScore) : 0;
         document.getElementById('stat-avg').textContent = `${overallAvg}%`;
+
+        // FALLBACK: Kickstart stuck Autopilot submissions synchronously
+        if (stuckAutopilotSubmissions.length > 0) {
+            console.log(`Detected ${stuckAutopilotSubmissions.length} stuck Autopilot submissions on dashboard. Triggering Edge Function fallback...`);
+
+            if (window.showToast) {
+                window.showToast(`Auto-grading ${stuckAutopilotSubmissions.length} recent submissions...`, 'info');
+            }
+
+            Promise.all(stuckAutopilotSubmissions.map(async (subId) => {
+                try {
+                    // Use Supabase client directly to trigger Edge Function securely without hardcoding domains
+                    await window.supabaseClient.functions.invoke('auto-grade-single', {
+                        body: { submission_id: subId }
+                    });
+                } catch (err) {
+                    console.error(`Fallback auto-grade failed for submission ${subId}:`, err);
+                }
+            })).then(() => console.log("Dashboard fallback auto-grading tasks initiated."));
+        }
 
         // Wait a tick to let DOM settle, then render charts
         setTimeout(() => {

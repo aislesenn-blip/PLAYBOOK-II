@@ -93,6 +93,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const allStudentsMap = new Map();
         const sessionSubmissionsMap = new Map();
 
+        // Track stuck autopilot submissions for auto-resolution
+        const stuckAutopilotSubmissions = [];
+
         // Add enrolled students first
         enrolledStudents.forEach(s => {
             const key = s.registration_number || s.full_name;
@@ -105,6 +108,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const subs = await window.PlaybookDB.getSubmissionsBySession(session.id);
                 sessionSubmissionsMap.set(session.id, subs);
+
+                if (session.auto_grade_enabled) {
+                    subs.forEach(sub => {
+                        if (sub.status === 'pending') {
+                            stuckAutopilotSubmissions.push(sub.id);
+                        }
+                    });
+                }
 
                 subs.forEach(sub => {
                     // db.js getSubmissionsBySession returns mapped objects with camelCase keys: studentName, registrationNumber
@@ -128,6 +139,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         await Promise.all(submissionPromises);
 
         const allStudents = Array.from(allStudentsMap.values());
+
+        // FALLBACK: Kickstart stuck Autopilot submissions synchronously
+        if (stuckAutopilotSubmissions.length > 0) {
+            console.log(`Detected ${stuckAutopilotSubmissions.length} stuck Autopilot submissions. Triggering Edge Function fallback...`);
+
+            // Optional: Show a subtle toast or indicator so the teacher knows grading is happening
+            if (window.showToast) {
+                window.showToast(`Auto-grading ${stuckAutopilotSubmissions.length} recent submissions...`, 'info');
+            }
+
+            // We do not await this block; we fire it and let it process in the background.
+            // It uses Promise.all to trigger them concurrently, allowing the dashboard to render instantly.
+            Promise.all(stuckAutopilotSubmissions.map(async (subId) => {
+                try {
+                    // Use Supabase client directly to trigger Edge Function securely without hardcoding domains
+                    await window.supabaseClient.functions.invoke('auto-grade-single', {
+                        body: { submission_id: subId }
+                    });
+                } catch (err) {
+                    console.error(`Fallback auto-grade failed for submission ${subId}:`, err);
+                }
+            })).then(() => {
+                console.log("Fallback auto-grading tasks initiated.");
+                // We could reload here, but that might disrupt the user.
+                // They will see the updated status on their next navigation or refresh.
+            });
+        }
 
         document.getElementById('stat-students-count').textContent = allStudents.length;
 
