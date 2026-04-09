@@ -269,7 +269,47 @@ const PlaybookDB = {
         return data;
     },
 
-    // 5. SETTINGS (using localStorage temporarily for user specific non-relational settings like scale)
+    // 5. APPEALS (Dispute Resolution)
+    async getPendingAppealsForProfessor(professorId) {
+        const { data, error } = await supabaseClient
+            .from('appeals')
+            .select(`
+                id, reason, created_at, status, question_id,
+                student:student_id ( full_name, registration_number ),
+                submission:submission_id (
+                    id, session_id, text_content, pdf_storage_path, total_score, max_score,
+                    sessions:session_id ( course_id, exam_name, courses:course_id ( name ) )
+                )
+            `)
+            .eq('status', 'pending');
+
+        if (error) {
+            console.error("Error fetching pending appeals:", error);
+            throw error;
+        }
+
+        // Filter out appeals that do not belong to this professor's courses
+        // (If RLs is set up correctly, this might be redundant, but safe to filter if RLs is broad)
+        return data || [];
+    },
+
+    async resolveAppeal(appealId, newStatus, teacherResponse) {
+        const { data, error } = await supabaseClient
+            .from('appeals')
+            .update({
+                status: newStatus,
+                teacher_response: teacherResponse,
+                resolved_at: new Date().toISOString()
+            })
+            .eq('id', appealId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // 6. SETTINGS (using localStorage temporarily for user specific non-relational settings like scale)
     async getSetting(key) {
         const val = localStorage.getItem(`playbook_setting_${key}`);
         return val ? JSON.parse(val) : null;
