@@ -20,10 +20,47 @@ const PlaybookDB = {
         return data;
     },
 
+    async getCourse(id) {
+        const { data, error } = await supabaseClient
+            .from('courses')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    async getEnrolledStudents(courseId) {
+        const { data, error } = await supabaseClient
+            .from('class_enrollments')
+            .select('*, student:students(*)')
+            .eq('course_id', courseId);
+        if (error) throw error;
+        return data;
+    },
+
+    async getSessionsForCourse(courseId) {
+        const { data, error } = await supabaseClient
+            .from('sessions')
+            .select('*')
+            .eq('course_id', courseId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+
     async saveInstitution(institution) {
         const { error } = await supabaseClient
             .from('institutions')
             .upsert(institution);
+        if (error) throw error;
+    },
+
+    async publishSession(sessionId) {
+        const { error } = await supabaseClient
+            .from('sessions')
+            .update({ publish_status: 'published' })
+            .eq('id', sessionId);
         if (error) throw error;
     },
 
@@ -72,14 +109,101 @@ const PlaybookDB = {
         return data;
     },
 
-    // 3. SESSIONS (EXAMS)
-    async getSessions() {
-        const { data, error } = await supabaseClient
-            .from('sessions')
+
+
+    // 2.5 COURSES
+    async getCourses() {
+        const cacheKey = 'playbook_cache_courses';
+        const cached = sessionStorage.getItem(cacheKey);
+
+        // Fetch definitively based on auth token instead of localstorage since RLS depends on auth.uid()
+        const { data: authData, error: authErr } = await supabaseClient.auth.getUser();
+        if (authErr || !authData?.user?.id) return [];
+        const userId = authData.user.id;
+
+        // Start background fetch to update cache silently
+        const fetchPromise = supabaseClient
+            .from('courses')
             .select('*')
+            .eq('professor_id', userId)
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+                if (!error && data) {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(data));
+                }
+                return data;
+            });
+
+        // Return instant cache if available, otherwise await the network call
+        if (cached) {
+            return JSON.parse(cached);
+        } else {
+            const data = await fetchPromise;
+            return data || [];
+        }
+    },
+
+    async getCourseMaterials(courseId) {
+        const { data, error } = await supabaseClient
+            .from('course_materials')
+            .select('*')
+            .eq('course_id', courseId)
             .order('created_at', { ascending: false });
         if (error) throw error;
         return data;
+    },
+
+    async saveCourseMaterial(material) {
+        const { data, error } = await supabaseClient
+            .from('course_materials')
+            .insert([material])
+            .select()
+            .single();
+        if (error) throw error;
+        // Invalidate course cache so new classes appear instantly
+        sessionStorage.removeItem('playbook_cache_courses');
+        return data;
+    },
+
+    async createCourse(course) {
+        const { data, error } = await supabaseClient
+            .from('courses')
+            .insert([course])
+            .select()
+            .single();
+        if (error) throw error;
+        // Invalidate sessions cache
+        sessionStorage.removeItem('playbook_cache_sessions');
+        return data;
+    },
+
+
+    // 3. SESSIONS (EXAMS)
+    async getSessions() {
+        const cacheKey = 'playbook_cache_sessions';
+        const cached = sessionStorage.getItem(cacheKey);
+
+        const fetchPromise = supabaseClient
+            .from('sessions')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+                if (!error && data) {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(data));
+                }
+                return data;
+            });
+
+        if (cached) {
+            // Because sessions update frequently (grading status),
+            // returning cache provides instant UI, but we should force a quick re-render or let background update handle next load.
+            // For true real-time without sockets, returning cache makes navigation instant.
+            return JSON.parse(cached);
+        } else {
+            const data = await fetchPromise;
+            if (!data) throw new Error("Failed to load sessions");
+            return data;
+        }
     },
 
     async getSession(id) {
@@ -114,6 +238,9 @@ const PlaybookDB = {
             id: sub.id,
             studentName: sub.student_name,
             registrationNumber: sub.registration_number,
+            textContent: sub.text_content,
+            pdfStoragePath: sub.pdf_storage_path,
+            status: sub.status,
             grading: sub.grading_data ? {
                 totalScore: sub.total_score,
                 maxScore: sub.max_score,

@@ -6,9 +6,85 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
 
+    // ==========================================
+    // ONBOARDING TOUR (DRIVER.JS)
+    // ==========================================
+    const runUploadTour = () => {
+        if (typeof window.driver === 'undefined') return;
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayOpacity: 0.65,
+            showButtons: ['next', 'previous', 'close'],
+            nextBtnText: 'Next →',
+            prevBtnText: '← Previous',
+            doneBtnText: 'Done',
+            steps: [
+                { popover: { title: 'Upload Scanned Exams', description: 'Easily grade handwritten, paper exams by turning them into digital insights.', side: "left", align: 'start' } },
+                { element: '#course-select', popover: { title: '1. Select Class', description: 'Choose which class took this exam.', side: "bottom", align: 'start' } },
+                { element: '#exam-instructions', popover: { title: '2. Optional Exam Rules', description: 'Type rules like "Answer 2 of 3 questions" here. Click the "How to write rules" button to see the exact format.', side: "bottom", align: 'start' } },
+                { element: '#raw-scheme-container', popover: { title: '3. The Marking Scheme', description: 'Paste the exam rules or upload a PDF. We will automatically format it to ensure 100% fair, unbiased grading.', side: "top", align: 'start' } },
+                { element: '#total-exam-marks', popover: { title: '4. Total Points', description: 'What is the maximum possible score a student can get?', side: "bottom", align: 'start' } },
+                { element: '#exams-zone', popover: { title: '5. Upload Papers', description: 'Select the scanned PDFs or photos of the students\' handwritten work.', side: "top", align: 'start' } },
+                { element: '#start-grading-btn', popover: { title: '6. Start Grading', description: 'Click here to start the automatic grading process. You can review the results when it finishes.', side: "top", align: 'start' } },
+                { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+            ]
+        });
+
+        driverObj.drive();
+        localStorage.setItem('playbook_upload_tour_seen', 'true');
+    };
+
+    setTimeout(() => {
+        if (!localStorage.getItem('playbook_upload_tour_seen')) {
+            runUploadTour();
+        }
+    }, 1000);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            runUploadTour();
+        }
+    });
+
+    const navTourBtn = document.getElementById('nav-tour-btn');
+    if (navTourBtn) {
+        navTourBtn.addEventListener('click', runUploadTour);
+    }
+
+    // Rules Cheat Sheet Modal
+    const rulesModal = document.getElementById('rules-cheat-sheet-modal');
+    const openRulesBtn = document.getElementById('open-rules-cheat-sheet');
+    const closeRulesBtn = document.getElementById('close-rules-cheat-sheet');
+    const gotItBtn = document.getElementById('got-it-rules-btn');
+
+    if (rulesModal && openRulesBtn) {
+        openRulesBtn.addEventListener('click', () => rulesModal.style.display = 'flex');
+        closeRulesBtn.addEventListener('click', () => rulesModal.style.display = 'none');
+        gotItBtn.addEventListener('click', () => rulesModal.style.display = 'none');
+    }
+
     const overlay = document.getElementById('loading-overlay');
     const statusEl = document.getElementById('loading-status');
     const detailEl = document.getElementById('loading-detail');
+
+    // Load available courses for the select dropdown
+    const courseSelect = document.getElementById('course-select');
+    if (courseSelect) {
+        try {
+            const courses = await window.PlaybookDB.getCourses();
+            courses.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.id;
+                option.textContent = course.name;
+                courseSelect.appendChild(option);
+            });
+        } catch (err) {
+            console.error("Failed to load courses", err);
+        }
+    }
 
     window.resumeSession = async function resumeSession(meta) {
         overlay.classList.add('active');
@@ -62,7 +138,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             try {
-                let gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText);
+                const examInstructions = meta.examInstructions || "";
+                const explicitMaxMarks = meta.explicitMaxMarks || 100;
+                let gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText, examInstructions, explicitMaxMarks);
 
                 for (let i = 0; i < gradedStudents.length; i++) {
                     const student = gradedStudents[i];
@@ -71,9 +149,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const parsedQuestions = student.questions || student.evaluations || student.results || [];
                     if (parsedQuestions && Array.isArray(parsedQuestions)) {
                         parsedQuestions.forEach(q => {
-                            const qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            let qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            // Clamp individual question score to its max possible marks (if provided by AI)
+                            const qMax = parseFloat(q.max) || parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
+                            if (!isNaN(qMax) && qMax > 0 && qScore > qMax) {
+                                qScore = qMax;
+                                q.score = qScore; // Update the object so review UI reflects the clamped score
+                            }
                             studentTotal += qScore;
                         });
+                    }
+
+                    // Global clamp: Student total cannot exceed the explicit maximum marks for the entire exam
+                    if (studentTotal > explicitMaxMarks) {
+                        studentTotal = explicitMaxMarks;
                     }
 
                     await window.supabaseClient.from('exam_submissions').insert({
@@ -104,7 +193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Finished all chunks
-        statusEl.textContent = 'Finalizing Results...';
+        statusEl.textContent = 'Wrapping up...';
         detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
 
         const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
@@ -117,10 +206,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.PlaybookQueue.deleteMeta(sessionId);
 
         statusEl.textContent = 'Grading Complete!';
-        detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
+        detailEl.textContent = 'Taking you to the Review screen to check the results...';
 
         setTimeout(() => {
-            window.location.href = `index.html`;
+            window.location.href = `review.html?session=${sessionId}`;
         }, 3000);
     }
 
@@ -161,36 +250,123 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawTextarea = document.getElementById('raw-scheme-text');
     const optimizedTextarea = document.getElementById('optimized-scheme-text');
 
-    // Handle .txt / .pdf upload and dump into textarea
+    // Handle .txt, .pdf, .docx, and image uploads and dump into textarea
     schemeFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            const fileType = file.type;
+            const fileName = file.name.toLowerCase();
+            const parentLabel = schemeFileInput.parentElement; // Cache reference
+
+            if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
                 try {
+                    parentLabel.innerText = 'Analyzing Layout...';
                     const arrayBuffer = await file.arrayBuffer();
                     const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
 
-                    // Note: pdf.js expects workerSrc to be set globally. It is already set in upload.js line 278,
-                    // but we ensure it is set here dynamically in case it hasn't been initialized yet.
                     if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
                         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                     }
 
                     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let fullText = "";
+                    let extractedText = "";
 
+                    // First, attempt to extract native text if the PDF is digital
                     for (let i = 1; i <= pdfDoc.numPages; i++) {
                         const page = await pdfDoc.getPage(i);
                         const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(" ");
-                        fullText += pageText + "\n";
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        extractedText += pageText + "\n";
                     }
-                    rawTextarea.value = fullText;
+
+                    // Filter out common scanner watermarks that might be embedded as digital text
+                    const sanitizedText = extractedText.replace(/CamScanner/gi, '').replace(/Scanned with/gi, '').trim();
+
+                    // If we extracted a meaningful amount of text, use it. Otherwise, assume it's a scanned PDF and fall back to OCR.
+                    if (sanitizedText.length > 50) {
+                        rawTextarea.value = extractedText;
+                        parentLabel.innerText = 'Upload Document';
+                        parentLabel.appendChild(schemeFileInput);
+                    } else {
+                        let base64Images = [];
+
+                        // Mirroring Exam Extraction: Convert pages to Canvas to preserve complete structural layout via AI
+                        for (let i = 1; i <= pdfDoc.numPages; i++) {
+                            const page = await pdfDoc.getPage(i);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                            base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                        }
+
+                        try {
+                            parentLabel.innerText = 'Running AI Vision...';
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from PDF via AI Vision.");
+                        } finally {
+                            parentLabel.innerText = 'Upload Document';
+                            parentLabel.appendChild(schemeFileInput);
+                        }
+                    }
+
                 } catch (error) {
                     console.error("Error reading PDF:", error);
                     alert("Failed to read PDF file.");
+                    parentLabel.innerText = 'Upload Document';
+                    parentLabel.appendChild(schemeFileInput);
+                }
+            } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
+                // Handle .docx using Mammoth.js
+                try {
+                    const originalBtnText = schemeFileInput.parentElement.innerText;
+                    schemeFileInput.parentElement.innerText = 'Extracting Word Doc...';
+
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    rawTextarea.value = result.value;
+
+                } catch (error) {
+                    console.error("Error reading Word document:", error);
+                    alert("Failed to read Word document. Try saving as PDF instead.");
+                } finally {
+                    schemeFileInput.parentElement.innerText = 'Upload Document';
+                    schemeFileInput.parentElement.appendChild(schemeFileInput);
+                }
+            } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+                // Handle Images via OCR Fallback logic natively
+                try {
+                    schemeFileInput.parentElement.innerText = 'Running OCR on Image...';
+
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const base64Image = event.target.result;
+                        try {
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from image via OCR.");
+                        } finally {
+                            schemeFileInput.parentElement.innerText = 'Upload Document';
+                            schemeFileInput.parentElement.appendChild(schemeFileInput);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+
+                } catch (error) {
+                    console.error("Error reading image:", error);
+                    alert("Failed to process image.");
                 }
             } else {
+                // Default handling for .txt or other text files
                 const text = await file.text();
                 rawTextarea.value = text;
             }
@@ -238,9 +414,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const sessionName = document.getElementById('session-name').value;
+        const courseId = document.getElementById('course-select').value;
         const totalExamMarksInput = document.getElementById('total-exam-marks');
         const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
+        const examInstructions = document.getElementById('exam-instructions').value.trim();
 
         // Decide which scheme text to use
         let markingSchemeText = optimizedTextarea.value.trim();
@@ -269,9 +447,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 1. Create a "Pending" Session in Supabase
             const newSession = {
+                course_id: courseId,
                 professor_id: sessionUser.user_id,
                 name: sessionName,
                 marking_scheme: markingSchemeText,
+                exam_instructions: examInstructions,
                 status: 'pending',
                 total_students: 0 // Will update once backend splits PDF
             };
@@ -297,8 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 3. Update Session to Processing
             await window.supabaseClient.from('sessions').update({
-                status: 'processing',
-                pdf_storage_path: storagePath
+                status: 'processing'
             }).eq('id', savedSession.id);
 
             statusEl.textContent = 'Grading Engine Active...';
@@ -316,9 +495,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const numPages = pdfDoc.numPages;
 
             // Helper function to detect if a page is mostly blank (using simple pixel variance)
+            // Includes a Safe-Zone Crop to ignore edge watermarks (like CamScanner) and scanner shadows
             function isCanvasBlank(canvas, ctx) {
-                const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+                // Define Safe-Zone (ignore outer 15% margins)
+                const marginX = Math.floor(canvas.width * 0.15);
+                const marginY = Math.floor(canvas.height * 0.15);
+                const safeWidth = canvas.width - (2 * marginX);
+                const safeHeight = canvas.height - (2 * marginY);
+
+                // Only get image data from the safe central zone
+                const pixelBuffer = new Uint32Array(ctx.getImageData(marginX, marginY, safeWidth, safeHeight).data.buffer);
                 let nonWhitePixels = 0;
+
                 // Sample every 10th pixel for performance
                 for (let i = 0; i < pixelBuffer.length; i += 10) {
                     const pixel = pixelBuffer[i];
@@ -334,7 +522,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
                 const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
-                return inkCoverage < 0.005; // Less than 0.5% dark pixels means blank
+                return inkCoverage < 0.01; // Less than 1% dark pixels in the center means blank
             }
 
             let sessionTotalScore = 0;
@@ -396,10 +584,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusEl.textContent = 'Building Queue...';
             detailEl.textContent = `Saving ${studentChunks.length} students to local storage to prevent data loss...`;
 
+            // IMPORTANT: Save the AI-formatted marking scheme to the session row so the teacher can view it later
+            await window.supabaseClient.from('sessions').update({
+                exam_instructions: finalScheme
+            }).eq('id', savedSession.id);
+
             const meta = {
                 sessionId: savedSession.id,
                 sessionName: document.getElementById('session-name').value,
                 markingSchemeText: markingSchemeText,
+                examInstructions: examInstructions,
                 explicitMaxMarks: explicitMaxMarks,
                 storagePath: storagePath
             };

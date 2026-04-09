@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Playbook - Grade Submissions</title>
+    <link href="css/style.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="app-container">
+    <nav class="top-nav">
+        <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
+                <ul class="nav-links flex gap-1 items-center">
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="upload.html">Upload Exams</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content max-w-7xl mx-auto">
+        <header class="page-header mb-2">
+            <h1>Grade Digital Submissions</h1>
+            <p class="text-secondary" id="session-name">Loading assignment...</p>
+        </header>
+
+        <div class="grid gap-2" style="grid-template-columns: 1fr 1fr;">
+            <!-- Left Side: Status -->
+            <div class="card" style="padding: 1.5rem;">
+                <h3 style="margin-top:0;">Submission Status</h3>
+                <p>Students who have submitted work:</p>
+                <div style="font-size: 3rem; font-weight: bold; color: var(--accent-color);" id="submission-count">0</div>
+            </div>
+
+            <!-- Right Side: AI Rubric Upload -->
+            <div class="card flex-col" style="padding: 1.5rem;">
+                <div class="flex justify-between items-center w-100">
+                    <h3 class="mb-1" style="margin-top:0;">Smart Marking Scheme</h3>
+                    <a href="manual.html#standard-marking-scheme" style="font-size: 0.8rem; text-decoration: underline; color: var(--text-secondary);" target="_blank">Format Guide</a>
+                </div>
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 1rem;">Provide the marking scheme. Playbook AI will grade all submitted digital PDFs instantly.</p>
+
+                <div id="raw-scheme-container" style="display: block; width: 100%;">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste raw text below or upload a .txt, .pdf, .docx, or image to let the pre-processor standardize it.</p>
+                    <textarea class="form-control" id="raw-scheme-text" placeholder="Paste raw unstructured marking scheme here..." style="height: 150px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
+                    <div class="flex justify-between items-center">
+                        <label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                            Upload Document
+                            <input accept=".txt, .pdf, .doc, .docx, image/png, image/jpeg, image/jpg" id="scheme-file" style="display: none;" type="file"/>
+                        </label>
+                        <button class="btn" id="optimize-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Auto-Format Scheme</button>
+                    </div>
+                </div>
+
+                <div id="optimized-scheme-container" style="display: none; width: 100%;">
+                    <p style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.5rem;">Review &amp; Tweak Standardized Scheme:</p>
+                    <textarea class="form-control" id="optimized-scheme-text" required="" style="height: 200px; resize: vertical; border-color: var(--success-color);"></textarea>
+                    <div class="flex justify-between mt-1">
+                        <button class="btn btn-secondary" id="reset-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Reset</button>
+                    </div>
+                </div>
+
+                <label class="form-label mt-1">Total Assignment Marks</label>
+                <input class="form-control" id="total-marks" type="number" value="100"/>
+
+                <button class="btn mt-2" id="start-grading-btn" style="width: 100%;">Grade All Submissions</button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+    <svg class="playbook-loader" viewbox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
+        <path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+    </svg>
+    <h2 id="loading-status" style="margin-top: 1.5rem;">Processing...</h2>
+
+    <div id="scanned-pages-container" class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); width: 80%; max-width: 1000px; max-height: 400px; overflow-y: auto; margin-top: 2rem; padding: 1rem; background: var(--surface-color); border-radius: var(--radius-md); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); display: none;">
+        <!-- Canvas pages will be drawn here -->
+    </div>
+
+    <p id="loading-detail" style="margin-top: 0.5rem; color: var(--text-secondary);">Playbook is evaluating student responses against your marking scheme.</p>
+
+    <!-- Real-time grading progress log (Mirror offline UI) -->
+    <div id="realtime-log-container" style="display: none; width: 80%; max-width: 600px; margin-top: 1.5rem; text-align: left; background: var(--surface-color); padding: 1rem; border-radius: 4px; box-shadow: var(--shadow); max-height: 200px; overflow-y: auto;">
+        <h4 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-primary);">Live Processing Log</h4>
+        <ul id="realtime-log" style="list-style-type: none; padding-left: 0; margin-bottom: 0; font-size: 0.85rem; color: var(--text-secondary);">
+            <!-- Populated dynamically -->
+        </ul>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.21/mammoth.browser.min.js"></script>
+<script src="js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ai.js"></script>
+<!-- Assuming you use a serverless edge function for grading these, we leave the JS logic simple -->
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    if (!sessionId) {
+        alert("No session ID provided.");
+        return;
+    }
+
+    // Utility to check if string is a valid UUID
+    const isValidUUID = (id) => {
+        const regexExp = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/gi;
+        return regexExp.test(id);
+    };
+
+    let session;
+    let submissions = [];
+
+    try {
+        if (!isValidUUID(sessionId)) {
+            // Mock data for testing
+            session = { id: sessionId, name: 'Test Session', exam_instructions: '' };
+            submissions = [{ id: 'sub_1', studentName: 'Test Student', registrationNumber: '123', textContent: 'Mock text', status: 'pending' }];
+        } else {
+            session = await window.PlaybookDB.getSession(sessionId);
+        }
+        document.getElementById('session-name').innerText = session.name;
+
+        if (isValidUUID(sessionId)) {
+            try {
+                submissions = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
+            } catch(e) {
+                console.warn("No submissions found for this session yet.", e);
+            }
+        }
+        document.getElementById('submission-count').innerText = submissions.length;
+
+    } catch (e) {
+        console.error(e);
+        alert("Failed to load session data. The session may have been deleted.");
+    }
+
+    // Smart Pre-Processor Logic
+    const schemeFileInput = document.getElementById('scheme-file');
+    const optimizeBtn = document.getElementById('optimize-scheme-btn');
+    const resetBtn = document.getElementById('reset-scheme-btn');
+    const rawContainer = document.getElementById('raw-scheme-container');
+    const optimizedContainer = document.getElementById('optimized-scheme-container');
+    const rawTextarea = document.getElementById('raw-scheme-text');
+    const optimizedTextarea = document.getElementById('optimized-scheme-text');
+
+    // Handle .txt, .pdf, .docx, and image uploads and dump into textarea
+    schemeFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const fileType = file.type;
+            const fileName = file.name.toLowerCase();
+            const parentLabel = schemeFileInput.parentElement; // Cache reference
+
+            if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+                try {
+                    parentLabel.innerText = 'Analyzing Layout...';
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+
+                    if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    }
+
+                    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let extractedText = "";
+
+                    // First, attempt to extract native text if the PDF is digital
+                    for (let i = 1; i <= pdfDoc.numPages; i++) {
+                        const page = await pdfDoc.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        extractedText += pageText + "\n";
+                    }
+
+                    // Filter out common scanner watermarks that might be embedded as digital text
+                    const sanitizedText = extractedText.replace(/CamScanner/gi, '').replace(/Scanned with/gi, '').trim();
+
+                    // If we extracted a meaningful amount of text, use it. Otherwise, assume it's a scanned PDF and fall back to OCR.
+                    if (sanitizedText.length > 50) {
+                        rawTextarea.value = extractedText;
+                        parentLabel.innerText = 'Upload Document';
+                        parentLabel.appendChild(schemeFileInput);
+                    } else {
+                        let base64Images = [];
+
+                        // Mirroring Exam Extraction: Convert pages to Canvas to preserve complete structural layout via AI
+                        for (let i = 1; i <= pdfDoc.numPages; i++) {
+                            const page = await pdfDoc.getPage(i);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                            base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                        }
+
+                        try {
+                            parentLabel.innerText = 'Running AI Vision...';
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR(base64Images);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from PDF via AI Vision.");
+                        } finally {
+                            parentLabel.innerText = 'Upload Document';
+                            parentLabel.appendChild(schemeFileInput);
+                        }
+                    }
+
+                } catch (error) {
+                    console.error("Error reading PDF:", error);
+                    alert("Failed to read PDF file.");
+                    parentLabel.innerText = 'Upload Document';
+                    parentLabel.appendChild(schemeFileInput);
+                }
+            } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
+                // Handle .docx using Mammoth.js
+                try {
+                    const originalBtnText = schemeFileInput.parentElement.innerText;
+                    schemeFileInput.parentElement.innerText = 'Extracting Word Doc...';
+
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    rawTextarea.value = result.value;
+
+                } catch (error) {
+                    console.error("Error reading Word document:", error);
+                    alert("Failed to read Word document. Try saving as PDF instead.");
+                } finally {
+                    schemeFileInput.parentElement.innerText = 'Upload Document';
+                    schemeFileInput.parentElement.appendChild(schemeFileInput);
+                }
+            } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+                // Handle Images via OCR Fallback logic natively
+                try {
+                    schemeFileInput.parentElement.innerText = 'Running OCR on Image...';
+
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const base64Image = event.target.result;
+                        try {
+                            const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
+                            rawTextarea.value = fullText;
+                        } catch (ocrError) {
+                            console.error("OCR Failed:", ocrError);
+                            alert("Failed to extract text from image via OCR.");
+                        } finally {
+                            schemeFileInput.parentElement.innerText = 'Upload Document';
+                            schemeFileInput.parentElement.appendChild(schemeFileInput);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+
+                } catch (error) {
+                    console.error("Error reading image:", error);
+                    alert("Failed to process image.");
+                }
+            } else {
+                // Default handling for .txt or other text files
+                const text = await file.text();
+                rawTextarea.value = text;
+            }
+        }
+    });
+
+    optimizeBtn.addEventListener('click', async () => {
+        if (!rawTextarea.value.trim()) {
+            alert('Please paste or upload a raw scheme first.');
+            return;
+        }
+
+        optimizeBtn.textContent = 'Formatting...';
+        optimizeBtn.disabled = true;
+
+        try {
+            const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
+            optimizedTextarea.value = structured;
+
+            rawContainer.style.display = 'none';
+            optimizedContainer.style.display = 'block';
+        } catch (e) {
+            console.error(e);
+            alert(`Failed to optimize: ${e.message}`);
+        } finally {
+            optimizeBtn.textContent = 'Auto-Format Scheme';
+            optimizeBtn.disabled = false;
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        optimizedContainer.style.display = 'none';
+        rawContainer.style.display = 'block';
+        optimizedTextarea.value = '';
+    });
+
+    document.getElementById('start-grading-btn').addEventListener('click', async () => {
+        let scheme = optimizedTextarea.value.trim();
+        if (!scheme || optimizedContainer.style.display === 'none') {
+            scheme = rawTextarea.value.trim();
+        }
+
+        const explicitMaxMarks = parseFloat(document.getElementById('total-marks').value) || 100;
+
+        if (!scheme) {
+            alert("Please provide a marking scheme.");
+            return;
+        }
+
+        document.getElementById('loading-overlay').classList.add('active');
+        document.getElementById('loading-status').innerText = 'Initializing AI Grading...';
+
+        try {
+            if (!isValidUUID(sessionId)) {
+                // If it's a test dummy ID, just skip the backend save to prevent a crash
+                console.warn("Skipping DB update for invalid mock UUID.");
+            } else {
+                // Save the marking scheme to the session using a direct update to avoid NOT NULL constraint errors from upsert
+                const { error } = await window.supabaseClient.from('sessions').update({
+                    marking_scheme: scheme,
+                    status: 'processing' // this would trigger a backend edge function in a real env
+                }).eq('id', sessionId);
+
+                if (error) throw error;
+            }
+
+            const statusEl = document.getElementById('loading-status');
+            const detailEl = document.getElementById('loading-detail');
+            const logContainer = document.getElementById('realtime-log-container');
+            const logUl = document.getElementById('realtime-log');
+
+            logContainer.style.display = 'block';
+            logUl.innerHTML = '';
+
+            function addLog(msg) {
+                const li = document.createElement('li');
+                li.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                logUl.appendChild(li);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            addLog(`Session configured. Connecting to Playbook Intelligence Cluster...`);
+
+            // Loop through submissions and grade them via PlaybookAI
+            let totalStudentsGraded = 0;
+            let sessionTotalScore = 0;
+
+            for (let i = 0; i < submissions.length; i++) {
+                const submission = submissions[i];
+                const studentNameLabel = submission.studentName || `Student ${i + 1}`;
+
+                // Only grade if not already completed
+                if (submission.status === 'completed') {
+                    totalStudentsGraded++;
+                    sessionTotalScore += submission.total_score || 0;
+                    addLog(`Skipped ${studentNameLabel} - already marked completed.`);
+                    continue;
+                }
+
+                statusEl.innerText = `Grading ${studentNameLabel}...`;
+                detailEl.innerText = `Student ${i + 1} of ${submissions.length} in queue.`;
+                addLog(`Initiating grading for ${studentNameLabel}.`);
+
+                let rawTextSubmission = submission.textContent;
+                let submissionImages = [];
+
+                if (!rawTextSubmission && submission.pdfStoragePath) {
+                    try {
+                        statusEl.innerText = `Downloading PDF Document...`;
+                        addLog(`Fetching secure PDF from storage for ${studentNameLabel}...`);
+                        const { data, error } = await window.supabaseClient.storage.from('exams_bucket').download(submission.pdfStoragePath);
+                        if (error) throw error;
+
+                        statusEl.innerText = `Parsing PDF Document...`;
+                        addLog(`PDF downloaded successfully. Beginning structural extraction...`);
+                        const arrayBuffer = await data.arrayBuffer();
+
+                        const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+                        if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                        }
+
+                        const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        addLog(`Found ${pdfDoc.numPages} pages in document. Rendering images...`);
+
+                        statusEl.innerText = `Converting Document Pages...`;
+                        const scannedContainer = document.getElementById('scanned-pages-container');
+                        scannedContainer.style.display = 'grid';
+                        scannedContainer.innerHTML = '';
+
+                        for (let p = 1; p <= pdfDoc.numPages; p++) {
+                            const page = await pdfDoc.getPage(p);
+                            const viewport = page.getViewport({ scale: 2.0 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                            canvas.width = viewport.width;
+                            canvas.height = viewport.height;
+
+                            // Make it look pretty in the UI
+                            canvas.style.width = '100%';
+                            canvas.style.height = 'auto';
+                            canvas.style.border = '1px solid var(--border-color)';
+                            canvas.style.borderRadius = 'var(--radius-sm)';
+                            canvas.style.boxShadow = 'var(--shadow)';
+                            scannedContainer.appendChild(canvas);
+
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                            // Check if canvas is completely blank (simplified logic)
+                            const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+                            let nonWhitePixels = 0;
+                            for (let j = 0; j < pixelBuffer.length; j += 10) {
+                                const pixel = pixelBuffer[j];
+                                const r = pixel & 0xFF;
+                                const g = (pixel >> 8) & 0xFF;
+                                const b = (pixel >> 16) & 0xFF;
+                                if (r < 250 || g < 250 || b < 250) nonWhitePixels++;
+                            }
+
+                            if (nonWhitePixels > 500) {
+                                submissionImages.push(canvas.toDataURL('image/jpeg', 0.95));
+                            }
+                        }
+                        addLog(`Canvas conversion complete. ${submissionImages.length} readable images extracted.`);
+
+                        if (submissionImages.length === 0) {
+                            rawTextSubmission = "Student submitted an empty PDF.";
+                            addLog(`Warning: Document was empty or corrupt.`);
+                        }
+                    } catch (err) {
+                        console.error("Failed to parse PDF for submission:", err);
+                        addLog(`Error reading PDF file: ${err.message}`);
+                        rawTextSubmission = "[Error reading PDF file from storage.]";
+                    }
+                } else if (!rawTextSubmission && !submission.pdfStoragePath) {
+                    rawTextSubmission = "No text provided by student.";
+                }
+
+                statusEl.innerText = `AI Intelligence Active...`;
+                detailEl.innerText = `Evaluating semantic equivalence and structured logic.`;
+                addLog(`Executing Playbook Zero-Hallucination Grading Protocol...`);
+
+                // Pass the raw text string or images array directly to the adapted gradeBatchExams function
+                const gradingInput = submissionImages.length > 0 ? submissionImages : rawTextSubmission;
+                const gradedResult = await window.PlaybookAI.gradeBatchExams(gradingInput, scheme, session.exam_instructions || "", explicitMaxMarks);
+
+                addLog(`AI Evaluation complete for ${studentNameLabel}.`);
+
+                if (gradedResult && gradedResult.length > 0) {
+                    const studentRes = gradedResult[0];
+                    let studentTotal = 0;
+
+                    const parsedQuestions = studentRes.questions || studentRes.evaluations || studentRes.results || [];
+                    if (parsedQuestions && Array.isArray(parsedQuestions)) {
+                        parsedQuestions.forEach(q => {
+                            let qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
+                            const qMax = parseFloat(q.max) || parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
+                            if (!isNaN(qMax) && qMax > 0 && qScore > qMax) {
+                                qScore = qMax;
+                                q.score = qScore;
+                            }
+                            studentTotal += qScore;
+                        });
+                    }
+
+                    if (studentTotal > explicitMaxMarks) studentTotal = explicitMaxMarks;
+
+                    // Update the submission in the DB
+                    await window.supabaseClient.from('exam_submissions').update({
+                        total_score: studentTotal,
+                        max_score: explicitMaxMarks,
+                        grading_data: { questions: parsedQuestions },
+                        status: 'completed',
+                        completed_at: new Date().toISOString()
+                    }).eq('id', submission.id);
+
+                    totalStudentsGraded++;
+                    sessionTotalScore += studentTotal;
+                }
+            }
+
+            statusEl.innerText = 'Finalizing Results...';
+            detailEl.innerText = `Successfully graded ${totalStudentsGraded} submissions.`;
+            addLog(`Saving batch results to database...`);
+
+            const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
+            if (isValidUUID(sessionId)) {
+                await window.supabaseClient.from('sessions').update({
+                    status: 'needs_review',
+                    total_students: totalStudentsGraded,
+                    average_score: sessionAverage
+                }).eq('id', sessionId);
+            }
+
+            alert("Grading complete! Redirecting to review.");
+            window.location.href = `review.html?session=${sessionId}`;
+
+        } catch (e) {
+            console.error(e);
+            alert(`Failed to initiate grading: ${e.message}`);
+            document.getElementById('loading-overlay').classList.remove('active');
+        }
+    });
+});
+</script>
+</body>
+</html>

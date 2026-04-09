@@ -6,6 +6,10 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Playbook - Review &amp; Override</title>
 <link href="css/style.css" rel="stylesheet"/>
+<!-- Highlight.js for Code -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<!-- KaTeX for Math -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <style>
         .grading-item {
             border: 1px solid var(--border-color);
@@ -61,7 +65,7 @@
 <nav class="top-nav">
 <div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
 <div class="flex items-center gap-2">
-<div class="nav-logo">Playbook</div>
+<div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
 <button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
 <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
 <line x1="3" x2="21" y1="12" y2="12"></line>
@@ -72,8 +76,8 @@
 <ul class="nav-links flex gap-1 items-center">
 <li><a href="index.html">Dashboard</a></li>
 <li><a href="upload.html">Upload Exams</a></li>
-<li><a class="active" href="review.html">Review &amp; Override</a></li>
-<li><a href="analytics.html">Analytics</a></li>
+
+
 <li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
 </div>
 <div class="flex items-center gap-1 nav-actions">
@@ -94,9 +98,24 @@
 <button class="btn btn-secondary" id="next-btn" style="padding: 0.25rem 0.75rem;">Next →</button>
 </div>
 <div>
+<button class="btn btn-sm" id="view-submission-btn" style="margin-right: 0.5rem;">View Student Work</button>
 <button class="btn btn-sm" id="finalize-btn">Finalize Scores</button>
 </div>
 </header>
+
+<!-- View Submission Modal -->
+<div class="modal-overlay" id="submission-modal" style="display: none; align-items: center; justify-content: center;">
+    <div class="modal-content" style="max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;">
+        <h3 style="margin-bottom: 1rem;">Student Submission</h3>
+        <div id="submission-content-area" style="background: var(--background-color); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); white-space: pre-wrap; font-family: monospace; min-height: 200px;">
+            Loading submission...
+        </div>
+        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+            <button class="btn btn-secondary" id="close-submission-modal">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Main Content -->
 <main class="main-content flex-grow" style="padding: 2rem; overflow-y: visible; height: auto;">
 <div class="max-w-7xl mx-auto" style="width: 100%;">
@@ -144,6 +163,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
+<!-- Marked.js, DOMPurify, KaTeX, and Highlight.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" onload="window.renderMathInElement = renderMathInElement;"></script>
 <script src="js/review.js"></script>
 
 <!-- Bolt-Style Bottom Tab Bar (Mobile Only) -->

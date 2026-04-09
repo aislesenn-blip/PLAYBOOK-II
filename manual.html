@@ -1,180 +1,186 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Playbook - User Manual</title>
-<link href="css/style.css" rel="stylesheet"/>
-<style>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Playbook - User Manual</title>
+    <link href="css/style.css" rel="stylesheet"/>
+    <style>
+        .manual-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
         .manual-section {
-            margin-bottom: var(--spacing-lg);
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
         }
         .manual-section h2 {
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: var(--spacing-xs);
-            margin-bottom: var(--spacing-md);
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 0.5rem;
         }
         .manual-section h3 {
-            font-family: var(--font-sans);
-            font-weight: 600;
-            font-size: 1.2rem;
-            margin-top: var(--spacing-md);
-            margin-bottom: var(--spacing-sm);
+            font-size: 1.15rem;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
         }
-        .manual-section ul, .manual-section ol {
-            padding-left: 1.5rem;
-            margin-bottom: var(--spacing-md);
+        .manual-section p {
             color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+        .manual-section ul {
+            color: var(--text-secondary);
+            margin-left: 1.5rem;
+            margin-bottom: 1.5rem;
         }
         .manual-section li {
-            margin-bottom: var(--spacing-xs);
+            margin-bottom: 0.5rem;
         }
-        .warning-box {
-            background-color: #fff4e5;
-            border-left: 4px solid var(--highlight-color);
-            padding: var(--spacing-md);
-            margin-bottom: var(--spacing-md);
+        .highlight-box {
+            background: #f8fafc;
+            border-left: 4px solid var(--primary-color);
+            padding: 1rem;
+            border-radius: 0 8px 8px 0;
+            margin: 1.5rem 0;
         }
-        .warning-box strong {
-            color: #b27b00;
+        code {
+            background: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--text-primary);
         }
     </style>
 </head>
 <body>
 <div class="app-container">
-<!-- Minimalist Top Navigation -->
-<nav class="top-nav">
-<div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
-<div class="flex items-center gap-2">
-<div class="nav-logo">Playbook</div>
-<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
-<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
-<line x1="3" x2="21" y1="12" y2="12"></line>
-<line x1="3" x2="21" y1="6" y2="6"></line>
-<line x1="3" x2="21" y1="18" y2="18"></line>
-</svg>
-</button>
-<ul class="nav-links flex gap-1 items-center">
-<li><a href="index.html">Dashboard</a></li>
-<li><a href="upload.html">Upload Exams</a></li>
-<li><a href="review.html">Review &amp; Override</a></li>
-<li><a href="analytics.html">Analytics</a></li>
-<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
+    <nav class="top-nav">
+        <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
+                <ul class="nav-links flex gap-1 items-center">
+                    <li><a href="index.html">Dashboard</a></li>
+                </ul>
+            </div>
+            <div class="flex items-center gap-1 nav-actions">
+                <a class="nav-icon-link active" href="manual.html">User Manual</a>
+                <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="manual-container">
+        <div style="text-align: center; margin-bottom: 3rem;">
+            <h1 style="font-size: 2.5rem; color: var(--text-primary); margin-bottom: 0.5rem;">Playbook User Guide</h1>
+            <p style="font-size: 1.1rem; color: var(--text-secondary);">Everything you need to master automated grading and class management.</p>
+        </div>
+
+        <div class="manual-section">
+            <h2>1. Getting Started: Classes & Students</h2>
+            <p>Playbook organizes your grading by classrooms. When you log in, start by creating a Class.</p>
+            <ul>
+                <li><strong>The Join Code:</strong> When you create a class, Playbook generates a unique 6-character code. Share this code with your students.</li>
+                <li><strong>The Student Portal:</strong> Students visit the Playbook Student Portal, enter your Join Code, and are instantly enrolled in your class roster.</li>
+                <li><strong>Course Materials:</strong> Inside your Class Details page, you can securely upload PDFs, syllabi, or reading notes that only enrolled students can download.</li>
+            </ul>
+        </div>
+
+        <div class="manual-section">
+            <h2>2. Three Ways to Grade</h2>
+            <p>Playbook adapts to how you teach, supporting both paper exams and digital assignments.</p>
+
+            <h3>Option A: Online Exams (Auto-Pilot Magic)</h3>
+            <p>Go to your Class page and click <strong>Create Online Assignment</strong>. If you turn on <strong>Enable Auto-Pilot Grading (Instant Grading)</strong>, the entire process runs invisibly in the cloud.</p>
+            <div class="highlight-box">
+                <strong>The Auto-Pilot Experience:</strong> You can literally close your laptop and go to sleep. When 1,200 students submit their homework, the AI grades them instantly in the background. <br><br>
+                If you log into your Dashboard while they are submitting, you will see a live, real-time count of how many are 'Completed' versus how many are still 'Processing'. You can even begin reviewing the completed ones immediately while the rest finish in the background!
+                <br><br>
+                <strong>Late Submitters:</strong> If 139 students submit a day late, the Auto-Pilot instantly wakes back up, grades them, and seamlessly adds their scores to your Master Gradebook.
+            </div>
+
+            <h3>Option B: Online Exams (Manual Initiation)</h3>
+            <p>If you create an Online Assignment but choose <em>not</em> to enable Auto-Pilot, students will still submit their work digitally, but the AI will wait for your command.</p>
+            <ul>
+                <li>Once the deadline passes, you will see a <strong>Grade Submissions</strong> button next to the exam on your Dashboard.</li>
+                <li>Click it to manually start the AI grading loop for the entire class at once.</li>
+            </ul>
+
+            <h3>Option C: Scanned Paper Exams</h3>
+            <p>If your students wrote their exams on physical paper, simply collect them, scan them all into a single bulk PDF, and click <strong>Upload Exams</strong> on the top navigation bar.</p>
+            <ul>
+                <li>Playbook's Vision AI will automatically separate the students, read their handwriting, analyze their diagrams, and grade the papers against your rules.</li>
+            </ul>
+        </div>
+
+        <div class="manual-section" id="standard-marking-scheme">
+            <h2>3. The Smart Marking Scheme</h2>
+            <p>Playbook grades exactly like a strict, unbiased human. It does not guess; it follows your rules. To do this, it needs a Marking Scheme.</p>
+            <p>You do not need to write complex code. Simply upload your raw PDF rubric, or paste your rules into the box, and click <strong>Auto-Format Scheme</strong>. Playbook will instantly rewrite your rules into the strict format it needs.</p>
+
+            <div class="highlight-box">
+                <strong>Exam Logic & Section Rules:</strong><br>
+                Playbook understands complex exam instructions. If you tell students to <code>Answer only 2 questions in Section B</code>, Playbook will grade all their answers, but it will automatically drop their lowest score in that section so they are never unfairly penalized or rewarded.
+            </div>
+        </div>
+
+        <div class="manual-section">
+            <h2>4. The Human-in-the-Loop Review</h2>
+            <p>We believe AI should assist teachers, not replace them. Therefore, grades are never finalized without your approval.</p>
+            <p>After an exam is graded, it moves to the <strong>Review</strong> state. Here you can:</p>
+            <ul>
+                <li>Read the student's original handwriting or digital text.</li>
+                <li>Read the AI's step-by-step logic for why it awarded points.</li>
+                <li>Read the personalized feedback generated for the student.</li>
+                <li><strong>Override:</strong> Click any score to manually change it if you disagree with the AI.</li>
+            </ul>
+            <p>Once you click "Approve All", the grades become official and the Analytics are generated.</p>
+        </div>
+
+        <div class="manual-section">
+            <h2>5. The Master Gradebook & Coursework Compiler</h2>
+            <p>At the end of the semester, you need to compile all grades to upload to your university portal. Playbook handles this bureaucratic math automatically.</p>
+            <ul>
+                <li>Open your Class Details and click the <strong>Master Gradebook</strong> tab.</li>
+                <li>This is a live spreadsheet of every student and every exam they took all semester. If a student never submitted an assignment, their score will simply show as a blank dash (-).</li>
+                <li>Click <strong>Compile Final Coursework</strong>. You can select exactly which Tests, Quizzes, and Assignments to include.</li>
+                <li>You can apply advanced dropping rules like "Keep the best 2 out of 3 tests".</li>
+                <li>Playbook will calculate the final coursework score for every student, scale it (e.g., out of 40 marks), and generate a clean CSV file for you to upload directly to the university portal.</li>
+            </ul>
+        </div>
+
+        <div class="manual-section">
+            <h2>6. Analytics & Comprehensive Reports</h2>
+            <p>Once an exam is fully graded, click <strong>View Analytics</strong> to see how your class performed.</p>
+            <ul>
+                <li><strong>The Grade Curve:</strong> A visual breakdown of A, B, C, D, and F distributions.</li>
+                <li><strong>Item Analysis:</strong> This table shows exactly which questions caused the most failures, allowing you to identify concepts you need to re-teach in your next lecture.</li>
+                <li><strong>Print Report:</strong> Click "Export PDF" to generate a beautiful, multi-page report containing the roster, the charts, and personalized student showcases to hand to your department head.</li>
+            </ul>
+        </div>
+
+    </main>
 </div>
-<div class="flex items-center gap-1 nav-actions">
-<a class="nav-icon-link active" href="manual.html" style="color: #0f172a; font-weight: 600;">User Manual</a>
-<a class="nav-icon-link" href="settings.html">Settings</a>
-<button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
-</div>
-</div>
-</nav>
-<!-- Main Content -->
-<main class="main-content max-w-7xl mx-auto">
-<header class="mb-2">
-<h1>Playbook Enterprise User Manual</h1>
-<p>Welcome to Playbook Enterprise.</p>
-</header>
-<div class="card">
-<section class="manual-section">
-<p>Playbook is the world’s most advanced Client-Side Distributed AI Grading Engine. Built specifically for educational institutions, it operates on a secure "Zero-Hallucination Architecture," ensuring deterministic, fair, and highly accurate evaluation of handwritten and typed exams.</p>
-<p>Crucially, Playbook is designed around the Human-in-the-Loop philosophy. The AI acts as your tireless teaching assistant—doing the heavy lifting of reading, scoring, and writing micro-lessons—but you, the educator, always hold the final authority.</p>
-<p>This manual will guide you step-by-step through the Playbook ecosystem.</p>
-</section>
 
-<section class="manual-section">
-<h2>1. Introduction to Playbook Enterprise</h2>
-<p>Playbook operates entirely within your browser to maximize data privacy and processing speed. No student exam images are ever stored on our servers; they are processed locally and sent directly to our secure Enterprise AI models via your institution's dedicated API key.</p>
-
-<h3>Core Capabilities</h3>
-<ul>
-<li><strong>Bulk PDF Scanning:</strong> Upload a single PDF containing an entire class's exams. Our visual engine automatically detects blank separator pages to perfectly split the document into individual student submissions.</li>
-<li><strong>The 4 Tiers of Evaluation:</strong> The AI evaluates answers based on Semantic Equivalence (understanding meaning, not just keywords), Proportional Math (awarding partial credit), the Fatal Flaw rule (zero marks for fundamentally wrong science), and Diagram Amnesty (grading text over messy sketches).</li>
-<li><strong>Micro-Lesson Feedback:</strong> For every question, the AI writes personalized, 3-sentence actionable feedback addressing the student directly, explaining exactly what they missed and how to improve.</li>
-<li><strong>Instant Enterprise Analytics:</strong> Generate beautiful class-wide insights, download CSV score reports for your LMS, and instantly export individually branded PDF feedback sheets for every student.</li>
-</ul>
-</section>
-
-<section class="manual-section">
-<h2>2. Getting Started: Authentication &amp; Setup</h2>
-<p>Playbook utilizes a secure Dual-Interface Architecture. Your institution's IT Administrator handles the backend API configuration, meaning you can focus entirely on grading.</p>
-<ul>
-<li><strong>Register via SSO:</strong> If your IT Admin has sent you an invite link, click it to register. You must register using your official university email domain.</li>
-<li><strong>Sign In:</strong> Navigate to the Playbook Dashboard and log in securely.</li>
-<li><strong>The Dashboard:</strong> Your command center. Here, you will see a high-level overview of your "Exams Graded," your "Pending Reviews," and a historical list of all your recent grading sessions.</li>
-</ul>
-</section>
-
-<section class="manual-section">
-<h2>3. How to Upload and Process Exams</h2>
-<p>Preparing and uploading your exams is the most critical step to ensure perfect grading.</p>
-
-<h3>Step A: Preparing Physical Exams</h3>
-<p>Before scanning your physical stack of exams into a PDF, you must insert exactly one blank sheet of paper between Student A's exam and Student B's exam. Our "Blank Page Detection" algorithm scans the microscopic pixel data of every page to automatically group students correctly.</p>
-
-<h3>Step B: The Marking Scheme</h3>
-<p>A rigorous marking scheme guarantees flawless AI execution.</p>
-<ol>
-<li>Go to the <strong>Upload Exams</strong> tab.</li>
-<li>Paste your raw marking scheme into the text box.</li>
-<li><strong>Optional but Highly Recommended:</strong> Click "Optimize Scheme". Our Smart Pre-Processor will automatically rewrite your rubric into the strict "Playbook Standard Format," preserving every alternative answer while strictly enforcing question hierarchy.</li>
-</ol>
-
-<h3>Step C: Start Playbook Grading</h3>
-<ol>
-<li>Enter a clear Session Name (e.g., "Biology 101 - Midterm").</li>
-<li>Enter the Total Exam Marks (the absolute maximum score a student can achieve). <em>Note: Playbook strictly delegates math to your browser to prevent AI hallucinations, so this number must be accurate.</em></li>
-<li>Upload your bulk PDF and click "Start Playbook Grading".</li>
-</ol>
-<p><strong>The Live Processing Queue:</strong> Playbook will begin chunking and grading the exams locally. If your internet drops, do not panic! Our local IndexedDB queue will pause safely, allowing you to click "Resume" when your connection returns.</p>
-</section>
-
-<section class="manual-section">
-<h2>4. Understanding AI Grading &amp; The 'Review &amp; Override' Process</h2>
-<p>Playbook features a "Live Review Theater." As soon as the first student's exam is graded, a button will appear allowing you to open the Review interface in a new tab while the rest of the class processes in the background.</p>
-<p>The Review &amp; Override interface is where the Human-in-the-Loop philosophy takes over. We mandate that you review the AI's logic before finalizing grades.</p>
-
-<h3>Navigating the Review Screen</h3>
-<ul>
-<li><strong>The Single-Pane Layout:</strong> You will see each question neatly stacked.</li>
-<li><strong>Playbook Justification:</strong> Located immediately below the score. This is the AI's internal "Chain-of-Thought" mathematical reasoning. Read this first to verify why the AI awarded specific points based on your rubric.</li>
-<li><strong>Constructive Feedback:</strong> The actual micro-lesson that the student will read.</li>
-</ul>
-
-<h3>How to Override</h3>
-<p>If you disagree with the AI's assessment:</p>
-<ol>
-<li>Click the "Override" button next to any question.</li>
-<li>Adjust the numerical score or edit the text of the Constructive Feedback directly.</li>
-<li>Click "Save". The system will instantly recalculate the student's Total Score deterministically.</li>
-</ol>
-<p>Once you are satisfied with the entire exam, click "Finalize Review". The student's status will change from <em>Needs Review</em> to <em>Completed</em>.</p>
-</section>
-
-<section class="manual-section">
-<h2>5. Navigating Analytics &amp; Reports</h2>
-<p>Once all exams in a session are finalized, navigate to the Analytics tab to view your class's performance.</p>
-
-<h3>Class Insights</h3>
-<ul>
-<li><strong>Stats Grid:</strong> Instantly view the Total Students, Average Score, Highest Score, and the Lowest Performing Question to guide your next lecture.</li>
-<li><strong>Score Distribution:</strong> A visual chart showing how the class performed across different grade brackets (A, B, C, F).</li>
-</ul>
-
-<h3>Exporting Enterprise Reports</h3>
-<p>Scroll down to the Individual Results table to manage your data:</p>
-<ul>
-<li><strong>View Feedback:</strong> Click this button next to any student to open a sleek slide-out drawer. You can instantly read their total score, grade, and full AI evaluation without leaving the page.</li>
-<li><strong>Download CSV:</strong> Export a clean spreadsheet of all student registration numbers and final scores, ready to be uploaded directly into Canvas, Blackboard, or your university LMS.</li>
-<li><strong>Download PDF:</strong> Click this next to an individual student to instantly generate a beautifully formatted, enterprise-branded PDF containing their specific grades and micro-lessons.</li>
-<li><strong>Download All Feedback (PDF):</strong> Click this master button at the top of the screen to automatically compile the entire class into a single, multi-page professional PDF document—perfect for printing and handing back to students.</li>
-</ul>
-</section>
-
-<p class="text-center text-secondary mt-2">End of Manual</p>
-</div>
-</main>
-</div>
-<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('playbook_session');
+                window.location.href = 'login.html';
+            });
+        }
+    });
+</script>
 </body>
 </html>

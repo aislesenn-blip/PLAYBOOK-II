@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Playbook - Class Management</title>
+    <link href="css/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+</head>
+<body>
+<div class="app-container">
+    <!-- Minimalist Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
+                <button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
+                    <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24"><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>
+                </button>
+                <ul class="nav-links flex gap-1 items-center">
+                    <li><a class="active" href="index.html">Dashboard</a></li>
+                    <li><a href="upload.html">Upload Exams</a></li>
+
+
+                    <li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li>
+                </ul>
+            </div>
+            <div class="flex items-center gap-1 nav-actions">
+                <a class="nav-icon-link" href="manual.html">User Manual</a>
+                <a class="nav-icon-link" href="settings.html">Settings</a>
+                <button class="btn btn-sm" id="nav-tour-btn" style="background: var(--surface-color); color: var(--text-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.8rem; padding: 0.3rem 0.75rem; border-radius: 99px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s ease;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #60a5fa;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                    Tour <kbd style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; letter-spacing: 0.5px; border: 1px solid #cbd5e1; color: var(--text-primary);">Ctrl + /</kbd>
+                </button>
+                <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content max-w-7xl mx-auto">
+        <header class="page-header flex justify-between items-center mb-2">
+            <div>
+                <a href="index.html" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.5rem;">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                    Back to Dashboard
+                </a>
+                <h1 id="class-title">Loading Class...</h1>
+                <p class="text-secondary">Academic Year: <span id="class-year">-</span></p>
+            </div>
+            <div class="flex gap-1 items-center">
+                <div style="background: var(--surface-color); padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                    <span style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); font-weight: bold; letter-spacing: 0.05em; margin-bottom: 0.2rem;">Join Code</span>
+                    <span id="class-join-code" style="font-family: monospace; font-size: 1.5rem; font-weight: bold; letter-spacing: 2px;">------</span>
+                </div>
+                <a class="btn" href="upload.html" id="new-assessment-btn">New Assessment</a>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <section class="stats-grid grid gap-2 mb-2" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-students-count">0</div>
+                <div class="stat-label">Enrolled Students</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-assessments-count">0</div>
+                <div class="stat-label">Total Assessments</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-class-avg">-</div>
+                <div class="stat-label">Overall Class Average</div>
+            </div>
+        </section>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs mb-2" style="display: flex; gap: 1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+            <button class="tab-btn active" data-tab="assignments-tab" style="background:none; border:none; font-weight:bold; color:var(--text-primary); cursor:pointer;">Assignments</button>
+            <button class="tab-btn" data-tab="materials-tab" style="background:none; border:none; color:var(--text-secondary); cursor:pointer;">Course Materials</button>
+            <button class="tab-btn" data-tab="students-tab" style="background:none; border:none; color:var(--text-secondary); cursor:pointer;">Student Roster</button>
+            <button class="tab-btn" data-tab="gradebook-tab" style="background:none; border:none; color:var(--text-secondary); cursor:pointer;">Master Gradebook</button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div id="gradebook-tab" class="tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div>
+                    <h2 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 0.5rem; display: flex; align-items: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 12px; color: var(--primary-color);"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M8 7h6"/><path d="M8 11h8"/></svg>
+                        Master Gradebook
+                    </h2>
+                    <p class="text-secondary" style="font-size: 1rem;">View all assessments, edit marks, and compile final coursework.</p>
+                </div>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; color: var(--text-secondary);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="gradebook-search" placeholder="Search name or ID..." style="padding: 0.5rem 1rem 0.5rem 2.2rem; border-radius: 99px; border: 1px solid var(--border-color); font-size: 0.85rem; width: 220px; outline: none; transition: border-color 0.2s ease;">
+                        </div>
+                    <button id="compile-coursework-btn" class="btn btn-secondary" style="display: flex; align-items: center; background: white; border: 1px solid var(--border-color);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>
+                        Compile Final Coursework
+                    </button>
+                    <button id="export-csv-btn" class="btn" style="display: flex; align-items: center; background: #10b981;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- Beautiful Gradebook Mini-Guide -->
+            <div id="gradebook-mini-guide" style="background: linear-gradient(to right, #f8fafc, #f1f5f9); border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; display: flex; gap: 1.5rem; align-items: flex-start; position: relative;">
+                <button onclick="document.getElementById('gradebook-mini-guide').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; cursor: pointer; color: var(--text-secondary);">&times;</button>
+                <div style="background: white; padding: 0.75rem; border-radius: 50%; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                </div>
+                <div>
+                    <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text-primary);">How to use the Master Gradebook</h4>
+                    <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">This view aggregates every assessment across your class. You can click directly into any cell to manually override an AI grade.</p>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="background: white; border: 1px dashed #cbd5e1; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.8rem; color: var(--text-secondary);">
+                            <strong style="color: var(--primary-color);">Compile Example:</strong> Select <span style="font-style: italic;">Test 1</span>, <span style="font-style: italic;">Test 2</span>, and <span style="font-style: italic;">Quiz</span>. Set "Keep Best <strong style="color: var(--text-primary);">2</strong>". The system will drop the lowest score, sum the remaining two, and scale the final result out of <strong style="color: var(--text-primary);">40 marks</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                 <p class="text-secondary" style="font-size: 0.85rem;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warning-color); margin-right: 4px;"></span> Click any score to manually override it.</p>
+                 <button id="save-gradebook-btn" class="btn btn-sm" style="display: none; background: var(--accent-color);">Save All Changes</button>
+            </div>
+
+            <div class="card" style="padding: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                <div style="overflow-x: auto; max-width: 100%;">
+                    <table class="data-table" id="gradebook-table" style="margin: 0; white-space: nowrap;">
+                        <thead>
+                            <tr id="gradebook-header-row" style="background: #f8fafc;">
+                                <!-- Dynamic Headers Injected Here -->
+                            </tr>
+                        </thead>
+                        <tbody id="gradebook-table-body">
+                            <tr><td colspan="100%" class="text-center text-secondary" style="padding: 3rem;">Loading gradebook data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="assignments-tab" class="tab-content active">
+            <div class="card" style="padding: 1.5rem;">
+                <div class="flex justify-between items-center mb-1">
+                    <h3 style="margin: 0;">Assignments</h3>
+                    <button class="btn btn-sm" id="create-assignment-btn">Create Online Assignment</button>
+                </div>
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Assessment Name</th>
+                                <th>Type</th>
+                                <th>Due Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assessments-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="materials-tab" class="tab-content" style="display: none;">
+            <div class="card" style="padding: 1.5rem;">
+                <div class="flex justify-between items-center mb-1">
+                    <h3 style="margin: 0;">Course Materials</h3>
+                    <button class="btn btn-sm" id="upload-material-btn">Upload Note/Material</button>
+                </div>
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Date Added</th>
+                                <th>Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materials-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="students-tab" class="tab-content" style="display: none;">
+            <div class="card" style="padding: 1.5rem;">
+                <h3 class="mb-1" style="margin-top: 0;">Student Roster</h3>
+                <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Reg No.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Assignment Modal -->
+        <div class="overlay" id="create-assignment-modal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+            <div class="card" style="width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;">
+                <button id="close-assignment-modal" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; cursor: pointer; color: var(--text-secondary);">
+                    <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>
+                </button>
+                <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Create Online Assignment</h2>
+                <form id="create-assignment-form">
+                    <div class="form-group">
+                        <label>Assignment Name</label>
+                        <input type="text" class="form-control" id="new-assign-name" required>
+                    </div>
+                    <div class="form-group mt-1">
+                        <label>Description / Instructions</label>
+                        <textarea class="form-control" id="new-assign-desc" rows="3"></textarea>
+                    </div>
+                    <div class="form-group mt-1">
+                        <label>Due Date</label>
+                        <input type="datetime-local" class="form-control" id="new-assign-due" required>
+                    </div>
+
+                    <!-- Auto-Pilot Toggle -->
+                    <div class="form-group mt-2" style="background: var(--surface-color); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                        <label class="flex items-center" style="cursor: pointer; font-weight: 600; font-size: 1.1rem; color: var(--primary-color);">
+                            <input type="checkbox" id="enable-auto-grade" style="margin-right: 10px; width: 18px; height: 18px; accent-color: var(--primary-color);">
+                            Enable Auto-Pilot Grading (Instant Grading)
+                        </label>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 0;">If enabled, students' homework will be instantly graded by the AI the moment they submit. You can close your laptop; the results will be waiting in your Dashboard.</p>
+
+                        <!-- Auto-Pilot Settings Container -->
+                        <div id="auto-grade-settings" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+
+                            <div class="flex justify-between items-center w-100" style="margin-bottom: 0.5rem;">
+                                <label class="form-label mb-0">Exam Logic &amp; Instructions (Optional)</label>
+                                <button type="button" id="open-rules-cheat-sheet" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                                    How to write rules
+                                </button>
+                            </div>
+                            <textarea class="form-control" id="exam-instructions" placeholder="e.g. 'Answer 2 questions in Section B', or 'Attempt 3 questions overall'" style="height: 60px; resize: vertical; margin-bottom: 1.5rem;"></textarea>
+
+                            <label class="form-label">Marking Scheme</label>
+
+                            <div id="raw-scheme-container" style="display: block; width: 100%;">
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste your rules below or upload a .txt, .pdf, .docx, or image to let the AI standardize it.</p>
+                                <textarea class="form-control" id="raw-scheme-text" placeholder="Paste your raw, unstructured marking scheme here..." style="height: 150px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
+                                <div class="flex justify-between items-center">
+                                    <label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                                        Upload Document
+                                        <input accept=".txt, .pdf, .doc, .docx, image/png, image/jpeg, image/jpg" id="scheme-file" style="display: none;" type="file"/>
+                                    </label>
+                                    <button class="btn" id="optimize-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Auto-Format Scheme</button>
+                                </div>
+                            </div>
+
+                            <div id="optimized-scheme-container" style="display: none; width: 100%;">
+                                <p style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.5rem;">Review &amp; Tweak Standardized Scheme:</p>
+                                <textarea class="form-control" id="optimized-scheme-text" style="height: 200px; resize: vertical; border-color: var(--success-color);"></textarea>
+                                <div class="flex justify-between mt-1">
+                                    <button class="btn btn-secondary" id="reset-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Reset</button>
+                                </div>
+                            </div>
+
+                            <label class="form-label mt-1">Total Assignment Marks</label>
+                            <input class="form-control" id="total-marks" type="number" value="100"/>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn mt-2" style="width: 100%;">Publish to Students</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Upload Material Modal -->
+        <div class="overlay" id="upload-material-modal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+            <div class="card" style="width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;">
+                <button id="close-material-modal" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; cursor: pointer; color: var(--text-secondary);">
+                    <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>
+                </button>
+                <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Upload Course Material</h2>
+                <form id="upload-material-form">
+                    <div class="form-group">
+                        <label>Material Title</label>
+                        <input type="text" class="form-control" id="new-material-title" required>
+                    </div>
+                    <div class="form-group mt-1">
+                        <label>Description (Optional)</label>
+                        <textarea class="form-control" id="new-material-desc" rows="2"></textarea>
+                    </div>
+                    <div class="form-group mt-1">
+                        <label>File (PDF, Doc, etc.)</label>
+                        <input type="file" class="form-control" id="new-material-file" required>
+                    </div>
+                    <button type="submit" class="btn mt-2">Upload Material</button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+    <svg class="playbook-loader" viewbox="0 0 540 100" xmlns="http://www.w3.org/2000/svg">
+        <path class="playbook-path" d="M30,80 V20 H60 Q80,20 80,40 Q80,60 60,60 H30" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M100,80 V20 M100,80 H140" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M170,80 L190,20 L210,80 M180,60 H200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M240,20 L260,50 L280,20 M260,50 V80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M300,80 V20 H320 Q340,20 340,35 Q340,50 320,50 Q340,50 340,65 Q340,80 320,80 H300 M300,50 H320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+        <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+    </svg>
+    <h2 id="loading-status" style="margin-top: 1.5rem;">Loading...</h2>
+</div>
+
+    <!-- Compile Coursework Modal -->
+    <div id="coursework-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+        <div class="card" style="width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; padding: 2.5rem; border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0;">Compile Final Coursework</h2>
+                <button id="close-coursework-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+            </div>
+
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 2rem;">Build a custom formula to calculate your students' final semester coursework grades automatically.</p>
+
+            <div style="margin-bottom: 2rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <p style="margin-bottom: 1rem; font-weight: 600; color: var(--text-primary);">1. Which assessments should be included?</p>
+                <div id="coursework-assessment-list" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 180px; overflow-y: auto; padding-right: 10px;">
+                    <!-- Checkboxes injected here -->
+                </div>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <p style="margin-bottom: 0.75rem; font-weight: 600; color: var(--text-primary);">2. Apply dropping rules (Optional)</p>
+                <div style="display: flex; align-items: center; gap: 1rem; background: white; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <span style="color: var(--text-primary); font-weight: 500;">Calculate the final grade by keeping the best</span>
+                    <input type="number" id="coursework-keep-best" class="form-control" style="width: 70px; text-align: center; display: inline-block; padding: 0.3rem;" placeholder="All">
+                    <span style="color: var(--text-primary); font-weight: 500;">assessments.</span>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Leave this blank to average all selected assessments.</p>
+            </div>
+
+            <div style="margin-bottom: 2.5rem;">
+                <p style="margin-bottom: 0.75rem; font-weight: 600; color: var(--text-primary);">3. Scale the final score</p>
+                <div style="display: flex; align-items: center; gap: 1rem; background: white; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <span style="color: var(--text-primary); font-weight: 500;">Scale the student's final average so it is out of:</span>
+                    <input type="number" id="coursework-scale" class="form-control" style="width: 80px; font-weight: bold; color: var(--primary-color); display: inline-block; padding: 0.3rem;" value="40">
+                    <span style="color: var(--text-primary); font-weight: 500;">total marks.</span>
+                </div>
+
+                <!-- Live Explainer Box -->
+                <div style="margin-top: 1rem; background: #eff6ff; border: 1px dashed #818cf8; padding: 1rem; border-radius: 8px; font-size: 0.85rem; color: #4338ca;">
+                    <strong style="display: block; margin-bottom: 0.25rem;">How this math works:</strong>
+                    If a student scores 90% and 80% on the assessments you selected above, their average is 85%. <br>
+                    Because you set the scale to <span id="live-scale-val" style="font-weight: bold;">40</span> marks, their final Coursework score is calculated as:
+                    <div style="font-family: monospace; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #c7d2fe; margin-top: 0.5rem; display: inline-block;">
+                        (85 / 100) &times; <span id="live-scale-val-formula" style="font-weight: bold; color: var(--primary-color);">40</span> = <strong id="live-scale-result">34</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+                <button type="button" id="cancel-coursework-btn" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="generate-coursework-btn" class="btn" style="background: var(--accent-color);">Generate Coursework Column</button>
+            </div>
+        </div>
+    </div>
+
+<!-- Rules Cheat Sheet Modal -->
+<div id="rules-cheat-sheet-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div class="card" style="width: 100%; max-width: 550px; max-height: 90vh; overflow-y: auto; padding: 2.5rem; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">How to Write Exam Rules</h2>
+            <button id="close-rules-cheat-sheet" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5;">
+            Playbook's AI grading engine reads every single answer a student writes. If a student answers 3 questions when they were only supposed to answer 2, Playbook will grade all 3, but it will <strong>automatically drop their lowest score</strong> so they don't get an unfair advantage.
+        </p>
+        <p style="font-size: 0.95rem; color: var(--text-primary); font-weight: 600; margin-bottom: 0.75rem;">To enable this, you MUST type your rules exactly like these examples (put each rule on a new line):</p>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Example 1 (Specific Section):</p>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500;">Section B: answer 2</code>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500; margin-top: 0.5rem;">Answer 2 questions in Section C</code>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 2rem;">
+            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Example 2 (Entire Exam):</p>
+            <code style="display: block; background: white; padding: 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; color: var(--accent-color); font-weight: 500;">Attempt 3 questions</code>
+        </div>
+
+        <button id="got-it-rules-btn" class="btn" style="width: 100%; background: var(--accent-color);">Got it</button>
+    </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/db.js"></script>
+<!-- Required dependencies for Parsing & AI Formatting -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+
+<script src="js/auth.js"></script>
+<script src="js/ai.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+<script src="js/class_detail.js"></script>
+
+<!-- Bolt-Style Bottom Tab Bar (Mobile Only) -->
+<nav class="mobile-bottom-nav">
+    <a href="index.html" class="mobile-tab active">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Home</span>
+    </a>
+    <a href="upload.html" class="mobile-tab ">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+        <span>Upload</span>
+    </a>
+    <a href="analytics.html" class="mobile-tab ">
+        <svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Stats</span>
+    </a>
+    <a href="#" id="mobile-logout-tab" class="mobile-tab">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <span>Account</span>
+    </a>
+</nav>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const logoutTab = document.getElementById('mobile-logout-tab');
+        if (logoutTab) {
+            logoutTab.addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.removeItem('playbook_session');
+                window.location.href = 'login.html';
+            });
+        }
+    });
+</script>
+</body>
+</html>

@@ -20,27 +20,113 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         session = await window.PlaybookDB.getSession(sessionId);
-        students = await window.PlaybookDB.getSubmissionsBySession(sessionId);
-
-        if (!session || !students || students.length === 0) {
-            throw new Error("Session or students not found");
-        }
+        if (!session) throw new Error("Session not found");
 
         document.getElementById('session-title').textContent = session.name;
+
+        try {
+            students = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
+        } catch(e) {
+            students = [];
+        }
+
+        if (students.length === 0) {
+            document.getElementById('grading-items-container').innerHTML = '<p style="text-align: center; padding: 2rem;">No grading data found. Ensure submissions exist and have been processed by the AI.</p>';
+            return;
+        }
+
         document.getElementById('total-student-count').textContent = students.length;
 
         loadStudent(currentIndex);
 
     } catch (e) {
         console.error(e);
-        alert("Failed to load session data.");
+        alert("Failed to load session data. The session may have been deleted.");
         return;
+    }
+
+    // View Student Work Logic
+    const viewSubmissionBtn = document.getElementById('view-submission-btn');
+    const submissionModal = document.getElementById('submission-modal');
+    const closeSubmissionModal = document.getElementById('close-submission-modal');
+    const submissionContentArea = document.getElementById('submission-content-area');
+
+    if (viewSubmissionBtn && submissionModal) {
+        viewSubmissionBtn.addEventListener('click', async () => {
+            submissionModal.style.display = 'flex';
+            submissionContentArea.innerHTML = 'Loading student work...';
+
+            const currentStudent = students[currentIndex];
+            if (!currentStudent) {
+                submissionContentArea.innerHTML = 'No student data found.';
+                return;
+            }
+
+            if (currentStudent.pdfStoragePath) {
+                try {
+                    const { data, error } = await window.supabaseClient.storage.from('exams_bucket').createSignedUrl(currentStudent.pdfStoragePath, 3600);
+                    if (error) throw error;
+
+                    submissionContentArea.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <a href="${data.signedUrl}" target="_blank" class="btn btn-sm btn-primary">Open PDF in New Tab</a>
+                        </div>
+                        <iframe src="${data.signedUrl}" width="100%" height="600px" style="border: none; border-radius: 4px;"></iframe>
+                    `;
+                } catch (err) {
+                    console.error("Error loading PDF:", err);
+                    submissionContentArea.innerHTML = `<span style="color: red;">Error: Could not load the PDF document from storage.</span><br><br>The file may have been deleted or there is a permission issue.`;
+                }
+            } else if (currentStudent.textContent) {
+                if (typeof window.marked !== 'undefined') {
+                    const rawHtml = window.marked.parse(currentStudent.textContent);
+                    submissionContentArea.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(rawHtml) : rawHtml;
+                    if (typeof window.renderMathInElement === 'function') {
+                        window.renderMathInElement(submissionContentArea, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false},
+                                {left: '\\(', right: '\\)', display: false},
+                                {left: '\\[', right: '\\]', display: true}
+                            ]
+                        });
+                    }
+                    if (typeof window.hljs !== 'undefined') {
+                        submissionContentArea.querySelectorAll('pre code').forEach((block) => {
+                            window.hljs.highlightElement(block);
+                        });
+                    }
+                } else {
+                    submissionContentArea.textContent = currentStudent.textContent;
+                }
+            } else {
+                submissionContentArea.innerHTML = '<span style="color: var(--text-secondary);">No submitted work (neither text nor PDF) found for this student.</span>';
+            }
+        });
+
+        closeSubmissionModal.addEventListener('click', () => {
+            submissionModal.style.display = 'none';
+        });
     }
 
     prevBtn.addEventListener('click', () => {
         if (currentIndex > 0) {
             currentIndex--;
             loadStudent(currentIndex);
+        }
+    });
+
+    // Speed-Grading Hotkeys
+    document.addEventListener('keydown', (e) => {
+        // Do not trigger if typing inside an input or textarea
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            nextBtn.click();
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            prevBtn.click();
         }
     });
 
@@ -61,12 +147,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         finalizeBtn.disabled = true;
 
         try {
-            session.status = 'completed';
-
-            // Recalculate averages based on any overrides
+            let hasPendingStudents = false;
             let totalScoreSum = 0;
-            let highest = 0;
+            let validStudentsCount = 0;
+
             for(let st of students) {
+                // BUG FIX: Do NOT overwrite 'pending' late students with zero scores!
+                if (st.status === 'pending') {
+                    hasPendingStudents = true;
+                    continue; // Skip them entirely
+                }
+
                 let sTotal = 0;
 
                 // Ensure grading object exists to prevent TypeError
@@ -78,11 +169,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     st.grading.questions.forEach(q => {
                         // Safe parse, handle old db schemas
                         const val = q.score !== undefined ? q.score : q.marks_awarded;
-                        const parsed = parseFloat(val);
+                        let parsed = parseFloat(val);
                         if (!isNaN(parsed)) {
+                            // Enforce strict clamp to max score per question if available
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
+                            const parsedMax = parseFloat(maxVal);
+                            if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
+                                parsed = parsedMax;
+                                q.score = parsed; // Sync object
+                            }
                             sTotal += parsed;
                         }
                     });
+                }
+
+                // Enforce global clamp so score never exceeds maxScore
+                if (sTotal > st.grading.maxScore) {
+                    sTotal = st.grading.maxScore;
                 }
                 st.grading.totalScore = sTotal;
 
@@ -101,11 +204,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await window.PlaybookDB.saveSubmission(backendSubmission);
 
                 totalScoreSum += sTotal;
-                if(sTotal > highest) highest = sTotal;
+                validStudentsCount++;
             }
 
-            session.average_score = Math.round(totalScoreSum / students.length);
-            session.status = 'completed';
+            // Only mark session completed if NO pending students exist
+            // Otherwise, it must stay needs_review to allow dashboard action button logic to work or just stay open.
+            session.average_score = validStudentsCount > 0 ? Math.round(totalScoreSum / validStudentsCount) : 0;
+            session.status = hasPendingStudents ? 'needs_review' : 'completed';
+
             await window.PlaybookDB.saveSession(session);
 
             alert('Scores finalized and saved. Redirecting to Analytics...');
@@ -213,9 +319,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     let newTotal = 0;
                     student.grading.questions.forEach(q => {
                         const val = q.score !== undefined ? q.score : q.marks_awarded;
-                        const parsed = parseFloat(val);
-                        if (!isNaN(parsed)) newTotal += parsed;
+                        let parsed = parseFloat(val);
+                        if (!isNaN(parsed)) {
+                            // Enforce clamp on recalculation
+                            const maxVal = q.max !== undefined ? q.max : (q.max_score !== undefined ? q.max_score : q.max_marks);
+                            const parsedMax = parseFloat(maxVal);
+                            if (!isNaN(parsedMax) && parsedMax > 0 && parsed > parsedMax) {
+                                parsed = parsedMax;
+                                q.score = parsed;
+                            }
+                            newTotal += parsed;
+                        }
                     });
+
+                    if (newTotal > student.grading.maxScore) {
+                        newTotal = student.grading.maxScore;
+                    }
+
                     student.grading.totalScore = newTotal;
                     document.getElementById('total-score-display').textContent = `${newTotal} / ${student.grading.maxScore}`;
 

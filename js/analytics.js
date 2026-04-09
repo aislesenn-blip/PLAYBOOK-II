@@ -3,6 +3,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sessionUser = requireAuth(['professor', 'admin']);
     if (!sessionUser) return;
 
+    // ==========================================
+    // ONBOARDING TOUR (DRIVER.JS)
+    // ==========================================
+    const runAnalyticsTour = () => {
+        if (typeof window.driver === 'undefined') return;
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayOpacity: 0.65,
+            showButtons: ['next', 'previous', 'close'],
+            nextBtnText: 'Next →',
+            prevBtnText: '← Previous',
+            doneBtnText: 'Done',
+            steps: [
+                { popover: { title: 'Exam Analytics', description: 'See exactly how your class performed and where they struggled.', side: "left", align: 'start' } },
+                { element: 'section.grid', popover: { title: '1. Class Overview', description: 'Instantly view the highest, lowest, and average scores for the exam.', side: "bottom", align: 'start' } },
+                { element: '#scoreDistributionChart', popover: { title: '2. The Grade Curve', description: 'See the visual distribution of A, B, C, D, and F grades.', side: "top", align: 'start' } },
+                { element: '.table-container', popover: { title: '3. Question Analysis', description: 'This breaks down exactly which questions caused the most failures. Use this to focus your next review session.', side: "top", align: 'start' } },
+                { element: '#download-csv-btn', popover: { title: '4. Download CSV', description: 'Export the raw scores to Excel to upload to your university grading portal.', side: "bottom", align: 'start' } },
+                { element: '#download-all-feedback-btn', popover: { title: '5. Student Feedback PDFs', description: 'Download a beautifully formatted, individualized PDF for every single student containing their personal AI feedback.', side: "bottom", align: 'start' } },
+                { element: '#publish-grades-btn', popover: { title: '6. Publish Grades', description: 'Click this to release the grades and AI feedback directly to the Student Portal.', side: "bottom", align: 'start' } },
+                { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+            ]
+        });
+
+        driverObj.drive();
+        localStorage.setItem('playbook_analytics_tour_seen', 'true');
+    };
+
+    setTimeout(() => {
+        if (!localStorage.getItem('playbook_analytics_tour_seen')) {
+            runAnalyticsTour();
+        }
+    }, 1000);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            runAnalyticsTour();
+        }
+    });
+
+    const navTourBtn = document.getElementById('nav-tour-btn');
+    if (navTourBtn) {
+        navTourBtn.addEventListener('click', runAnalyticsTour);
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
 
@@ -30,6 +78,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    let sessionData = null;
+    try {
+        sessionData = await window.PlaybookDB.getSession(sessionId);
+    } catch(e) {}
+
+    // Marking Scheme Modal Logic
+    const viewSchemeBtn = document.getElementById('view-scheme-btn');
+    const schemeModal = document.getElementById('scheme-modal');
+    const closeSchemeModal = document.getElementById('close-scheme-modal');
+    if (viewSchemeBtn && schemeModal) {
+        viewSchemeBtn.addEventListener('click', () => {
+            const pre = document.getElementById('scheme-modal-content');
+            pre.textContent = sessionData && sessionData.exam_instructions ? sessionData.exam_instructions : "No marking scheme was saved for this assessment.";
+            schemeModal.style.display = 'flex';
+        });
+        closeSchemeModal.addEventListener('click', () => schemeModal.style.display = 'none');
+    }
+
     // Load custom scale for letter grading (Moved outside try block for scope access by renderTable)
     // Update default colors to use semantic CSS variable names
     let scaleData = [
@@ -51,6 +117,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('analytics-title').textContent = `Analytics: ${session.name}`;
         document.getElementById('stat-total').textContent = students.length;
         document.getElementById('stat-avg').textContent = `${session.average_score || 0}%`;
+
+        // Update Publish Grades button state
+        const publishBtn = document.getElementById('publish-grades-btn');
+        if (publishBtn && session.publish_status === 'published') {
+            publishBtn.textContent = 'Published';
+            publishBtn.disabled = true;
+            publishBtn.style.backgroundColor = 'var(--text-secondary)';
+            publishBtn.style.borderColor = 'var(--text-secondary)';
+            publishBtn.style.cursor = 'not-allowed';
+        }
         document.getElementById('stat-high').textContent = `${session.highest_score || 0}%`; // Note: highest_score might need to be computed or added to schema
 
         // Calculate distribution and question performance
@@ -102,19 +178,98 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         document.getElementById('stat-lowest-q').textContent = lowestQ;
 
-        // Render Chart
-        const chartContainer = document.getElementById('chart-container');
-        let maxCount = Math.max(...Object.values(distribution));
-        if (maxCount === 0) maxCount = 1;
+        // Render Chart using Chart.js
+        const canvas = document.getElementById('scoreDistributionChart');
+        if (canvas && typeof Chart !== 'undefined') {
+            Chart.defaults.font.family = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+            Chart.defaults.color = '#64748b'; // slate-500
+            Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)'; // slate-900
+            Chart.defaults.plugins.tooltip.padding = 12;
+            Chart.defaults.plugins.tooltip.cornerRadius = 8;
+            Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
+            Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
 
-        for (const [label, count] of Object.entries(distribution)) {
-            const height = (count / maxCount) * 100;
-            chartContainer.innerHTML += `
-                <div class="bar" style="height: ${height}%;">
-                    <span class="bar-value">${count}</span>
-                    <span class="bar-label">${label}</span>
-                </div>
-            `;
+            const labels = Object.keys(distribution);
+            const dataValues = Object.values(distribution);
+            const hasData = dataValues.some(val => val > 0);
+
+            if (hasData) {
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Number of Students',
+                            data: dataValues,
+                            backgroundColor: '#3b82f6', // blue-500
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barPercentage: 0.7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }, // Only whole numbers for student count
+                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false }
+                            }
+                        }
+                    }
+                });
+            } else {
+                // Ghost Chart (Zero State)
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: ['A', 'B', 'C', 'D', 'F'],
+                        datasets: [{
+                            label: 'Waiting for Exams',
+                            data: [3, 5, 8, 4, 1], // Fake curve shape
+                            backgroundColor: 'rgba(226, 232, 240, 0.6)', // slate-200 ghost
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barPercentage: 0.7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function() { return 'Awaiting graded exams to populate curve'; }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { display: false, drawBorder: false },
+                                ticks: { display: false }
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false },
+                                ticks: { color: 'rgba(148, 163, 184, 0.8)' }
+                            }
+                        }
+                    }
+                });
+            }
+        } else {
+            const chartContainer = document.getElementById('chart-container');
+            if (chartContainer) {
+                chartContainer.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-align: center; padding: 1rem;">Failed to load chart engine.</div>';
+            }
         }
 
         try {
@@ -166,6 +321,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             a.click();
             document.body.removeChild(a);
         });
+
+        // Publish Grades
+        if (publishBtn) {
+            publishBtn.addEventListener('click', async () => {
+                const confirmPublish = confirm("Are you sure you want to publish these grades? They will become visible to students in the Student Portal.");
+                if (confirmPublish) {
+                    try {
+                        const originalText = publishBtn.textContent;
+                        publishBtn.textContent = 'Publishing...';
+                        publishBtn.disabled = true;
+
+                        await window.PlaybookDB.publishSession(sessionId);
+
+                        window.toast("Grades have been successfully published!");
+                        publishBtn.textContent = 'Published';
+                        publishBtn.style.backgroundColor = 'var(--text-secondary)';
+                        publishBtn.style.borderColor = 'var(--text-secondary)';
+                        publishBtn.style.cursor = 'not-allowed';
+                        // Keep it disabled after publishing
+                    } catch (err) {
+                        console.error("Failed to publish grades", err);
+                        alert("Failed to publish grades. Please try again.");
+                        publishBtn.textContent = 'Publish Grades';
+                        publishBtn.disabled = false;
+                    }
+                }
+            });
+        }
 
         // Download All Feedback
         document.getElementById('download-all-feedback-btn').addEventListener('click', async (e) => {
@@ -342,6 +525,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td><span class="score-badge ${badgeClass}" style="color: ${gradeColor};">${grade}</span></td>
                 <td>
                     <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-sm view-submission-btn" data-studentid="${st.id}" title="View Student's Original Work">View Work</button>
                         <button class="btn btn-secondary btn-sm view-feedback-btn" data-studentid="${st.id}">View Feedback</button>
                         <button class="btn btn-sm download-feedback-btn" data-studentid="${st.id}">Download PDF</button>
                     </div>
@@ -350,6 +534,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             tr.querySelector('.reg-no-cell').textContent = regNo;
             tr.querySelector('.student-name-cell').textContent = st.studentName;
             tbody.appendChild(tr);
+        });
+
+        // Attach event listeners to the newly created view work buttons
+        const viewWorkLinks = tbody.querySelectorAll('.view-submission-btn');
+        viewWorkLinks.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const studentId = e.target.getAttribute('data-studentid');
+                const student = data.find(s => s.id === studentId);
+                if (student) {
+                    viewStudentWork(student);
+                }
+            });
         });
 
         // Attach event listeners to the newly created links
@@ -413,6 +609,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerOverlay.addEventListener('click', (e) => {
         if (e.target === drawerOverlay) closeDrawer();
     });
+
+    const submissionModal = document.getElementById('submission-modal');
+    const closeSubmissionModal = document.getElementById('close-submission-modal');
+    const submissionContentArea = document.getElementById('submission-content-area');
+
+    if (closeSubmissionModal && submissionModal) {
+        closeSubmissionModal.addEventListener('click', () => {
+            submissionModal.style.display = 'none';
+        });
+    }
+
+    async function viewStudentWork(student) {
+        if (!submissionModal || !submissionContentArea) return;
+
+        submissionModal.style.display = 'flex';
+        submissionContentArea.innerHTML = 'Loading student work...';
+
+        if (student.pdfStoragePath) {
+            try {
+                const { data, error } = await window.supabaseClient.storage.from('exams_bucket').createSignedUrl(student.pdfStoragePath, 3600);
+                if (error) throw error;
+
+                submissionContentArea.innerHTML = `
+                    <div style="margin-bottom: 1rem;">
+                        <a href="${data.signedUrl}" target="_blank" class="btn btn-sm btn-primary">Open PDF in New Tab</a>
+                    </div>
+                    <iframe src="${data.signedUrl}" width="100%" height="600px" style="border: none; border-radius: 4px;"></iframe>
+                `;
+            } catch (err) {
+                console.error("Error loading PDF:", err);
+                submissionContentArea.innerHTML = `<span style="color: red;">Error: Could not load the PDF document from storage.</span><br><br>The file may have been deleted or there is a permission issue.`;
+            }
+        } else if (student.textContent) {
+            if (typeof window.marked !== 'undefined') {
+                const rawHtml = window.marked.parse(student.textContent);
+                submissionContentArea.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(rawHtml) : rawHtml;
+                if (typeof window.renderMathInElement === 'function') {
+                    window.renderMathInElement(submissionContentArea, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false},
+                            {left: '\\[', right: '\\]', display: true}
+                        ]
+                    });
+                }
+                if (typeof window.hljs !== 'undefined') {
+                    submissionContentArea.querySelectorAll('pre code').forEach((block) => {
+                        window.hljs.highlightElement(block);
+                    });
+                }
+            } else {
+                submissionContentArea.textContent = student.textContent;
+            }
+        } else {
+            submissionContentArea.innerHTML = '<span style="color: var(--text-secondary);">No submitted work (neither text nor PDF) found for this student.</span>';
+        }
+    }
 
     function viewStudentFeedback(student, session) {
         const drawerContent = document.getElementById('feedback-drawer-content');
