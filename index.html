@@ -74,16 +74,18 @@
     <!-- Performance Pulse -->
     <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; height: 350px;">
         <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem;">Performance Pulse</h3>
-        <div style="flex-grow: 1; position: relative;">
-            <canvas id="performancePulseChart"></canvas>
+        <div style="flex-grow: 1; position: relative;" id="pulse-chart-wrapper">
+            <div class="skeleton-loader" id="pulse-skeleton"></div>
+            <canvas id="performancePulseChart" style="display: none;"></canvas>
         </div>
     </div>
 
     <!-- Grade Spectrum -->
     <div class="card" style="display: flex; flex-direction: column; height: 350px; align-items: center; justify-content: flex-start;">
         <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem; align-self: flex-start; width: 100%;">Grade Spectrum</h3>
-        <div style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; min-height: 0;">
-            <div style="position: relative; width: 100%; max-width: 250px; height: 100%; max-height: 250px;">
+        <div style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; min-height: 0;" id="spectrum-chart-wrapper">
+            <div class="skeleton-loader" id="spectrum-skeleton" style="border-radius: 50%; max-width: 200px; max-height: 200px; width: 100%; height: 100%;"></div>
+            <div style="position: relative; width: 100%; max-width: 250px; height: 100%; max-height: 250px; display: none;" id="spectrum-canvas-container">
                 <canvas id="gradeSpectrumChart"></canvas>
                 <!-- Center Text for Doughnut -->
                 <div id="grade-spectrum-center" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
@@ -97,8 +99,9 @@
     <!-- Class Leaderboard -->
     <div class="card" style="grid-column: span 3; display: flex; flex-direction: column; height: 350px;">
         <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem;">Class Leaderboard</h3>
-        <div style="flex-grow: 1; position: relative;">
-            <canvas id="classLeaderboardChart"></canvas>
+        <div style="flex-grow: 1; position: relative;" id="leaderboard-chart-wrapper">
+            <div class="skeleton-loader" id="leaderboard-skeleton"></div>
+            <canvas id="classLeaderboardChart" style="display: none;"></canvas>
         </div>
     </div>
 </section>
