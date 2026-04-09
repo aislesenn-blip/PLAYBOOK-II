@@ -500,11 +500,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 let statusBadge = '';
                 if (session.status === 'completed') {
-                    statusBadge = `<span class="badge" style="background: var(--success-bg); color: var(--success-text); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Completed</span>`;
+                    statusBadge = `<span style="color: var(--success-text); font-weight: 500;">Completed</span>`;
                 } else if (session.status === 'pending' || session.status === 'processing') {
-                    statusBadge = `<span class="badge" style="background: var(--warning-bg); color: var(--warning-text); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Processing</span>`;
+                    statusBadge = `<span style="color: var(--partial-text); font-weight: 500;">Processing</span>`;
                 } else {
-                    statusBadge = `<span class="badge" style="background: var(--surface-color); color: var(--text-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-color);">${session.status}</span>`;
+                    statusBadge = `<span style="color: var(--text-secondary); font-weight: 500;">${session.status}</span>`;
                 }
 
                 // Add to overall class average if completed
@@ -523,7 +523,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // If ANY submission is pending, the Grade button MUST be shown to allow processing of late students
                 // However, if auto-pilot is enabled, the cloud handles grading, so they should go to Review/Analytics instead.
                 if (session.auto_grade_enabled && (session.status === 'pending' || session.status === 'processing' || hasPendingSubmissions)) {
-                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
+                    actionBtn = `<a href="review.html?session=${session.id}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Review (Auto-Pilot)</a>`;
                 } else if (isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
                     actionBtn = `<a href="grade_digital.html?session_id=${session.id}" class="btn btn-sm" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;">Grade Submissions</a>`;
                 } else if (!isDigital && (session.status === 'pending' || hasPendingSubmissions)) {
