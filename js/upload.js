@@ -417,8 +417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 3. Update Session to Processing
             await window.supabaseClient.from('sessions').update({
-                status: 'processing',
-                pdf_storage_path: storagePath
+                status: 'processing'
             }).eq('id', savedSession.id);
 
             statusEl.textContent = 'Grading Engine Active...';
@@ -458,12 +457,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     // Consider pixels darker than #EBEBEB to be actual ink,
                     // avoiding false positives from scanned paper artifacts or anti-aliasing.
-                    if (r < 235 || g < 235 || b < 235) {
+                    if (r < 200 && g < 200 && b < 200) {
                         nonWhitePixels++;
                     }
                 }
                 const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
-                return inkCoverage < 0.01; // Less than 1% dark pixels in the center means blank
+                return inkCoverage < 0.015; // Less than 1.5% dark pixels in the center means blank
             }
 
             let sessionTotalScore = 0;
