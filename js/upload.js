@@ -16,13 +16,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             showProgress: true,
             animate: true,
             overlayOpacity: 0.65,
+            showButtons: ['next', 'previous', 'close'],
+            nextBtnText: 'Next →',
+            prevBtnText: '← Previous',
+            doneBtnText: 'Done',
             steps: [
                 { popover: { title: 'Upload Scanned Exams', description: 'Easily grade handwritten, paper exams by turning them into digital insights.', side: "left", align: 'start' } },
                 { element: '#course-select', popover: { title: '1. Select Class', description: 'Choose which class took this exam.', side: "bottom", align: 'start' } },
-                { element: '#raw-scheme-container', popover: { title: '2. The Marking Scheme', description: 'Paste the exam rules or upload a PDF. We will automatically format it to ensure 100% fair, unbiased grading.', side: "top", align: 'start' } },
-                { element: '#total-exam-marks', popover: { title: '3. Total Points', description: 'What is the maximum possible score a student can get?', side: "bottom", align: 'start' } },
-                { element: '#exams-zone', popover: { title: '4. Upload Papers', description: 'Select the scanned PDFs or photos of the students\' handwritten work.', side: "top", align: 'start' } },
-                { element: '#start-grading-btn', popover: { title: '5. Start Grading', description: 'Click here to start the automatic grading process. You can review the results when it finishes.', side: "top", align: 'start' } },
+                { element: '#exam-instructions', popover: { title: '2. Optional Exam Rules', description: 'Type rules like "Answer 2 of 3 questions" here. Click the "How to write rules" button to see the exact format.', side: "bottom", align: 'start' } },
+                { element: '#raw-scheme-container', popover: { title: '3. The Marking Scheme', description: 'Paste the exam rules or upload a PDF. We will automatically format it to ensure 100% fair, unbiased grading.', side: "top", align: 'start' } },
+                { element: '#total-exam-marks', popover: { title: '4. Total Points', description: 'What is the maximum possible score a student can get?', side: "bottom", align: 'start' } },
+                { element: '#exams-zone', popover: { title: '5. Upload Papers', description: 'Select the scanned PDFs or photos of the students\' handwritten work.', side: "top", align: 'start' } },
+                { element: '#start-grading-btn', popover: { title: '6. Start Grading', description: 'Click here to start the automatic grading process. You can review the results when it finishes.', side: "top", align: 'start' } },
                 { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
             ]
         });
