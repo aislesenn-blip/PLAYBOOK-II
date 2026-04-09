@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             showProgress: true,
             animate: true,
             overlayOpacity: 0.65,
+            showButtons: ['next', 'previous', 'close'],
+            nextBtnText: 'Next →',
+            prevBtnText: '← Previous',
+            doneBtnText: 'Done',
             steps: [
                 { popover: { title: 'Welcome to Playbook', description: 'The platform that instantly grades your exams and compiles your coursework.', side: "left", align: 'start' } },
                 { element: '#create-class-btn', popover: { title: '1. Create a Class', description: 'Start by setting up a classroom. This generates a unique Join Code for your students.', side: "bottom", align: 'start' } },

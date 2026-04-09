@@ -1294,19 +1294,6 @@ select.form-control option {
     line-height: 1.5 !important;
 }
 
-.driver-popover-footer {
-    margin-top: 1.5rem !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-}
-
-.driver-popover-navigation-btns {
-    display: flex !important;
-    gap: 8px !important;
-    align-items: center !important;
-}
-
 .driver-popover-footer button {
     border-radius: 99px !important; /* Pill shape */
     padding: 0.4rem 1rem !important;
@@ -1315,7 +1302,6 @@ select.form-control option {
     border: none !important;
     transition: all 0.2s ease !important;
     cursor: pointer !important;
-    display: block !important;
 }
 
 .driver-popover-footer .driver-popover-next-btn {

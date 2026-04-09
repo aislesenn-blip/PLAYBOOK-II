@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             showProgress: true,
             animate: true,
             overlayOpacity: 0.65,
+            showButtons: ['next', 'previous', 'close'],
+            nextBtnText: 'Next →',
+            prevBtnText: '← Previous',
+            doneBtnText: 'Done',
             steps: [
                 { element: '#class-join-code', popover: { title: 'The Join Code', description: 'Give this 6-character code to your students so they can join your class portal.', side: "bottom", align: 'start' } },
                 { element: '#create-assignment-btn', popover: { title: 'Create Homework', description: 'Set up digital assignments. Turn on "Instant Grading" to have students graded automatically the moment they finish.', side: "bottom", align: 'start' } },
@@ -764,10 +768,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const scaleInput = document.getElementById('coursework-scale');
         const liveScaleVal = document.getElementById('live-scale-val');
+        const liveScaleValFormula = document.getElementById('live-scale-val-formula');
 
-        if (scaleInput && liveScaleVal) {
+        if (scaleInput && liveScaleVal && liveScaleValFormula) {
             scaleInput.addEventListener('input', (e) => {
-                liveScaleVal.textContent = e.target.value || '0';
+                const val = e.target.value || '0';
+                liveScaleVal.textContent = val;
+                liveScaleValFormula.textContent = val;
+
+                // Dynamically calculate the final result in the explainer box
+                const parsedVal = parseFloat(val);
+                const exampleResult = isNaN(parsedVal) ? 0 : Math.round((85 / 100) * parsedVal);
+                document.getElementById('live-scale-result').textContent = exampleResult;
             });
         }
 
