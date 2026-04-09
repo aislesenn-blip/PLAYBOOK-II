@@ -437,7 +437,7 @@ a:hover {
 }
 .grade-input:focus {
     outline: none;
-    border-color: var(--primary-color);
+    border-color: var(--accent-color);
     background: white;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -1322,7 +1322,7 @@ select.form-control option {
 }
 
 .driver-popover-footer .driver-popover-next-btn {
-    background-color: var(--primary-color) !important;
+    background-color: var(--accent-color) !important;
     color: white !important;
     text-shadow: none !important;
 }
