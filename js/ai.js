@@ -426,9 +426,11 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
                         'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://playbook.edu',
+                        'X-Title': 'Playbook Grading Engine'
                     },
                     body: JSON.stringify({
-                        model: 'google/gemini-2.0-flash-001',
+                        model: 'anthropic/claude-3.7-sonnet',
                         temperature: 0.0,
                         top_p: 0.1,
                         seed: 42,
