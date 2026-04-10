@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                     const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                     const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                    const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                    const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
 
                     if (!questionScores[qId]) {
                         questionScores[qId] = { total: 0, count: 0, title: questionTitle };
@@ -417,7 +417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                             const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                             const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                            const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                            const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                             const justification = q.justification !== undefined ? q.justification : q.analysis;
                             const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
@@ -707,7 +707,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                 const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                 const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                 const justification = q.justification !== undefined ? q.justification : q.analysis;
                 const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
@@ -796,7 +796,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                 const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                 const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                 const justification = q.justification !== undefined ? q.justification : q.analysis;
                 const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
@@ -874,7 +874,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                 const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                 const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                 const justification = q.justification !== undefined ? q.justification : q.analysis;
                 const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 

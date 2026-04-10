@@ -24,6 +24,7 @@ You must analyze the student's exam and segment their answers based on the provi
   "questions": [
     {
       "questionId": "1a",
+      "questionTitle": "A short 3-5 word summary of the question topic (e.g., 'Newton's First Law' or 'Define Hydroponics')",
       "section": "Section name if applicable, else 'General'",
       "max_marks": 5,
       "expected_number_of_items": 4,
@@ -39,21 +40,21 @@ You are the Chief Evaluator for an Examination Board. You are tasked with gradin
 
 *** THE 4 TIERS OF EVALUATION (GRADING CONSTRAINTS) ***
 Tier 1: Strict Binary Logic: If the student's answer does not explicitly contain the exact concept or scientific fact defined in the rubric, give a 0. Do not give the benefit of the doubt. Do not guess.
-Tier 2: Item Counting: Strictly count the number of correct, distinct facts the student provided based on the rubric.
+Tier 2: Fact Extraction: Isolate specific, distinct correct statements the student made that directly match a scoring criterion in the rubric.
 Tier 3: The Fatal Flaw Rule: Fundamental violations of scientific/logical facts mean zero marks for that specific concept.
 Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/structural logic over artistic quality.
 
 *** HARDENED GRADING RULES ***
 1. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
-2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Immediately output a score of 0 with the reasoning 'No answer provided'. Do not attempt to evaluate and do not crash.
+2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Output an empty array for points_awarded. Do not attempt to evaluate and do not crash.
 
 *** STRICT SCORING GUARDRAIL ***
-Do NOT perform arithmetic or calculate the final score. Your ONLY job is to extract ONE simple value from the rubric and the student's answer:
-1. 'total_correct_points_found': The integer count of the exact number of correct facts/items the student provided based on the rubric.
-Let the system handle the final math using strict internal ratios.
-You MUST count the correct points and output the integer. Do NOT output marks in the justification text. Do NOT attempt to output mark values per point.
-If the student's answer is blank, output 'is_entirely_blank': true.
-CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries (e.g., {"justification": "..."}). However, if you need to quote the student's text INSIDE your explanation, you MUST use single quotes ('). Example of correct formatting: {"justification": "The student correctly stated 'beneficial nutrients'."} Do not use unescaped double quotes inside the string value.
+Do NOT perform final score arithmetic. Your ONLY job is to extract an array of specific, awarded points based on the rubric.
+1. 'points_awarded': An array of floats. For EVERY distinct, correct rubric criterion the student successfully met, append the exact point value (mark) assigned to that criterion in the rubric.
+Example: If the rubric awards 0.5 marks for "defined gravity" and 1.5 marks for "showed equation", and the student did both, output: [0.5, 1.5]. If they only defined gravity, output: [0.5].
+Let the external system handle summing the array and clamping it to the max score.
+If the student's answer is blank or completely wrong, output 'is_entirely_blank': true and 'points_awarded': [].
+CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries. Use single quotes (') for quotes inside strings.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
 Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
@@ -62,8 +63,8 @@ Your "constructive_feedback" MUST be short and directly actionable. Use this exa
 You MUST output ONLY valid JSON using the schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
 
 {
-  "justification": "The rubric requires X and the student provided X...",
-  "total_correct_points_found": 3,
+  "justification": "The rubric requires X (worth 0.5 marks) and Y (worth 1.5 marks). The student provided X but missed Y...",
+  "points_awarded": [0.5],
   "is_entirely_blank": false,
   "constructive_feedback": "You correctly identified X. However, you missed Y."
 }
@@ -115,19 +116,26 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             q.marks_awarded = 0;
             q.score = 0;
         } else {
-            // The new deterministic aggregator - math done securely in JS based on AI's point count
+            // The new deterministic aggregator - math done securely in JS based on AI's explicitly awarded points array
             const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 0);
             const maxMarks = Math.max(parseFloat(maxMarksRaw) || 0, 0); // Ensure it's never negative
             q.max_marks = maxMarks;
 
-            let correctPointsFound = parseInt(q.total_correct_points_found, 10) || 0;
+            let aiCalculatedMarks = 0;
 
-            // Prevent division by zero if expected_number_of_items is 0 or undefined
-            const expectedItemsRaw = q.expected_number_of_items !== undefined ? q.expected_number_of_items : maxMarks;
-            const expectedItems = Math.max(parseFloat(expectedItemsRaw) || maxMarks, 1);
-
-            // Proportional Math Calculation handled strictly and deterministically in JavaScript
-            let aiCalculatedMarks = (correctPointsFound / expectedItems) * maxMarks;
+            // Sum up the explicit points the AI awarded
+            if (Array.isArray(q.points_awarded)) {
+                aiCalculatedMarks = q.points_awarded.reduce((sum, point) => {
+                    const val = parseFloat(point);
+                    return sum + (isNaN(val) ? 0 : val);
+                }, 0);
+            } else if (q.total_correct_points_found !== undefined) {
+                // Fallback for older JSON schema during transition
+                let correctPointsFound = parseInt(q.total_correct_points_found, 10) || 0;
+                const expectedItemsRaw = q.expected_number_of_items !== undefined ? q.expected_number_of_items : maxMarks;
+                const expectedItems = Math.max(parseFloat(expectedItemsRaw) || maxMarks, 1);
+                aiCalculatedMarks = (correctPointsFound / expectedItems) * maxMarks;
+            }
 
             // Prevent NaN if math somehow fails
             aiCalculatedMarks = isNaN(aiCalculatedMarks) ? 0 : aiCalculatedMarks;
@@ -441,13 +449,14 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const data = await response.json();
             const parsed = parseLLMJSON(data.choices[0].message.content);
 
-            if (parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
-                throw new Error("Invalid LLM response format: missing total_correct_points_found or is_entirely_blank");
+            if (parsed.points_awarded === undefined && parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
+                throw new Error("Invalid LLM response format: missing points_awarded or is_entirely_blank");
             }
 
             return {
                 ...questionData,
-                total_correct_points_found: parsed.total_correct_points_found !== undefined ? parseInt(parsed.total_correct_points_found, 10) : 0,
+                points_awarded: Array.isArray(parsed.points_awarded) ? parsed.points_awarded : [],
+                total_correct_points_found: parsed.total_correct_points_found !== undefined ? parseInt(parsed.total_correct_points_found, 10) : undefined,
                 is_entirely_blank: parsed.is_entirely_blank || false,
                 justification: parsed.justification || "No justification provided.",
                 constructive_feedback: parsed.constructive_feedback || "Review rubric.",
