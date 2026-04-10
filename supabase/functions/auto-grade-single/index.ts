@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
+import { corsHeaders } from "../_shared/cors.ts"
 
 // --- PROMPTS PORTED FROM js/ai.js ---
 
@@ -330,21 +331,25 @@ function calculateDeterministicScores(extractedData: any, examInstructions: stri
 // --- MAIN EDGE FUNCTION LOGIC ---
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     if (req.method !== 'POST') {
-      return new Response('Method Not Allowed', { status: 405 })
+      return new Response('Method Not Allowed', { headers: corsHeaders, status: 405 })
     }
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return new Response('Unauthorized', { status: 401 })
+      return new Response('Unauthorized', { headers: corsHeaders, status: 401 })
     }
 
     const { submission_id } = await req.json()
     if (!submission_id) {
       return new Response(JSON.stringify({ error: 'Missing submission_id' }), {
         status: 400,
-        headers: { "Content-Type": "application/json" }
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       })
     }
 
@@ -374,21 +379,24 @@ serve(async (req) => {
 
     if (submissionError || !submission) {
       console.error("Submission fetch error:", submissionError)
-      return new Response(JSON.stringify({ error: 'Failed to fetch submission' }), { status: 500 })
+      return new Response(JSON.stringify({ error: 'Failed to fetch submission' }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      })
     }
 
     // Process synchronously for Autopilot robustness
     await processGrading(supabase, submission)
 
     return new Response(JSON.stringify({ success: true, message: 'Processing completed' }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200
     })
 
   } catch (error: any) {
     console.error('Webhook error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500
     })
   }
