@@ -9,10 +9,13 @@ You are the Master Segmenter for an Examination Board. Your job is to extract th
 *** MANDATE ***
 You must analyze the student's exam and segment their answers based on the provided marking scheme. You will return a JSON object with the student's identity and an array of their transcribed answers.
 
+*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
+You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT invent, assume, or inject terms from the marking scheme into the student's answer. If the student did not explicitly write it, you must not extract it.
+
 *** INSTRUCTIONS ***
 1. Identify the student's name and registration number.
 2. For EVERY question listed in the marking scheme, check if the student attempted it.
-3. If they attempted it, transcribe their exact text/math/steps as accurately as possible. For diagrams, describe the diagram's labels and structural logic in text.
+3. If they attempted it, transcribe their exact text/math/steps as accurately as possible exactly as written. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
 5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
 6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
@@ -47,6 +50,7 @@ Tier 4: Diagram Amnesty: Evaluate text descriptions of diagrams based on labels/
 *** HARDENED GRADING RULES ***
 1. ANTI-FABRICATION RULE: NEVER fabricate or hallucinate student errors. If a student's calculation or step perfectly matches the rubric, you MUST award the full marks for that scoring unit. Do not invent missing steps to justify a lower score.
 2. BLANK ANSWER HANDLING: If the student's answer is completely blank or missing, you MUST still output valid JSON containing the step-by-step thinking explaining that the answer is missing. Output an empty array for points_awarded. Do not attempt to evaluate and do not crash.
+3. STRICT FATAL FLAW PENALTY: If a student's core definition or fundamental concept is explicitly wrong (e.g., defining an 'essential nutrient' when asked for a 'beneficial nutrient'), you MUST award 0 points for that entire conceptual block. Do not award partial credit for lucky guesses or examples if the foundational premise is incorrect.
 
 *** STRICT SCORING GUARDRAIL ***
 Do NOT perform final score arithmetic. Your ONLY job is to extract an array of specific, awarded points based on the rubric.
@@ -140,6 +144,9 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             // Prevent NaN if math somehow fails
             aiCalculatedMarks = isNaN(aiCalculatedMarks) ? 0 : aiCalculatedMarks;
 
+            // Fix floating point math anomalies (e.g. 0.1 + 0.2 = 0.30000004)
+            aiCalculatedMarks = Math.round(aiCalculatedMarks * 100) / 100;
+
             // Re-assign back to marks_awarded_by_ai to preserve schema for downstream logic
             q.marks_awarded_by_ai = aiCalculatedMarks;
             
@@ -147,7 +154,7 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
             let finalScore = Math.min(aiCalculatedMarks, maxMarks);
             
             q.score = finalScore;
-            q.marks_awarded = Math.round(finalScore * 100) / 100;
+            q.marks_awarded = finalScore;
         }
     });
 

@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     appeals.forEach(appeal => {
                         const studentName = appeal.student ? appeal.student.full_name : 'Unknown Student';
-                        const examName = appeal.submission && appeal.submission.sessions ? appeal.submission.sessions.exam_name : 'Unknown Exam';
+                        const examName = appeal.submission && appeal.submission.session ? appeal.submission.session.name : 'Unknown Exam';
                         const date = new Date(appeal.created_at).toLocaleDateString();
 
                         const tr = document.createElement('tr');
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         auditAppeals.forEach(appeal => {
                             const studentName = appeal.student ? appeal.student.full_name : 'Unknown Student';
-                            const examName = appeal.submission && appeal.submission.sessions ? appeal.submission.sessions.exam_name : 'Unknown Exam';
+                            const examName = appeal.submission && appeal.submission.session ? appeal.submission.session.name : 'Unknown Exam';
                             const date = new Date(appeal.created_at).toLocaleDateString();
 
                             const tr = document.createElement('tr');
