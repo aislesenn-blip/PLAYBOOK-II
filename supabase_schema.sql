@@ -58,7 +58,10 @@ CREATE TABLE public.appeals (
     student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
     question_id TEXT NOT NULL,
     reason TEXT NOT NULL,
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'rejected', 'approved')),
+    status TEXT DEFAULT 'pending_ai' CHECK (status IN ('pending', 'reviewed', 'rejected', 'approved', 'pending_ai', 'ai_resolved', 'escalated_to_teacher', 'teacher_resolved')),
+    ai_response TEXT,
+    escalation_reason TEXT,
+    previous_score NUMERIC,
     teacher_response TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     resolved_at TIMESTAMP WITH TIME ZONE
