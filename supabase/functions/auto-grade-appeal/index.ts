@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { corsHeaders } from "../_shared/cors.ts"
 
 const APPEAL_SYSTEM_PROMPT = `You are a Senior Academic Examiner handling a Tier-1 student dispute.
 Your objective is to deeply and rigorously re-evaluate a specific question against the marking scheme, considering the student's argument.
@@ -93,14 +94,21 @@ async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent
 }
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     if (req.method !== 'POST') {
-      return new Response('Method Not Allowed', { status: 405 })
+      return new Response('Method Not Allowed', { headers: corsHeaders, status: 405 })
     }
 
     const { appeal_id } = await req.json()
     if (!appeal_id) {
-      return new Response(JSON.stringify({ error: 'Missing appeal_id' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'Missing appeal_id' }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      })
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
@@ -121,7 +129,10 @@ serve(async (req) => {
       .single()
 
     if (appealError || !appeal) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch appeal' }), { status: 500 })
+      return new Response(JSON.stringify({ error: 'Failed to fetch appeal' }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      })
     }
 
     const submission = appeal.exam_submissions;
@@ -190,12 +201,15 @@ serve(async (req) => {
         .eq('id', appeal.id);
 
     return new Response(JSON.stringify({ success: true, message: 'Tier-1 AI Appeal Resolution completed' }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200
     })
 
   } catch (error: any) {
     console.error('Appeal Webhook error:', error)
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    })
   }
 })
