@@ -7,6 +7,11 @@
 <title>Playbook - Analytics</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link href="css/style.css" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+<!-- Highlight.js for Code -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<!-- KaTeX for Math -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <style>
         .chart-container {
             display: flex;
@@ -45,6 +50,32 @@
     </style>
 </head>
 <body>
+<!-- Marking Scheme Modal -->
+<div id="scheme-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div class="card" style="width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; padding: 2rem; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">AI Marking Scheme</h2>
+            <button id="close-scheme-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <div style="flex: 1; overflow-y: auto; background: #f8fafc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <pre id="scheme-modal-content" style="white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; color: var(--text-primary); margin: 0;"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- View Work Modal -->
+<div id="submission-modal" class="overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div class="card" style="width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; padding: 2rem; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">Student's Original Work</h2>
+            <button id="close-submission-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <div id="submission-content-area" style="flex: 1; overflow-y: auto; background: #f8fafc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); font-family: monospace; white-space: pre-wrap;">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+</div>
+
 <div class="app-container">
 <!-- Minimalist Top Navigation -->
 <nav class="top-nav">
@@ -61,13 +92,17 @@
 <ul class="nav-links flex gap-1 items-center">
 <li><a href="index.html">Dashboard</a></li>
 <li><a href="upload.html">Upload Exams</a></li>
-<li><a href="review.html">Review &amp; Override</a></li>
-<li><a class="active" href="analytics.html">Analytics</a></li>
+
+
 <li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
 </div>
 <div class="flex items-center gap-1 nav-actions">
 <a class="nav-icon-link" href="manual.html">User Manual</a>
 <a class="nav-icon-link" href="settings.html">Settings</a>
+<button class="btn btn-sm" id="nav-tour-btn" style="background: var(--surface-color); color: var(--text-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.8rem; padding: 0.3rem 0.75rem; border-radius: 99px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s ease;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #60a5fa;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+    Tour <kbd style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; letter-spacing: 0.5px; border: 1px solid #cbd5e1; color: var(--text-primary);">Ctrl + /</kbd>
+</button>
 <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
 </div>
 </div>
@@ -80,6 +115,7 @@
 <p>Review class performance, score distributions, and export results.</p>
 </div>
 <div class="flex gap-1">
+<button class="btn btn-secondary" id="view-scheme-btn" style="border-color: var(--border-color); background: white;">View Marking Scheme</button>
 <button class="btn btn-secondary" onclick="window.print()">Print Report</button>
 <button class="btn" id="download-csv-btn">Download CSV</button>
 <button class="btn" id="download-all-feedback-btn">Download All Feedback (PDF)</button>
@@ -224,7 +260,14 @@
 <script src="js/app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/db.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
 <script src="js/auth.js"></script>
+<!-- Marked.js, DOMPurify, KaTeX, and Highlight.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" onload="window.renderMathInElement = renderMathInElement;"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="js/analytics.js"></script>
 

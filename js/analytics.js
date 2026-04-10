@@ -3,6 +3,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sessionUser = requireAuth(['professor', 'admin']);
     if (!sessionUser) return;
 
+    // ==========================================
+    // ONBOARDING TOUR (DRIVER.JS)
+    // ==========================================
+    const runAnalyticsTour = () => {
+        if (typeof window.driver === 'undefined') return;
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            animate: true,
+            overlayOpacity: 0.65,
+            showButtons: ['next', 'previous', 'close'],
+            nextBtnText: 'Next →',
+            prevBtnText: '← Previous',
+            doneBtnText: 'Done',
+            steps: [
+                { popover: { title: 'Exam Analytics', description: 'See exactly how your class performed and where they struggled.', side: "left", align: 'start' } },
+                { element: 'section.grid', popover: { title: '1. Class Overview', description: 'Instantly view the highest, lowest, and average scores for the exam.', side: "bottom", align: 'start' } },
+                { element: '#scoreDistributionChart', popover: { title: '2. The Grade Curve', description: 'See the visual distribution of A, B, C, D, and F grades.', side: "top", align: 'start' } },
+                { element: '.table-container', popover: { title: '3. Question Analysis', description: 'This breaks down exactly which questions caused the most failures. Use this to focus your next review session.', side: "top", align: 'start' } },
+                { element: '#download-csv-btn', popover: { title: '4. Download CSV', description: 'Export the raw scores to Excel to upload to your university grading portal.', side: "bottom", align: 'start' } },
+                { element: '#download-all-feedback-btn', popover: { title: '5. Student Feedback PDFs', description: 'Download a beautifully formatted, individualized PDF for every single student containing their personal AI feedback.', side: "bottom", align: 'start' } },
+                { element: '#publish-grades-btn', popover: { title: '6. Publish Grades', description: 'Click this to release the grades and AI feedback directly to the Student Portal.', side: "bottom", align: 'start' } },
+                { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
+            ]
+        });
+
+        driverObj.drive();
+        localStorage.setItem('playbook_analytics_tour_seen', 'true');
+    };
+
+    setTimeout(() => {
+        if (!localStorage.getItem('playbook_analytics_tour_seen')) {
+            runAnalyticsTour();
+        }
+    }, 1000);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            runAnalyticsTour();
+        }
+    });
+
+    const navTourBtn = document.getElementById('nav-tour-btn');
+    if (navTourBtn) {
+        navTourBtn.addEventListener('click', runAnalyticsTour);
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
 
@@ -28,6 +76,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.href = 'index.html';
             return;
         }
+    }
+
+    let sessionData = null;
+    try {
+        sessionData = await window.PlaybookDB.getSession(sessionId);
+    } catch(e) {}
+
+    // Marking Scheme Modal Logic
+    const viewSchemeBtn = document.getElementById('view-scheme-btn');
+    const schemeModal = document.getElementById('scheme-modal');
+    const closeSchemeModal = document.getElementById('close-scheme-modal');
+    if (viewSchemeBtn && schemeModal) {
+        viewSchemeBtn.addEventListener('click', () => {
+            const pre = document.getElementById('scheme-modal-content');
+            pre.textContent = sessionData && sessionData.exam_instructions ? sessionData.exam_instructions : "No marking scheme was saved for this assessment.";
+            schemeModal.style.display = 'flex';
+        });
+        closeSchemeModal.addEventListener('click', () => schemeModal.style.display = 'none');
     }
 
     // Load custom scale for letter grading (Moved outside try block for scope access by renderTable)
@@ -58,6 +124,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             publishBtn.textContent = 'Published';
             publishBtn.disabled = true;
             publishBtn.style.backgroundColor = 'var(--text-secondary)';
+            publishBtn.style.borderColor = 'var(--text-secondary)';
+            publishBtn.style.cursor = 'not-allowed';
         }
         document.getElementById('stat-high').textContent = `${session.highest_score || 0}%`; // Note: highest_score might need to be computed or added to schema
 
@@ -83,7 +151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                     const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                     const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                    const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                    const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
 
                     if (!questionScores[qId]) {
                         questionScores[qId] = { total: 0, count: 0, title: questionTitle };
@@ -123,38 +191,80 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const labels = Object.keys(distribution);
             const dataValues = Object.values(distribution);
+            const hasData = dataValues.some(val => val > 0);
 
-            new Chart(canvas, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Number of Students',
-                        data: dataValues,
-                        backgroundColor: '#3b82f6', // blue-500
-                        borderRadius: 8,
-                        borderSkipped: false,
-                        barPercentage: 0.7
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
+            if (hasData) {
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Number of Students',
+                            data: dataValues,
+                            backgroundColor: '#3b82f6', // blue-500
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barPercentage: 0.7
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { precision: 0 }, // Only whole numbers for student count
-                            grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
                         },
-                        x: {
-                            grid: { display: false, drawBorder: false }
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }, // Only whole numbers for student count
+                                grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false }
+                            }
                         }
                     }
-                }
-            });
+                });
+            } else {
+                // Ghost Chart (Zero State)
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: ['A', 'B', 'C', 'D', 'F'],
+                        datasets: [{
+                            label: 'Waiting for Exams',
+                            data: [3, 5, 8, 4, 1], // Fake curve shape
+                            backgroundColor: 'rgba(226, 232, 240, 0.6)', // slate-200 ghost
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barPercentage: 0.7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function() { return 'Awaiting graded exams to populate curve'; }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { display: false, drawBorder: false },
+                                ticks: { display: false }
+                            },
+                            x: {
+                                grid: { display: false, drawBorder: false },
+                                ticks: { color: 'rgba(148, 163, 184, 0.8)' }
+                            }
+                        }
+                    }
+                });
+            }
         } else {
             const chartContainer = document.getElementById('chart-container');
             if (chartContainer) {
@@ -224,8 +334,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         await window.PlaybookDB.publishSession(sessionId);
 
-                        alert("Grades have been successfully published!");
+                        window.toast("Grades have been successfully published!");
                         publishBtn.textContent = 'Published';
+                        publishBtn.style.backgroundColor = 'var(--text-secondary)';
+                        publishBtn.style.borderColor = 'var(--text-secondary)';
+                        publishBtn.style.cursor = 'not-allowed';
                         // Keep it disabled after publishing
                     } catch (err) {
                         console.error("Failed to publish grades", err);
@@ -304,7 +417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                             const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                             const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                            const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                            const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                             const justification = q.justification !== undefined ? q.justification : q.analysis;
                             const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
@@ -529,7 +642,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 submissionContentArea.innerHTML = `<span style="color: red;">Error: Could not load the PDF document from storage.</span><br><br>The file may have been deleted or there is a permission issue.`;
             }
         } else if (student.textContent) {
-            submissionContentArea.textContent = student.textContent;
+            if (typeof window.marked !== 'undefined') {
+                const rawHtml = window.marked.parse(student.textContent);
+                submissionContentArea.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(rawHtml) : rawHtml;
+                if (typeof window.renderMathInElement === 'function') {
+                    window.renderMathInElement(submissionContentArea, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false},
+                            {left: '\\[', right: '\\]', display: true}
+                        ]
+                    });
+                }
+                if (typeof window.hljs !== 'undefined') {
+                    submissionContentArea.querySelectorAll('pre code').forEach((block) => {
+                        window.hljs.highlightElement(block);
+                    });
+                }
+            } else {
+                submissionContentArea.textContent = student.textContent;
+            }
         } else {
             submissionContentArea.innerHTML = '<span style="color: var(--text-secondary);">No submitted work (neither text nor PDF) found for this student.</span>';
         }
@@ -574,7 +707,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                 const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                 const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                 const justification = q.justification !== undefined ? q.justification : q.analysis;
                 const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
@@ -663,7 +796,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                 const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                 const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                 const justification = q.justification !== undefined ? q.justification : q.analysis;
                 const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
@@ -741,7 +874,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const qId = q.qId !== undefined ? q.qId : q.questionId !== undefined ? q.questionId : q.questionNumber;
                 const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
                 const maxMarks = q.max !== undefined ? q.max : q.max_marks !== undefined ? q.max_marks : q.maxScore;
-                const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+                const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
                 const justification = q.justification !== undefined ? q.justification : q.analysis;
                 const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided.";
 
