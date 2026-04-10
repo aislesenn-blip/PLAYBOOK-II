@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -39,14 +40,8 @@ Output ONLY valid JSON. Keep keys extremely short to save tokens. No markdown fo
 `;
 
 serve(async (req) => {
-  // CORS Headers
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      }
-    });
+    return new Response('ok', { headers: corsHeaders, status: 200 })
   }
 
   let session_id_from_req: string | null = null;
@@ -233,7 +228,7 @@ serve(async (req) => {
     if (updateError) throw updateError;
 
     return new Response(JSON.stringify({ success: true, message: "Grading complete" }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
@@ -251,7 +246,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
