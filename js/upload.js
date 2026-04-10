@@ -6,66 +6,6 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-    // ==========================================
-    // ONBOARDING TOUR (DRIVER.JS)
-    // ==========================================
-    const runUploadTour = () => {
-        if (typeof window.driver === 'undefined') return;
-
-        const driverObj = window.driver.js.driver({
-            showProgress: true,
-            animate: true,
-            overlayOpacity: 0.65,
-            showButtons: ['next', 'previous', 'close'],
-            nextBtnText: 'Next →',
-            prevBtnText: '← Previous',
-            doneBtnText: 'Done',
-            steps: [
-                { popover: { title: 'Upload Scanned Exams', description: 'Easily grade handwritten, paper exams by turning them into digital insights.', side: "left", align: 'start' } },
-                { element: '#course-select', popover: { title: '1. Select Class', description: 'Choose which class took this exam.', side: "bottom", align: 'start' } },
-                { element: '#exam-instructions', popover: { title: '2. Optional Exam Rules', description: 'Type rules like "Answer 2 of 3 questions" here. Click the "How to write rules" button to see the exact format.', side: "bottom", align: 'start' } },
-                { element: '#raw-scheme-container', popover: { title: '3. The Marking Scheme', description: 'Paste the exam rules or upload a PDF. We will automatically format it to ensure 100% fair, unbiased grading.', side: "top", align: 'start' } },
-                { element: '#total-exam-marks', popover: { title: '4. Total Points', description: 'What is the maximum possible score a student can get?', side: "bottom", align: 'start' } },
-                { element: '#exams-zone', popover: { title: '5. Upload Papers', description: 'Select the scanned PDFs or photos of the students\' handwritten work.', side: "top", align: 'start' } },
-                { element: '#start-grading-btn', popover: { title: '6. Start Grading', description: 'Click here to start the automatic grading process. You can review the results when it finishes.', side: "top", align: 'start' } },
-                { popover: { title: 'You are ready', description: 'Press <kbd style="font-family: monospace; background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">Ctrl + /</kbd> anytime to replay this tour.', side: "left", align: 'start' } }
-            ]
-        });
-
-        driverObj.drive();
-        localStorage.setItem('playbook_upload_tour_seen', 'true');
-    };
-
-    setTimeout(() => {
-        if (!localStorage.getItem('playbook_upload_tour_seen')) {
-            runUploadTour();
-        }
-    }, 1000);
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-            e.preventDefault();
-            runUploadTour();
-        }
-    });
-
-    const navTourBtn = document.getElementById('nav-tour-btn');
-    if (navTourBtn) {
-        navTourBtn.addEventListener('click', runUploadTour);
-    }
-
-    // Rules Cheat Sheet Modal
-    const rulesModal = document.getElementById('rules-cheat-sheet-modal');
-    const openRulesBtn = document.getElementById('open-rules-cheat-sheet');
-    const closeRulesBtn = document.getElementById('close-rules-cheat-sheet');
-    const gotItBtn = document.getElementById('got-it-rules-btn');
-
-    if (rulesModal && openRulesBtn) {
-        openRulesBtn.addEventListener('click', () => rulesModal.style.display = 'flex');
-        closeRulesBtn.addEventListener('click', () => rulesModal.style.display = 'none');
-        gotItBtn.addEventListener('click', () => rulesModal.style.display = 'none');
-    }
-
     const overlay = document.getElementById('loading-overlay');
     const statusEl = document.getElementById('loading-status');
     const detailEl = document.getElementById('loading-detail');
@@ -193,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Finished all chunks
-        statusEl.textContent = 'Wrapping up...';
+        statusEl.textContent = 'Finalizing Results...';
         detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
 
         const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
@@ -206,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.PlaybookQueue.deleteMeta(sessionId);
 
         statusEl.textContent = 'Grading Complete!';
-        detailEl.textContent = 'Taking you to the Review screen to check the results...';
+        detailEl.textContent = 'Exams are ready for Human-in-the-Loop review. Redirecting...';
 
         setTimeout(() => {
             window.location.href = `review.html?session=${sessionId}`;
@@ -438,13 +378,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Strict file type validation before processing
-        const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-        if (!validTypes.includes(examsFile.type)) {
-            alert(`Invalid file type selected: ${examsFile.name}. Only PDF and images are supported.`);
-            return;
-        }
-
 
         overlay.classList.add('active');
 
@@ -590,11 +523,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Step B: Save chunks to IndexedDB Queue
             statusEl.textContent = 'Building Queue...';
             detailEl.textContent = `Saving ${studentChunks.length} students to local storage to prevent data loss...`;
-
-            // IMPORTANT: Save the AI-formatted marking scheme to the session row so the teacher can view it later
-            await window.supabaseClient.from('sessions').update({
-                exam_instructions: markingSchemeText
-            }).eq('id', savedSession.id);
 
             const meta = {
                 sessionId: savedSession.id,
