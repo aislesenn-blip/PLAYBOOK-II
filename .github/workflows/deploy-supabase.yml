@@ -4,8 +4,11 @@ on:
   push:
     branches:
       - main # Change this if your main branch is called something else (e.g., 'master')
+      - master
     paths:
       - 'supabase/functions/**' # Only run when code in the functions folder changes
+      - '.github/workflows/deploy-supabase.yml' # Also run when this workflow file changes
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
 
 jobs:
   deploy:
