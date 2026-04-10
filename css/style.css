@@ -390,6 +390,81 @@ a:hover {
     border-bottom: none;
 }
 
+/* Gradebook Table Specific */
+.data-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.data-table th, .data-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    z-index: 10;
+}
+
+.data-table td.sticky-col, .data-table th.sticky-col {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 11;
+    border-right: 2px solid var(--border-color);
+}
+.data-table th.sticky-col {
+    background: #f8fafc;
+    z-index: 12;
+}
+
+.grade-input {
+    width: 60px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    text-align: center;
+    background: #f8fafc;
+    transition: all 0.2s ease;
+}
+.grade-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.grade-input.dirty {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #166534;
+    font-weight: bold;
+}
+
+/* Loading Skeletons */
+@keyframes shimmer {
+    0% { background-position: -468px 0; }
+    100% { background-position: 468px 0; }
+}
+
+.skeleton-loader {
+    animation: shimmer 1.5s infinite linear;
+    background: #f6f7f8;
+    background-image: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);
+    background-repeat: no-repeat;
+    background-size: 800px 100%;
+    border-radius: var(--radius-sm);
+    height: 100%;
+    width: 100%;
+}
+
 /* Utilities */
 .text-center { text-align: center; }
 .mt-1 { margin-top: var(--spacing-sm); }
@@ -975,8 +1050,7 @@ a:hover {
         overflow-x: hidden !important;
         width: 100vw !important;
         max-width: 100vw !important;
-        /* Prevent elastic bouncing on iOS */
-        overscroll-behavior-y: none;
+        /* Removed overscroll-behavior-y: none to allow natural vertical scrolling */
         -webkit-overflow-scrolling: touch;
         /* Disable text size adjustment that causes zoom */
         -webkit-text-size-adjust: 100%;
@@ -984,7 +1058,8 @@ a:hover {
 
     /* 2. Layout Resets */
     .app-container {
-        padding-bottom: 80px; /* Space for the bottom tab bar */
+        /* Increased padding to guarantee bottom UI elements aren't swallowed by fixed nav */
+        padding-bottom: 120px !important;
     }
 
     .main-content {
@@ -1006,7 +1081,9 @@ a:hover {
         left: 0;
         width: 100%;
         height: 84px; /* Taller, premium feel */
-        background-color: var(--surface-color);
+        background-color: rgba(255, 255, 255, 0.85); /* Translucent */
+        backdrop-filter: blur(12px); /* Apple-style blur */
+        -webkit-backdrop-filter: blur(12px);
         border-top: 1px solid rgba(0,0,0,0.04);
         justify-content: space-around;
         align-items: center;
@@ -1076,9 +1153,12 @@ a:hover {
         padding: 0.5rem 0 !important;
         border: none !important;
         display: flex;
+        flex-wrap: wrap; /* CRITICAL: allow content to wrap if it doesn't fit horizontally */
         justify-content: space-between;
         align-items: center;
         font-size: 0.95rem;
+        white-space: normal !important; /* allow text to wrap */
+        word-wrap: break-word;
     }
 
     /* Fix empty state table rows from squishing */
@@ -1098,11 +1178,17 @@ a:hover {
         margin-right: 1rem;
     }
 
-    /* 6. Massive Touch Targets */
+    /* 6. Massive Touch Targets & Forms */
     .btn, button, input[type="text"], input[type="number"], .form-control {
         min-height: 56px !important; /* Premium minimum touch target */
+        height: auto; /* allow growth for textareas */
         font-size: 1.05rem !important;
         font-weight: 600 !important;
+    }
+
+    textarea.form-control {
+        min-height: 120px !important; /* text areas need more space */
+        white-space: pre-wrap !important; /* Ensure wrapping */
     }
 
     .form-control {
@@ -1120,6 +1206,9 @@ a:hover {
         margin-bottom: 0.5rem;
         border-radius: 9999px !important; /* Fully pill shaped */
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important; /* subtle elevation */
+        white-space: normal !important; /* Allow long button text to wrap */
+        height: auto !important; /* Let wrapped buttons expand vertically */
+        padding: 0.75rem 1rem !important;
     }
 
     /* Prevent inline buttons from squishing */
@@ -1210,4 +1299,66 @@ select.form-control option {
     background-color: var(--surface-color);
     color: var(--text-primary);
     padding: 12px;
+}
+
+/* Driver.js Apple Aesthetic Overrides */
+.driver-popover {
+    border-radius: 16px !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid var(--border-color) !important;
+    padding: 20px !important;
+    font-family: inherit !important;
+}
+
+.driver-popover-title {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.driver-popover-description {
+    font-size: 0.95rem !important;
+    color: var(--text-secondary) !important;
+    line-height: 1.5 !important;
+}
+
+.driver-popover-footer button {
+    border-radius: 99px !important; /* Pill shape */
+    padding: 0.4rem 1rem !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    border: none !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+}
+
+.driver-popover-footer .driver-popover-next-btn {
+    background-color: var(--accent-color) !important;
+    color: white !important;
+    text-shadow: none !important;
+}
+.driver-popover-footer .driver-popover-next-btn:hover {
+    background-color: var(--primary-hover) !important;
+}
+
+.driver-popover-footer .driver-popover-prev-btn {
+    background-color: #f1f5f9 !important;
+    color: var(--text-secondary) !important;
+    text-shadow: none !important;
+}
+.driver-popover-footer .driver-popover-prev-btn:hover {
+    background-color: #e2e8f0 !important;
+}
+
+.driver-popover-progress-text {
+    font-size: 0.8rem !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+}
+
+.driver-popover-close-btn {
+    color: var(--text-secondary) !important;
+    top: 10px !important;
+    right: 10px !important;
 }
