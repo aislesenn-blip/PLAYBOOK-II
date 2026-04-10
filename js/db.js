@@ -113,34 +113,18 @@ const PlaybookDB = {
 
     // 2.5 COURSES
     async getCourses() {
-        const cacheKey = 'playbook_cache_courses';
-        const cached = sessionStorage.getItem(cacheKey);
-
         // Fetch definitively based on auth token instead of localstorage since RLS depends on auth.uid()
         const { data: authData, error: authErr } = await supabaseClient.auth.getUser();
         if (authErr || !authData?.user?.id) return [];
         const userId = authData.user.id;
 
-        // Start background fetch to update cache silently
-        const fetchPromise = supabaseClient
+        const { data, error } = await supabaseClient
             .from('courses')
             .select('*')
             .eq('professor_id', userId)
-            .order('created_at', { ascending: false })
-            .then(({ data, error }) => {
-                if (!error && data) {
-                    sessionStorage.setItem(cacheKey, JSON.stringify(data));
-                }
-                return data;
-            });
-
-        // Return instant cache if available, otherwise await the network call
-        if (cached) {
-            return JSON.parse(cached);
-        } else {
-            const data = await fetchPromise;
-            return data || [];
-        }
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
     },
 
     async getCourseMaterials(courseId) {
@@ -160,8 +144,6 @@ const PlaybookDB = {
             .select()
             .single();
         if (error) throw error;
-        // Invalidate course cache so new classes appear instantly
-        sessionStorage.removeItem('playbook_cache_courses');
         return data;
     },
 
@@ -172,38 +154,18 @@ const PlaybookDB = {
             .select()
             .single();
         if (error) throw error;
-        // Invalidate sessions cache
-        sessionStorage.removeItem('playbook_cache_sessions');
         return data;
     },
 
 
     // 3. SESSIONS (EXAMS)
     async getSessions() {
-        const cacheKey = 'playbook_cache_sessions';
-        const cached = sessionStorage.getItem(cacheKey);
-
-        const fetchPromise = supabaseClient
+        const { data, error } = await supabaseClient
             .from('sessions')
             .select('*')
-            .order('created_at', { ascending: false })
-            .then(({ data, error }) => {
-                if (!error && data) {
-                    sessionStorage.setItem(cacheKey, JSON.stringify(data));
-                }
-                return data;
-            });
-
-        if (cached) {
-            // Because sessions update frequently (grading status),
-            // returning cache provides instant UI, but we should force a quick re-render or let background update handle next load.
-            // For true real-time without sockets, returning cache makes navigation instant.
-            return JSON.parse(cached);
-        } else {
-            const data = await fetchPromise;
-            if (!data) throw new Error("Failed to load sessions");
-            return data;
-        }
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
     },
 
     async getSession(id) {
@@ -269,67 +231,7 @@ const PlaybookDB = {
         return data;
     },
 
-    // 5. APPEALS (Dispute Resolution)
-    // Fetches Tier-2 appeals that require human intervention
-    async getPendingAppealsForProfessor(professorId) {
-        const { data, error } = await supabaseClient
-            .from('appeals')
-            .select(`
-                id, reason, created_at, status, question_id, ai_response, escalation_reason,
-                student:student_id ( full_name, registration_number ),
-                submission:submission_id (
-                    id, session_id, text_content, pdf_storage_path, total_score, max_score,
-                    session:session_id ( course_id, name, course:course_id ( name ) )
-                )
-            `)
-            .in('status', ['escalated_to_teacher', 'pending']); // Include legacy 'pending' just in case
-
-        if (error) {
-            console.error("Error fetching escalated appeals:", error);
-            throw error;
-        }
-        return data || [];
-    },
-
-    // Fetches Tier-1 appeals successfully resolved by the AI for the audit log
-    async getAIResolvedAppealsForProfessor(professorId) {
-        const { data, error } = await supabaseClient
-            .from('appeals')
-            .select(`
-                id, reason, created_at, status, question_id, ai_response,
-                student:student_id ( full_name, registration_number ),
-                submission:submission_id (
-                    id, session_id, text_content, pdf_storage_path, total_score, max_score,
-                    session:session_id ( course_id, name, course:course_id ( name ) )
-                )
-            `)
-            .eq('status', 'ai_resolved')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error("Error fetching AI resolved appeals:", error);
-            throw error;
-        }
-        return data || [];
-    },
-
-    async resolveAppeal(appealId, newStatus, teacherResponse) {
-        const { data, error } = await supabaseClient
-            .from('appeals')
-            .update({
-                status: newStatus,
-                teacher_response: teacherResponse,
-                resolved_at: new Date().toISOString()
-            })
-            .eq('id', appealId)
-            .select()
-            .single();
-
-        if (error) throw error;
-        return data;
-    },
-
-    // 6. SETTINGS (using localStorage temporarily for user specific non-relational settings like scale)
+    // 5. SETTINGS (using localStorage temporarily for user specific non-relational settings like scale)
     async getSetting(key) {
         const val = localStorage.getItem(`playbook_setting_${key}`);
         return val ? JSON.parse(val) : null;

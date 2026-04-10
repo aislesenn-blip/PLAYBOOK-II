@@ -37,8 +37,8 @@
 <ul class="nav-links flex gap-1 items-center">
 <li><a href="index.html">Dashboard</a></li>
 <li><a href="upload.html">Upload Exams</a></li>
-
-
+<li><a href="review.html">Review &amp; Override</a></li>
+<li><a href="analytics.html">Analytics</a></li>
 <li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
 </div>
 <div class="flex items-center gap-1 nav-actions">
@@ -59,23 +59,14 @@
 <h2 class="mb-1">Custom Grading Scale</h2>
 <p class="mb-2">Define the letter grades corresponding to score percentages. This scale will be used in all Analytics reports.</p>
 <form id="grading-scale-form">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-    <p class="text-secondary" style="font-size: 0.9rem; margin: 0;">Set the percentage ranges for your university's grading scale. Changes save automatically.</p>
-    <span id="saved-indicator" style="opacity: 0; color: #10b981; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 4px; transition: opacity 0.3s ease;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        Saved
-    </span>
-</div>
-
 <div id="scale-container">
 <!-- Populated by JS -->
 </div>
 <div class="mt-2 flex gap-1">
-<button class="btn btn-secondary" id="add-row-btn" type="button" style="display: flex; align-items: center; gap: 6px;">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-    Add Row
-</button>
+<button class="btn btn-secondary" id="add-row-btn" type="button">+ Add Row</button>
+<button class="btn" type="submit">Save Scale</button>
 </div>
+<p id="scale-status" style="display:none; color: var(--success-color); margin-top: var(--spacing-sm); font-weight: 500;">Scale saved successfully!</p>
 </form>
 </section>
 <section class="card mt-2">

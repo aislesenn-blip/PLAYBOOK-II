@@ -33,11 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
 
         const instName = document.getElementById('inst-name').value.trim();
-        let instDomain = document.getElementById('inst-domain').value.trim().toLowerCase();
-
-        // Clean up domain if admin accidentally pasted a URL or used @
-        instDomain = instDomain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/^@/, '').split('/')[0];
-
+        const instDomain = document.getElementById('inst-domain').value.trim();
         const adminName = document.getElementById('admin-name').value.trim();
         const adminEmail = document.getElementById('admin-email').value.trim();
         const adminPassword = document.getElementById('admin-password').value;
@@ -93,28 +89,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Extract domain
         const domainMatch = profEmail.match(/@(.+)$/);
-        let emailDomain = domainMatch ? domainMatch[1].toLowerCase() : null;
+        const emailDomain = domainMatch ? domainMatch[1] : null;
 
         if (!emailDomain) {
             alert("Invalid email address format.");
             return;
         }
 
-        // Clean up any extraneous characters (e.g. if they somehow put spaces)
-        emailDomain = emailDomain.trim().replace(/^www\./, '');
-
         try {
             // A. Check if Institution Exists for this Domain
-            // ILIKE is used just in case the db has mixed case domains from older inserts
             const { data: instData, error: instFetchError } = await window.supabaseClient
                 .from('institutions')
                 .select('id')
-                .ilike('domain', emailDomain)
+                .eq('domain', emailDomain)
                 .single();
 
             if (instFetchError || !instData) {
-                console.warn("Domain fetch error: ", instFetchError);
-                alert(`No registered institution found for domain '@${emailDomain}'. Ask your IT admin to register your university first, or ensure you are using your official university email.`);
+                alert(`No registered institution found for domain '@${emailDomain}'. Ask your IT admin to register your university first.`);
                 return;
             }
 
