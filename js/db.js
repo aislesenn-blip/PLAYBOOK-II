@@ -279,7 +279,7 @@ const PlaybookDB = {
                 student:student_id ( full_name, registration_number ),
                 submission:submission_id (
                     id, session_id, text_content, pdf_storage_path, total_score, max_score,
-                    sessions:session_id ( course_id, exam_name, courses:course_id ( name ) )
+                    session:session_id ( course_id, name, course:course_id ( name ) )
                 )
             `)
             .in('status', ['escalated_to_teacher', 'pending']); // Include legacy 'pending' just in case
@@ -300,7 +300,7 @@ const PlaybookDB = {
                 student:student_id ( full_name, registration_number ),
                 submission:submission_id (
                     id, session_id, text_content, pdf_storage_path, total_score, max_score,
-                    sessions:session_id ( course_id, exam_name, courses:course_id ( name ) )
+                    session:session_id ( course_id, name, course:course_id ( name ) )
                 )
             `)
             .eq('status', 'ai_resolved')

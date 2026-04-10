@@ -41,7 +41,7 @@ Output ONLY valid JSON. Keep keys extremely short to save tokens. No markdown fo
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders, status: 200 })
   }
 
   let session_id_from_req: string | null = null;
