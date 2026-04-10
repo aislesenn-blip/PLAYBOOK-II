@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const marksAwarded = q.score !== undefined ? q.score : q.marks_awarded;
             const maxMarks = q.max !== undefined ? q.max : q.max_marks;
             const questionId = q.qId !== undefined ? q.qId : q.questionId;
-            const questionTitle = q.title !== undefined ? q.title : q.questionTitle;
+            const questionTitle = q.title !== undefined ? q.title : (q.questionTitle !== undefined ? q.questionTitle : 'Analysis');
             const justification = q.justification || q.analysis || "No step-by-step thinking provided.";
             const constructiveFeedback = q.feedback !== undefined ? q.feedback : q.constructive_feedback || "No actionable feedback provided by Playbook.";
             const answerStatus = q.status !== undefined ? q.status : q.answer_status || "Answered"; // Default to Answered for legacy data
