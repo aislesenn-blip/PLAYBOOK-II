@@ -200,6 +200,10 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
 
             if (!response.ok) {
                 const errorText = await response.text();
+                if (response.status === 402) {
+                    alert("Payment Required (402). Your OpenRouter account has insufficient credits for the requested model.");
+                    throw new Error("Payment Required (402). Credits depleted.");
+                }
                 throw new Error(`API error: ${response.status} ${errorText}`);
             }
 
@@ -207,6 +211,16 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
             return data.choices[0].message.content;
 
         } catch (error) {
+            // Fatal errors that should not be infinitely retried
+            if (error.message.includes('402')) {
+                const formatBtn = document.getElementById('optimize-scheme-btn');
+                if (formatBtn) {
+                    formatBtn.textContent = 'Auto-Format Scheme';
+                    formatBtn.disabled = false;
+                }
+                throw error;
+            }
+
             attempt++;
             console.warn(`UE Engine attempt ${attempt} failed for ${title}:`, error.message);
 
