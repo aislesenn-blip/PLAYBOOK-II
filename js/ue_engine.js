@@ -5,7 +5,7 @@
 // API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
-const VISION_MODEL = "llama-3.2-90b-vision-preview"; // Extracts images fast & cheap
+const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"; // Extracts images fast & cheap
 const LOGIC_MODEL = "llama-3.3-70b-versatile"; //
 
 const UE_PASS1_SYSTEM_PROMPT = `
