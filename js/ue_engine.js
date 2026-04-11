@@ -9,35 +9,34 @@ const VISION_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"; // Extra
 const LOGIC_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"; // DeepSeek V3: Ultra-cheap, ultra-smart logic
 
 const UE_PASS1_SYSTEM_PROMPT = `
-You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
+You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from a SINGLE page of their exam.
 
 *** MANDATE ***
-You must analyze the student's exam and segment their answers based on the provided marking scheme. You will return a JSON object with the student's identity and an array of their transcribed answers.
+You must analyze this single page and extract ONLY the answers visible on this specific image. Do not invent answers. Do not cross-contaminate.
 
 *** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
-You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT invent, assume, or inject terms from the marking scheme into the student's answer. If the student did not explicitly write it, you must not extract it.
+You MUST act as a literal transcriber. Quote the student's exact phrases exactly as written on this page. DO NOT invent, assume, or inject terms from the marking scheme. If the student did not explicitly write it ON THIS SPECIFIC PAGE, you must not extract it.
 
 *** INSTRUCTIONS ***
-1. Identify the student's name and registration number.
-2. For EVERY question listed in the marking scheme, check if the student attempted it.
-3. If they attempted it, transcribe their exact text/math/steps as accurately as possible exactly as written. For diagrams, describe the diagram's labels and structural logic in text.
-4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
-6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+1. Check if the student's name and registration number are visible ON THIS PAGE. If not, output "Unknown".
+2. Look at the provided marking scheme. Which of these questions are answered ON THIS SPECIFIC PAGE?
+3. For the questions answered ON THIS PAGE, transcribe their exact text/math/steps. For diagrams, describe the labels and structural logic in text.
+4. ONLY output questions that have answers visibly written on this page. If a question from the rubric is not answered on this page, DO NOT include it in the JSON array.
+5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'.
+6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. Start your response with {
 
 *** SCHEMA ***
 {
   "studentName": "Extracted Name or 'Unknown'",
   "registrationNumber": "Extracted ID or 'Unknown'",
-  "questions": [
+  "questions_found_on_this_page": [
     {
       "questionId": "1a",
       "questionTitle": "A short summary",
       "section": "Section A",
       "max_marks": 5,
       "expected_number_of_items": 4,
-      "answer_status": "Answered | Skipped",
-      "student_answer_transcription": "The student wrote: '...'"
+      "student_answer_transcription": "The exact text written by the student on this page: '...'"
     }
   ]
 }
@@ -259,52 +258,81 @@ async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
     const apiKey = await getSecureKey();
 
-    // PASS 1: MAP
-    let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
-    const userContent = [];
+    // PASS 1: MAP (Image-Level Chunking)
+    const semaphorePass1 = new UESemaphore(5); // Keep at 5 to protect Free Tier limits
+
+    let combinedMap = {
+        studentName: "Unknown",
+        registrationNumber: "Unknown",
+        questions: []
+    };
+
+    let questionMap = new Map(); // Use Map to stitch multi-page answers
 
     if (Array.isArray(base64PDF)) {
-        promptText += `Here are the scanned pages of this single student's exam:`;
-        userContent.push({ type: "text", text: promptText });
-        base64PDF.forEach(imageUrl => userContent.push({ type: "image_url", image_url: { url: imageUrl } }));
+        const pagePromises = base64PDF.map(async (imageUrl, idx) => {
+            await semaphorePass1.acquire();
+            try {
+                let userContent = [
+                    { type: "text", text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is Page ${idx + 1} of this single student's exam:` },
+                    { type: "image_url", image_url: { url: imageUrl } }
+                ];
+
+                const mapDataStr = await callOpenRouter(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
+                const parsedMap = parseLLMJSON(mapDataStr);
+
+                return parsedMap;
+            } finally {
+                semaphorePass1.release();
+            }
+        });
+
+        const pagesData = await Promise.all(pagePromises);
+
+        // Stitch the data together
+        pagesData.forEach(page => {
+            if (page.studentName && page.studentName !== "Unknown") {
+                combinedMap.studentName = page.studentName;
+            }
+            if (page.registrationNumber && page.registrationNumber !== "Unknown") {
+                combinedMap.registrationNumber = page.registrationNumber;
+            }
+
+            if (page.questions_found_on_this_page && Array.isArray(page.questions_found_on_this_page)) {
+                page.questions_found_on_this_page.forEach(q => {
+                    if (questionMap.has(q.questionId)) {
+                        // Stitch multi-page answers together
+                        const existing = questionMap.get(q.questionId);
+                        existing.student_answer_transcription += "\n [Continued on next page]: " + q.student_answer_transcription;
+                        questionMap.set(q.questionId, existing);
+                    } else {
+                        q.answer_status = "Answered"; // It was found, so it's answered
+                        questionMap.set(q.questionId, q);
+                    }
+                });
+            }
+        });
     }
 
-    const mapDataStr = await callOpenRouter(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, "UE Pass 1: Segmenter", VISION_MODEL);
-    let parsedMap = parseLLMJSON(mapDataStr);
-
-    if (parsedMap.students && Array.isArray(parsedMap.students)) {
-        parsedMap = parsedMap.students[0];
-    }
-    const questions = parsedMap.questions || [];
+    combinedMap.questions = Array.from(questionMap.values());
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphore = new UESemaphore(5); // Ultra-fast parallel rating
+    const semaphorePass2 = new UESemaphore(5); // Keep at 5 to protect Free Tier limits
 
-    const gradingPromises = questions.map(async (q) => {
-        if (q.answer_status === "Skipped") {
-            return {
-                ...q,
-                is_entirely_blank: true,
-                marks_awarded_by_ai: 0,
-                justification: "No answer provided",
-                constructive_feedback: "No answer provided",
-                audit_status: "Approved"
-            };
-        }
-
-        await semaphore.acquire();
+    const gradingPromises = combinedMap.questions.map(async (q) => {
+        await semaphorePass2.acquire();
         try {
             return await gradeSingleQuestionUE(apiKey, q, markingSchemeText);
         } finally {
-            semaphore.release();
+            semaphorePass2.release();
         }
     });
 
     const gradedQuestions = await Promise.all(gradingPromises);
-    parsedMap.questions = gradedQuestions;
+    combinedMap.questions = gradedQuestions;
 
     // MATH
-    const finalData = calculateDeterministicScores(parsedMap, examInstructions, maxScoreParam);
+    const finalData = calculateDeterministicScores(combinedMap, examInstructions, maxScoreParam);
     return [finalData];
 }
 
