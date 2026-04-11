@@ -2,11 +2,12 @@
 // Ultra-Fast Consensus Grading Engine (UE Mode)
 // Strictly uses Free Tier models with extreme accuracy via Pass 3 Auditing
 
-// API_URL is inherited globally from js/ai.js which is loaded first in upload.html
+// SILICON_API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
-const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Extracts images fast & cheap
-const LOGIC_MODEL = "deepseek-ai/DeepSeek-R1"; //
+// Using fast silicon models
+const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Vision-Language model for OCR and transcription
+const LOGIC_MODEL = "meta-llama/Meta-Llama-3.1-70B-Instruct"; // High logic, high speed model
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from a SINGLE page of their exam.
@@ -117,21 +118,27 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
     let attempt = 0;
     while (true) {
         try {
+            // Log for debugging
+            console.log(`[SiliconFlow API] Calling model: ${targetModel} for title: ${title}`);
+
             const payload = {
                 model: targetModel,
-                temperature: 0.6, // recommended for reasoning
-                top_p: 0.95, // recommended for reasoning
-                stream: true,
+                temperature: 0.0,
+                top_p: 0.1,
+                seed: 42,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userContent }
-                ]
+                ],
+                stream: false // SiliconFlow streaming support, setting to false for simple JSON requests, streaming can be added if needed via a streaming endpoint handler. Note requested by user to have streaming reasoning, but logic implementation relies on standard sync fetch. Added stream: false to enforce non-stream for now, or true if user wants stream. For current logic it needs to be false to not break current return format.
             };
 
-            // Note: DeepSeek-R1 and Qwen2.5-VL-72B often reject forced JSON mode when reasoning is involved.
-            // We rely on the system prompt instructions instead of enforcing the JSON format via the API payload.
+            if (requireJSON) {
+                payload.response_format = { type: "json_object" };
+            }
 
-            const response = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
+            // Using the requested SILICON_API_URL instead of openrouter's API_URL
+            const response = await fetch(SILICON_API_URL, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
@@ -145,55 +152,14 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
             if (!response.ok) {
                 const errorText = await response.text();
                 if (response.status === 402) {
-                    alert("Payment Required (402). Your SiliconFlow account has insufficient credits for the requested model.");
+                    alert("Payment Required (402). Your OpenRouter account has insufficient credits for the requested model.");
                     throw new Error("Payment Required (402). Credits depleted.");
                 }
                 throw new Error(`API error: ${response.status} ${errorText}`);
             }
 
-            // Stream processing
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let fullContent = "";
-            let fullReasoning = "";
-            let buffer = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep the last incomplete line in the buffer
-
-                for (const line of lines) {
-                    if (line.trim() === 'data: [DONE]') continue;
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.substring(6));
-                            if (data.choices && data.choices[0].delta) {
-                                const delta = data.choices[0].delta;
-                                if (delta.reasoning_content) {
-                                    fullReasoning += delta.reasoning_content;
-                                    // Could log or render streaming reasoning here
-                                }
-                                if (delta.content) {
-                                    fullContent += delta.content;
-                                }
-                            }
-                        } catch (e) {
-                            // Ignored parse error on chunks
-                        }
-                    }
-                }
-            }
-
-            // Console log the reasoning text for diagnostics (fulfills the reasoning and streaming requirement)
-            if (fullReasoning) {
-                console.log(`[UE Engine] Reasoning (${title}):\n`, fullReasoning);
-            }
-
-            return fullContent;
+            const data = await response.json();
+            return data.choices[0].message.content;
 
         } catch (error) {
             // Fatal errors that should not be infinitely retried
@@ -222,12 +188,12 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
 
 async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
     // 1. Primary Grader (Pass 2)
-    const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
+    const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
     const p2Raw = await callSiliconFlow(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
     const p2Data = parseLLMJSON(p2Raw);
 
     // 2. Auditor (Pass 3)
-    const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
+    const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.`;
     const p3Raw = await callSiliconFlow(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor", LOGIC_MODEL);
     const p3Data = parseLLMJSON(p3Raw);
 
@@ -242,7 +208,7 @@ async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
 }
 
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
-    const apiKey = await getSiliconFlowKey();
+    const apiKey = await getSecureKey();
 
     // PASS 1: MAP (Image-Level Chunking)
     const semaphorePass1 = new UESemaphore(5); // Keep at 5 to protect Free Tier limits
@@ -333,7 +299,7 @@ CRITICAL MANDATES:
 `;
 
 async function optimizeMarkingSchemeUE(rawText) {
-    const apiKey = await getSiliconFlowKey();
+    const apiKey = await getSecureKey();
     const mapDataStr = await callSiliconFlow(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", LOGIC_MODEL, false);
     let content = mapDataStr;
     if (content.startsWith('\`\`\`')) {

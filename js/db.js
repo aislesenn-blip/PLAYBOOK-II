@@ -82,14 +82,11 @@ const PlaybookDB = {
         return data;
     },
 
-    async saveInstitutionSecret(institutionId, apiKey, sfApiKey) {
-        let payload = { institution_id: institutionId };
-        if (apiKey !== undefined) payload.openrouter_api_key = apiKey;
-        if (sfApiKey !== undefined) payload.siliconflow_api_key = sfApiKey;
-
+    async saveInstitutionSecret(institutionId, apiKey) {
+        // Now saving as siliconflow_api_key since we transitioned
         const { error } = await supabaseClient
             .from('institution_secrets')
-            .upsert(payload);
+            .upsert({ institution_id: institutionId, siliconflow_api_key: apiKey });
         if (error) throw error;
     },
 
