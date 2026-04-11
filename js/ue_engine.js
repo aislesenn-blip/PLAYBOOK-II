@@ -172,8 +172,8 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
     let attempt = 0;
     while (true) {
         try {
-            const payload = {
-                model: targetModel,
+                        const payload = {
+                model: window.playbook_ue_fallback_active ? 'openai' : targetModel,
                 temperature: 0.0,
                 top_p: 0.1,
                 seed: 42,
@@ -187,22 +187,35 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
                 payload.response_format = { type: "json_object" };
             }
 
-            const response = await fetch(API_URL, {
+                        let activeApiUrl = API_URL;
+            let activeHeaders = {
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://playbook.edu',
+                'X-Title': title
+            };
+
+            // If we are strictly running in UE mode and the OpenRouter key has 0 credits,
+            // we will seamlessly fallback to Pollinations' free, unlimited OpenAI-compatible endpoint
+            if (window.playbook_ue_fallback_active) {
+                activeApiUrl = 'https://text.pollinations.ai/openai';
+                // Pollinations doesn't need an Auth header, but accepts standard openai formatting
+            } else {
+                activeHeaders['Authorization'] = `Bearer ${apiKey}`;
+            }
+
+            const response = await fetch(activeApiUrl, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://playbook.edu',
-                    'X-Title': title
-                },
+                headers: activeHeaders,
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
                 if (response.status === 402) {
-                    alert("Payment Required (402). Your OpenRouter account has insufficient credits for the requested model.");
-                    throw new Error("Payment Required (402). Credits depleted.");
+                    // Turn on fallback permanently for this session so we don't spam 402s
+                    window.playbook_ue_fallback_active = true;
+                    console.warn("OpenRouter 402 detected! Seamlessly falling back to free Pollinations API for UE Mode.");
+                    throw new Error("402_FALLBACK_TRIGGERED"); // Caught below to retry
                 }
                 throw new Error(`API error: ${response.status} ${errorText}`);
             }
@@ -210,15 +223,20 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
             const data = await response.json();
             return data.choices[0].message.content;
 
-        } catch (error) {
+                } catch (error) {
             // Fatal errors that should not be infinitely retried
-            if (error.message.includes('402')) {
+            if (error.message.includes('402') && !window.playbook_ue_fallback_active) {
                 const formatBtn = document.getElementById('optimize-scheme-btn');
                 if (formatBtn) {
                     formatBtn.textContent = 'Auto-Format Scheme';
                     formatBtn.disabled = false;
                 }
                 throw error;
+            }
+
+            if (error.message === "402_FALLBACK_TRIGGERED") {
+                // Instantly retry on the free network without delay
+                continue;
             }
 
             attempt++;
