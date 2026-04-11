@@ -1,0 +1,303 @@
+// js/ue_engine.js
+// Ultra-Fast Consensus Grading Engine (UE Mode)
+// Strictly uses Free Tier models with extreme accuracy via Pass 3 Auditing
+
+const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL_NAME = "google/gemini-2.0-flash-lite-preview-02-05:free";
+
+const UE_PASS1_SYSTEM_PROMPT = `
+You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
+
+*** MANDATE ***
+You must analyze the student's exam and segment their answers based on the provided marking scheme. You will return a JSON object with the student's identity and an array of their transcribed answers.
+
+*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
+You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT invent, assume, or inject terms from the marking scheme into the student's answer. If the student did not explicitly write it, you must not extract it.
+
+*** INSTRUCTIONS ***
+1. Identify the student's name and registration number.
+2. For EVERY question listed in the marking scheme, check if the student attempted it.
+3. If they attempted it, transcribe their exact text/math/steps as accurately as possible exactly as written. For diagrams, describe the diagram's labels and structural logic in text.
+4. If they skipped the question, set 'answer_status' to 'Skipped'.
+5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
+6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+
+*** SCHEMA ***
+{
+  "studentName": "Extracted Name or 'Unknown'",
+  "registrationNumber": "Extracted ID or 'Unknown'",
+  "questions": [
+    {
+      "questionId": "1a",
+      "questionTitle": "A short summary",
+      "section": "Section A",
+      "max_marks": 5,
+      "expected_number_of_items": 4,
+      "answer_status": "Answered | Skipped",
+      "student_answer_transcription": "The student wrote: '...'"
+    }
+  ]
+}
+`;
+
+const UE_PASS2_SYSTEM_PROMPT = `
+You are the Primary Evaluator for an Examination Board. Grade exactly ONE question for ONE student.
+
+*** STRICT SCORING GUARDRAIL ***
+Do NOT perform final score arithmetic. Your ONLY job is to extract an array of specific, awarded points based on the rubric.
+1. 'points_awarded': An array of floats. For EVERY distinct, correct rubric criterion the student successfully met, append the exact point value.
+2. If the student's answer is missing or completely wrong, output 'is_entirely_blank': true and 'points_awarded': [].
+
+*** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
+Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
+
+*** SCHEMA ***
+{
+  "justification": "The rubric requires X and Y. The student provided X but missed Y...",
+  "points_awarded": [0.5],
+  "is_entirely_blank": false,
+  "constructive_feedback": "You correctly identified X. However, you missed Y."
+}
+`;
+
+const UE_PASS3_AUDITOR_PROMPT = `
+You are the Chief Auditor for an Examination Board. Your job is to review the Primary Evaluator's grading decision for ONE question.
+
+*** MANDATE ***
+Read the Marking Scheme. Read the Student's Answer. Read the Primary Evaluator's "points_awarded", "justification", and "constructive_feedback".
+Did the Primary Evaluator make a mistake? Did they miss partial credit? Did they penalize something unfairly?
+
+If the Primary Evaluator was correct, you must output "audit_status": "Approved" and pass through their data exactly.
+If the Primary Evaluator was wrong, you must output "audit_status": "Overridden", output your corrected "points_awarded", and rewrite the "justification" explaining exactly what the primary evaluator missed.
+
+*** SCHEMA ***
+{
+  "audit_status": "Approved | Overridden",
+  "justification": "(Auditor Override: [Your explanation]) OR (the original justification)",
+  "points_awarded": [0.5, 1.0],
+  "is_entirely_blank": false,
+  "constructive_feedback": "..."
+}
+`;
+
+// Helper: Dumb Aggregator (Reduce Phase)
+function calculateDeterministicScores(extractedData, examInstructions, maxScoreParam = 100) {
+    if (!extractedData || !extractedData.questions) return extractedData;
+
+    extractedData.questions.forEach(q => {
+        if (q.answer_status === "Skipped" || q.is_entirely_blank) {
+            q.marks_awarded = 0;
+            q.score = 0;
+        } else {
+            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 0);
+            const maxMarks = Math.max(parseFloat(maxMarksRaw) || 0, 0);
+            q.max_marks = maxMarks;
+
+            let aiCalculatedMarks = 0;
+            if (Array.isArray(q.points_awarded)) {
+                aiCalculatedMarks = q.points_awarded.reduce((sum, point) => sum + (parseFloat(point) || 0), 0);
+            }
+            aiCalculatedMarks = isNaN(aiCalculatedMarks) ? 0 : aiCalculatedMarks;
+            aiCalculatedMarks = Math.round(aiCalculatedMarks * 100) / 100;
+
+            let finalScore = Math.min(aiCalculatedMarks, maxMarks);
+            q.marks_awarded_by_ai = aiCalculatedMarks;
+            q.score = finalScore;
+            q.marks_awarded = finalScore;
+        }
+    });
+
+    let totalScore = 0;
+    extractedData.questions.forEach(q => {
+        totalScore += (q.marks_awarded || 0);
+    });
+
+    extractedData.totalScore = totalScore;
+    extractedData.maxScore = maxScoreParam;
+
+    return extractedData;
+}
+
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
+class UESemaphore {
+    constructor(maxConcurrent) {
+        this.maxConcurrent = maxConcurrent;
+        this.currentConcurrent = 0;
+        this.queue = [];
+    }
+
+    async acquire() {
+        if (this.currentConcurrent < this.maxConcurrent) {
+            this.currentConcurrent++;
+            return Promise.resolve();
+        }
+        return new Promise(resolve => {
+            this.queue.push(resolve);
+        });
+    }
+
+    release() {
+        this.currentConcurrent--;
+        if (this.queue.length > 0) {
+            this.currentConcurrent++;
+            const resolve = this.queue.shift();
+            resolve();
+        }
+    }
+}
+
+async function getSecureKey() {
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (!session) throw new Error("No active session.");
+
+        const userProfile = await window.PlaybookDB.getUserById(session.user.id);
+        const instId = userProfile ? userProfile.institution_id : session.institution_id;
+        if (!instId) throw new Error("Institution ID not found.");
+
+        const secret = await window.PlaybookDB.getInstitutionSecret(instId);
+        if (!secret || !secret.openrouter_api_key) throw new Error("No OpenRouter API key found");
+        return secret.openrouter_api_key;
+    } catch (e) {
+        const mockEnv = localStorage.getItem('playbook_mock_api_key');
+        if (mockEnv) return mockEnv;
+        throw new Error(`Authorization failed: ${e.message}`);
+    }
+}
+
+async function callOpenRouter(apiKey, systemPrompt, userContent, title) {
+    let attempt = 0;
+    while (true) {
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://playbook.edu',
+                    'X-Title': title
+                },
+                body: JSON.stringify({
+                    model: MODEL_NAME,
+                    temperature: 0.0,
+                    top_p: 0.1,
+                    seed: 42,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userContent }
+                    ],
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API error: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content;
+
+        } catch (error) {
+            attempt++;
+            console.warn(`UE Engine attempt ${attempt} failed for ${title}:`, error.message);
+
+            // Infinite retries for guaranteed free-tier grading
+            let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            if (backoffTime > 30000) backoffTime = 30000;
+
+            await delay(backoffTime);
+        }
+    }
+}
+
+function parseLLMJSON(content) {
+    if (!content || content.trim() === '') return { is_entirely_blank: true };
+    try {
+        let clean = content.replace(/^```json\s*/gi, '').replace(/^```\s*/gi, '').replace(/```\s*$/gi, '');
+        let startIndex = clean.indexOf('{');
+        let endIndex = clean.lastIndexOf('}');
+        if (startIndex !== -1 && endIndex !== -1) {
+            clean = clean.substring(startIndex, endIndex + 1);
+        }
+        return JSON.parse(clean);
+    } catch (e) {
+        return { is_entirely_blank: true, justification: "JSON Parse Error in Free Model" };
+    }
+}
+
+async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
+    // 1. Primary Grader (Pass 2)
+    const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
+    const p2Raw = await callOpenRouter(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader");
+    const p2Data = parseLLMJSON(p2Raw);
+
+    // 2. Auditor (Pass 3)
+    const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.`;
+    const p3Raw = await callOpenRouter(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor");
+    const p3Data = parseLLMJSON(p3Raw);
+
+    return {
+        ...questionData,
+        points_awarded: Array.isArray(p3Data.points_awarded) ? p3Data.points_awarded : [],
+        is_entirely_blank: p3Data.is_entirely_blank || false,
+        justification: p3Data.justification || p2Data.justification || "No justification provided.",
+        constructive_feedback: p3Data.constructive_feedback || p2Data.constructive_feedback || "Review rubric.",
+        audit_status: p3Data.audit_status || "Approved"
+    };
+}
+
+async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
+    const apiKey = await getSecureKey();
+
+    // PASS 1: MAP
+    let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
+    const userContent = [];
+
+    if (Array.isArray(base64PDF)) {
+        promptText += `Here are the scanned pages of this single student's exam:`;
+        userContent.push({ type: "text", text: promptText });
+        base64PDF.forEach(imageUrl => userContent.push({ type: "image_url", image_url: { url: imageUrl } }));
+    }
+
+    const mapDataStr = await callOpenRouter(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, "UE Pass 1: Segmenter");
+    let parsedMap = parseLLMJSON(mapDataStr);
+
+    if (parsedMap.students && Array.isArray(parsedMap.students)) {
+        parsedMap = parsedMap.students[0];
+    }
+    const questions = parsedMap.questions || [];
+
+    // PASS 2 & 3: REDUCE AND AUDIT
+    const semaphore = new UESemaphore(5); // Ultra-fast parallel rating
+
+    const gradingPromises = questions.map(async (q) => {
+        if (q.answer_status === "Skipped") {
+            return {
+                ...q,
+                is_entirely_blank: true,
+                marks_awarded_by_ai: 0,
+                justification: "No answer provided",
+                constructive_feedback: "No answer provided",
+                audit_status: "Approved"
+            };
+        }
+
+        await semaphore.acquire();
+        try {
+            return await gradeSingleQuestionUE(apiKey, q, markingSchemeText);
+        } finally {
+            semaphore.release();
+        }
+    });
+
+    const gradedQuestions = await Promise.all(gradingPromises);
+    parsedMap.questions = gradedQuestions;
+
+    // MATH
+    const finalData = calculateDeterministicScores(parsedMap, examInstructions, maxScoreParam);
+    return [finalData];
+}
+
+window.UE_Engine = { gradeBatchExams };

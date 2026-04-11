@@ -140,7 +140,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const examInstructions = meta.examInstructions || "";
                 const explicitMaxMarks = meta.explicitMaxMarks || 100;
-                let gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText, examInstructions, explicitMaxMarks);
+                let gradedStudents;
+
+                if (meta.isUeMode && window.UE_Engine) {
+                    gradedStudents = await window.UE_Engine.gradeBatchExams(nextChunk.images, markingSchemeText, examInstructions, explicitMaxMarks);
+                } else {
+                    gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText, examInstructions, explicitMaxMarks);
+                }
 
                 for (let i = 0; i < gradedStudents.length; i++) {
                     const student = gradedStudents[i];
@@ -419,6 +425,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const explicitMaxMarks = totalExamMarksInput ? parseFloat(totalExamMarksInput.value) || 100 : 100;
         const examsFile = examsFileInput.files[0];
         const examInstructions = document.getElementById('exam-instructions').value.trim();
+        const ueModeToggle = document.getElementById('ue-mode-toggle');
+        const isUeMode = ueModeToggle ? ueModeToggle.checked : false;
 
         // Decide which scheme text to use
         let markingSchemeText = optimizedTextarea.value.trim();
@@ -460,7 +468,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 marking_scheme: markingSchemeText,
                 exam_instructions: examInstructions,
                 status: 'pending',
-                total_students: 0 // Will update once backend splits PDF
+                total_students: 0, // Will update once backend splits PDF
+                is_ue_mode: isUeMode
             };
 
             const savedSession = await window.PlaybookDB.saveSession(newSession);
@@ -602,7 +611,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 markingSchemeText: markingSchemeText,
                 examInstructions: examInstructions,
                 explicitMaxMarks: explicitMaxMarks,
-                storagePath: storagePath
+                storagePath: storagePath,
+                isUeMode: isUeMode
             };
             await window.PlaybookQueue.saveMeta(meta);
 
