@@ -6,7 +6,7 @@
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
 const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Extracts images fast & cheap
-const LOGIC_MODEL = "deepseek-ai/DeepSeek-R1"; //
+const LOGIC_MODEL = "meta-llama/Meta-Llama-3.1-70B-Instruct"; //
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from a SINGLE page of their exam.
@@ -119,9 +119,9 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
         try {
             const payload = {
                 model: targetModel,
-                temperature: 0.6, // recommended for reasoning
-                top_p: 0.95, // recommended for reasoning
-                stream: true,
+                temperature: 0.0,
+                top_p: 0.1,
+                stream: false,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userContent }
@@ -151,49 +151,8 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
                 throw new Error(`API error: ${response.status} ${errorText}`);
             }
 
-            // Stream processing
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let fullContent = "";
-            let fullReasoning = "";
-            let buffer = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep the last incomplete line in the buffer
-
-                for (const line of lines) {
-                    if (line.trim() === 'data: [DONE]') continue;
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.substring(6));
-                            if (data.choices && data.choices[0].delta) {
-                                const delta = data.choices[0].delta;
-                                if (delta.reasoning_content) {
-                                    fullReasoning += delta.reasoning_content;
-                                    // Could log or render streaming reasoning here
-                                }
-                                if (delta.content) {
-                                    fullContent += delta.content;
-                                }
-                            }
-                        } catch (e) {
-                            // Ignored parse error on chunks
-                        }
-                    }
-                }
-            }
-
-            // Console log the reasoning text for diagnostics (fulfills the reasoning and streaming requirement)
-            if (fullReasoning) {
-                console.log(`[UE Engine] Reasoning (${title}):\n`, fullReasoning);
-            }
-
-            return fullContent;
+            const responseData = await response.json();
+            return responseData.choices[0].message.content;
 
         } catch (error) {
             // Fatal errors that should not be infinitely retried
