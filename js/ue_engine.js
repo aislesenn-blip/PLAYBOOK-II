@@ -170,6 +170,12 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
 
             // Infinite retries for guaranteed free-tier grading
             let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+
+            // TPM Limit explicitly requires a longer cooling off period
+            if (error.message.includes('429')) {
+                backoffTime = 15000 + Math.floor(Math.random() * 5000);
+            }
+
             if (backoffTime > 30000) backoffTime = 30000;
 
             await delay(backoffTime);
@@ -225,7 +231,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     const apiKey = await getSiliconFlowKey();
 
     // PASS 1: MAP (Image-Level Chunking)
-    const semaphorePass1 = new UESemaphore(50); // Burst parallel processing enabled
+    const semaphorePass1 = new UESemaphore(10); // Balanced to prevent TPM limits
 
     let combinedMap = {
         studentName: "Unknown",
@@ -296,7 +302,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     combinedMap.questions = Array.from(questionMap.values());
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphorePass2 = new UESemaphore(50); // Burst parallel processing enabled
+    const semaphorePass2 = new UESemaphore(15); // Balanced to prevent TPM limits
 
     const gradingPromises = combinedMap.questions.map(async (q) => {
         await semaphorePass2.acquire();
