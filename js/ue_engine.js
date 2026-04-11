@@ -3,7 +3,10 @@
 // Strictly uses Free Tier models with extreme accuracy via Pass 3 Auditing
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL_NAME = "google/gemini-2.0-flash-lite-preview-02-05";
+
+// Hybrid Enterprise "Cheap & Fast" Model Routing
+const VISION_MODEL = "google/gemini-2.0-flash-lite-preview-02-05"; // Extracts images fast & cheap
+const LOGIC_MODEL = "deepseek/deepseek-chat"; // DeepSeek V3: Ultra-cheap, ultra-smart logic
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
@@ -166,12 +169,12 @@ async function getSecureKey() {
     }
 }
 
-async function callOpenRouter(apiKey, systemPrompt, userContent, title, requireJSON = true) {
+async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetModel, requireJSON = true) {
     let attempt = 0;
     while (true) {
         try {
             const payload = {
-                model: MODEL_NAME,
+                model: targetModel,
                 temperature: 0.0,
                 top_p: 0.1,
                 seed: 42,
@@ -235,12 +238,12 @@ function parseLLMJSON(content) {
 async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
     // 1. Primary Grader (Pass 2)
     const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
-    const p2Raw = await callOpenRouter(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader");
+    const p2Raw = await callOpenRouter(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
     const p2Data = parseLLMJSON(p2Raw);
 
     // 2. Auditor (Pass 3)
     const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.`;
-    const p3Raw = await callOpenRouter(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor");
+    const p3Raw = await callOpenRouter(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor", LOGIC_MODEL);
     const p3Data = parseLLMJSON(p3Raw);
 
     return {
@@ -266,7 +269,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
         base64PDF.forEach(imageUrl => userContent.push({ type: "image_url", image_url: { url: imageUrl } }));
     }
 
-    const mapDataStr = await callOpenRouter(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, "UE Pass 1: Segmenter");
+    const mapDataStr = await callOpenRouter(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, "UE Pass 1: Segmenter", VISION_MODEL);
     let parsedMap = parseLLMJSON(mapDataStr);
 
     if (parsedMap.students && Array.isArray(parsedMap.students)) {
@@ -275,7 +278,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     const questions = parsedMap.questions || [];
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphore = new UESemaphore(30); // Ultra-fast massive parallel rating
+    const semaphore = new UESemaphore(30); // DeepSeek is highly concurrent and cheap
 
     const gradingPromises = questions.map(async (q) => {
         if (q.answer_status === "Skipped") {
@@ -317,7 +320,7 @@ CRITICAL MANDATES:
 
 async function optimizeMarkingSchemeUE(rawText) {
     const apiKey = await getSecureKey();
-    const mapDataStr = await callOpenRouter(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", false);
+    const mapDataStr = await callOpenRouter(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", LOGIC_MODEL, false);
     let content = mapDataStr;
     if (content.startsWith('\`\`\`')) {
         content = content.replace(/^\`\`\`[^\n]*\n|\n\`\`\`$/g, '');
