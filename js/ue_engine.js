@@ -3,7 +3,7 @@
 // Strictly uses Free Tier models with extreme accuracy via Pass 3 Auditing
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL_NAME = "google/gemini-2.0-flash-lite-preview-02-05";
+const MODEL_NAME = "google/gemini-2.0-flash-lite-preview-02-05:free";
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
@@ -275,7 +275,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     const questions = parsedMap.questions || [];
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphore = new UESemaphore(30); // Ultra-fast massive parallel rating
+    const semaphore = new UESemaphore(5); // Ultra-fast parallel rating
 
     const gradingPromises = questions.map(async (q) => {
         if (q.answer_status === "Skipped") {
