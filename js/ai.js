@@ -235,6 +235,29 @@ async function getSecureKey() {
     }
 }
 
+async function getGoogleKey() {
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (!session) throw new Error("No active session.");
+
+        const userProfile = await window.PlaybookDB.getUserById(session.user.id);
+        const instId = userProfile ? userProfile.institution_id : session.institution_id;
+        if (!instId) throw new Error("Institution ID not found.");
+
+        const secret = await window.PlaybookDB.getInstitutionSecret(instId);
+
+        if (!secret || !secret.google_api_key) {
+            throw new Error("No Google AI Studio key found in the secure vault. Ask an Admin to configure it.");
+        }
+        return secret.google_api_key;
+    } catch (e) {
+        const mockEnv = localStorage.getItem('playbook_google_mock_api_key');
+        if (mockEnv) return mockEnv;
+
+        throw new Error(`Authorization failed: ${e.message}`);
+    }
+}
+
 // Helper function for exponential backoff delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
