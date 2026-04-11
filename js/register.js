@@ -1,3 +1,16 @@
+function sanitizeDomain(domain) {
+    if (!domain) return '';
+    let cleaned = domain.trim().toLowerCase();
+    let previous = '';
+    while (cleaned !== previous) {
+        previous = cleaned;
+        cleaned = cleaned.replace(/^https?:\/\//, '');
+        cleaned = cleaned.replace(/^www\./, '');
+        cleaned = cleaned.replace(/^@/, '');
+    }
+    return cleaned.split('/')[0];
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // Tab switching logic
@@ -33,10 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
 
         const instName = document.getElementById('inst-name').value.trim();
-        let instDomain = document.getElementById('inst-domain').value.trim().toLowerCase();
+        let instDomain = document.getElementById('inst-domain').value;
 
         // Clean up domain if admin accidentally pasted a URL or used @
-        instDomain = instDomain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/^@/, '').split('/')[0];
+        instDomain = sanitizeDomain(instDomain);
 
         const adminName = document.getElementById('admin-name').value.trim();
         const adminEmail = document.getElementById('admin-email').value.trim();
@@ -93,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Extract domain
         const domainMatch = profEmail.match(/@(.+)$/);
-        let emailDomain = domainMatch ? domainMatch[1].toLowerCase() : null;
+        let emailDomain = domainMatch ? domainMatch[1] : null;
 
         if (!emailDomain) {
             alert("Invalid email address format.");
@@ -101,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Clean up any extraneous characters (e.g. if they somehow put spaces)
-        emailDomain = emailDomain.trim().replace(/^www\./, '');
+        emailDomain = sanitizeDomain(emailDomain);
 
         try {
             // A. Check if Institution Exists for this Domain
