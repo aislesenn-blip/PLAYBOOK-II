@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     statusDiv.textContent = 'Status: ' + statusText.join(' | ');
-    if (statusText.includes('Missing ❌')) {
+    if (statusText.join(' | ').includes('Missing ❌')) {
         statusDiv.style.color = 'var(--error-color)';
     } else {
         statusDiv.style.color = 'var(--success-color)';
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 else updatedStatus.push('Groq Missing ❌');
 
                 statusDiv.textContent = 'Status: ' + updatedStatus.join(' | ');
-                if (updatedStatus.includes('Missing ❌')) {
+                if (updatedStatus.join(' | ').includes('Missing ❌')) {
                     statusDiv.style.color = 'var(--error-color)';
                 } else {
                     statusDiv.style.color = 'var(--success-color)';
