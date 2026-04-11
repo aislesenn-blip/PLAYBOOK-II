@@ -6,7 +6,7 @@
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
 const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Extracts images fast & cheap
-const LOGIC_MODEL = "deepseek-ai/DeepSeek-R1"; //
+const LOGIC_MODEL = "Qwen/Qwen2.5-72B-Instruct"; //
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from a SINGLE page of their exam.
@@ -225,7 +225,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     const apiKey = await getSiliconFlowKey();
 
     // PASS 1: MAP (Image-Level Chunking)
-    const semaphorePass1 = new UESemaphore(5); // Keep at 5 to protect Free Tier limits
+    const semaphorePass1 = new UESemaphore(50); // Burst parallel processing enabled
 
     let combinedMap = {
         studentName: "Unknown",
@@ -296,7 +296,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     combinedMap.questions = Array.from(questionMap.values());
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphorePass2 = new UESemaphore(5); // Keep at 5 to protect Free Tier limits
+    const semaphorePass2 = new UESemaphore(50); // Burst parallel processing enabled
 
     const gradingPromises = combinedMap.questions.map(async (q) => {
         await semaphorePass2.acquire();
