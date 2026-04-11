@@ -2,7 +2,6 @@
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const SILICON_API_URL = "https://api.siliconflow.cn/v1/chat/completions";
 
 const PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
@@ -120,7 +119,6 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
         if (q.answer_status === "Skipped" || q.is_entirely_blank) {
             q.marks_awarded = 0;
             q.score = 0;
-            q.marks_awarded_by_ai = 0;
         } else {
             // The new deterministic aggregator - math done securely in JS based on AI's explicitly awarded points array
             const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 0);
@@ -224,13 +222,36 @@ async function getSecureKey() {
 
         const secret = await window.PlaybookDB.getInstitutionSecret(instId);
 
-        if (!secret || (!secret.openrouter_api_key && !secret.siliconflow_api_key)) {
-            throw new Error("No API key found in the secure vault. Ask an Admin to configure it.");
+        if (!secret || !secret.openrouter_api_key) {
+            throw new Error("No OpenRouter API key found in the secure vault. Ask an Admin to configure it.");
         }
-        return secret.siliconflow_api_key || secret.openrouter_api_key;
+        return secret.openrouter_api_key;
     } catch (e) {
         // Fallback check for Playwright environment directly using a localStorage mocked API key if DB fails
         const mockEnv = localStorage.getItem('playbook_mock_api_key');
+        if (mockEnv) return mockEnv;
+
+        throw new Error(`Authorization failed: ${e.message}`);
+    }
+}
+
+async function getSiliconFlowKey() {
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (!session) throw new Error("No active session.");
+
+        const userProfile = await window.PlaybookDB.getUserById(session.user.id);
+        const instId = userProfile ? userProfile.institution_id : session.institution_id;
+        if (!instId) throw new Error("Institution ID not found.");
+
+        const secret = await window.PlaybookDB.getInstitutionSecret(instId);
+
+        if (!secret || !secret.siliconflow_api_key) {
+            throw new Error("No SiliconFlow API key found in the secure vault. Ask an Admin to configure it.");
+        }
+        return secret.siliconflow_api_key;
+    } catch (e) {
+        const mockEnv = localStorage.getItem('playbook_siliconflow_mock_api_key');
         if (mockEnv) return mockEnv;
 
         throw new Error(`Authorization failed: ${e.message}`);
