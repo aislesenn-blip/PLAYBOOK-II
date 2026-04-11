@@ -82,45 +82,7 @@ If the Primary Evaluator was wrong, you must output "audit_status": "Overridden"
 }
 `;
 
-// Helper: Dumb Aggregator (Reduce Phase)
-function calculateDeterministicScores(extractedData, examInstructions, maxScoreParam = 100) {
-    if (!extractedData || !extractedData.questions) return extractedData;
-
-    extractedData.questions.forEach(q => {
-        if (q.answer_status === "Skipped" || q.is_entirely_blank) {
-            q.marks_awarded = 0;
-            q.score = 0;
-        } else {
-            const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 0);
-            const maxMarks = Math.max(parseFloat(maxMarksRaw) || 0, 0);
-            q.max_marks = maxMarks;
-
-            let aiCalculatedMarks = 0;
-            if (Array.isArray(q.points_awarded)) {
-                aiCalculatedMarks = q.points_awarded.reduce((sum, point) => sum + (parseFloat(point) || 0), 0);
-            }
-            aiCalculatedMarks = isNaN(aiCalculatedMarks) ? 0 : aiCalculatedMarks;
-            aiCalculatedMarks = Math.round(aiCalculatedMarks * 100) / 100;
-
-            let finalScore = Math.min(aiCalculatedMarks, maxMarks);
-            q.marks_awarded_by_ai = aiCalculatedMarks;
-            q.score = finalScore;
-            q.marks_awarded = finalScore;
-        }
-    });
-
-    let totalScore = 0;
-    extractedData.questions.forEach(q => {
-        totalScore += (q.marks_awarded || 0);
-    });
-
-    extractedData.totalScore = totalScore;
-    extractedData.maxScore = maxScoreParam;
-
-    return extractedData;
-}
-
-const delay = ms => new Promise(res => setTimeout(res, ms));
+// Helper: calculateDeterministicScores and delay are inherited globally from js/ai.js
 
 class UESemaphore {
     constructor(maxConcurrent) {
@@ -149,24 +111,7 @@ class UESemaphore {
     }
 }
 
-async function getSecureKey() {
-    try {
-        const { data: { session } } = await window.supabaseClient.auth.getSession();
-        if (!session) throw new Error("No active session.");
-
-        const userProfile = await window.PlaybookDB.getUserById(session.user.id);
-        const instId = userProfile ? userProfile.institution_id : session.institution_id;
-        if (!instId) throw new Error("Institution ID not found.");
-
-        const secret = await window.PlaybookDB.getInstitutionSecret(instId);
-        if (!secret || !secret.openrouter_api_key) throw new Error("No OpenRouter API key found");
-        return secret.openrouter_api_key;
-    } catch (e) {
-        const mockEnv = localStorage.getItem('playbook_mock_api_key');
-        if (mockEnv) return mockEnv;
-        throw new Error(`Authorization failed: ${e.message}`);
-    }
-}
+// getSecureKey is inherited globally from js/ai.js
 
 async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetModel, requireJSON = true) {
     let attempt = 0;
@@ -233,20 +178,7 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
     }
 }
 
-function parseLLMJSON(content) {
-    if (!content || content.trim() === '') return { is_entirely_blank: true };
-    try {
-        let clean = content.replace(/^```json\s*/gi, '').replace(/^```\s*/gi, '').replace(/```\s*$/gi, '');
-        let startIndex = clean.indexOf('{');
-        let endIndex = clean.lastIndexOf('}');
-        if (startIndex !== -1 && endIndex !== -1) {
-            clean = clean.substring(startIndex, endIndex + 1);
-        }
-        return JSON.parse(clean);
-    } catch (e) {
-        return { is_entirely_blank: true, justification: "JSON Parse Error in Free Model" };
-    }
-}
+// parseLLMJSON is inherited globally from js/ai.js
 
 async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
     // 1. Primary Grader (Pass 2)
