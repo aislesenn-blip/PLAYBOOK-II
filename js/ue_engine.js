@@ -131,7 +131,7 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
             // Note: DeepSeek-R1 and Qwen2.5-VL-72B often reject forced JSON mode when reasoning is involved.
             // We rely on the system prompt instructions instead of enforcing the JSON format via the API payload.
 
-            const response = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
+            const response = await fetch("https://api.siliconflow.com/v1/chat/completions", {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,

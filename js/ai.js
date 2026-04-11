@@ -119,6 +119,7 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
         if (q.answer_status === "Skipped" || q.is_entirely_blank) {
             q.marks_awarded = 0;
             q.score = 0;
+            q.marks_awarded_by_ai = 0;
         } else {
             // The new deterministic aggregator - math done securely in JS based on AI's explicitly awarded points array
             const maxMarksRaw = q.max_marks !== undefined ? q.max_marks : (q.max !== undefined ? q.max : 0);
