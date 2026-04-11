@@ -235,7 +235,7 @@ async function getSecureKey() {
     }
 }
 
-async function getGoogleKey() {
+async function getGroqKey() {
     try {
         const { data: { session } } = await window.supabaseClient.auth.getSession();
         if (!session) throw new Error("No active session.");
@@ -246,12 +246,12 @@ async function getGoogleKey() {
 
         const secret = await window.PlaybookDB.getInstitutionSecret(instId);
 
-        if (!secret || !secret.google_api_key) {
-            throw new Error("No Google AI Studio key found in the secure vault. Ask an Admin to configure it.");
+        if (!secret || !secret.groq_api_key) {
+            throw new Error("No Groq API key found in the secure vault. Ask an Admin to configure it.");
         }
-        return secret.google_api_key;
+        return secret.groq_api_key;
     } catch (e) {
-        const mockEnv = localStorage.getItem('playbook_google_mock_api_key');
+        const mockEnv = localStorage.getItem('playbook_groq_mock_api_key');
         if (mockEnv) return mockEnv;
 
         throw new Error(`Authorization failed: ${e.message}`);

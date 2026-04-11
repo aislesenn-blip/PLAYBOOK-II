@@ -5,8 +5,8 @@
 // API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
-const VISION_MODEL = "gemini-2.0-flash"; // Extracts images fast & cheap
-const LOGIC_MODEL = "gemini-2.0-flash"; //
+const VISION_MODEL = "llama-3.2-90b-vision-preview"; // Extracts images fast & cheap
+const LOGIC_MODEL = "llama-3.3-70b-versatile"; //
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from a SINGLE page of their exam.
@@ -113,75 +113,63 @@ class UESemaphore {
 
 // getSecureKey is inherited globally from js/ai.js
 
-async function callGoogleStudio(apiKey, systemPrompt, userContent, title, targetModel, requireJSON = true) {
+async function callGroq(apiKey, systemPrompt, userContent, title, targetModel, requireJSON = true) {
     let attempt = 0;
     while (true) {
         try {
-            let parts = [];
-
-            if (Array.isArray(userContent)) {
-                userContent.forEach(item => {
-                    if (item.type === 'text') {
-                        parts.push({ text: item.text });
-                    } else if (item.type === 'image_url') {
-                        // Assuming the image URL is a data URL
-                        const base64Data = item.image_url.url.split(',')[1];
-                        const mimeType = item.image_url.url.split(';')[0].split(':')[1];
-                        parts.push({
-                            inline_data: {
-                                mime_type: mimeType,
-                                data: base64Data
-                            }
-                        });
-                    }
-                });
-            } else {
-                parts.push({ text: userContent });
-            }
-
             const payload = {
-                system_instruction: {
-                    parts: [{ text: systemPrompt }]
-                },
-                contents: [{
-                    parts: parts
-                }],
-                generationConfig: {
-                    temperature: 0.0,
-                    topP: 0.1
-                }
+                model: targetModel,
+                temperature: 0.0,
+                top_p: 0.1,
+                seed: 42,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userContent }
+                ]
             };
 
             if (requireJSON) {
-                payload.generationConfig.responseMimeType = "application/json";
+                payload.response_format = { type: "json_object" };
             }
 
-            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
-
-            const response = await fetch(endpoint, {
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://playbook.edu',
+                    'X-Title': title
                 },
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`Google API error: ${response.status} ${errorText}`);
+                if (response.status === 402) {
+                    alert("Payment Required (402). Your Groq account has insufficient credits for the requested model.");
+                    throw new Error("Payment Required (402). Credits depleted.");
+                }
+                throw new Error(`API error: ${response.status} ${errorText}`);
             }
 
             const data = await response.json();
-            if (data.candidates && data.candidates[0].content.parts[0].text) {
-                return data.candidates[0].content.parts[0].text;
-            } else {
-                throw new Error("Unexpected response format from Google API");
-            }
+            return data.choices[0].message.content;
 
         } catch (error) {
+            // Fatal errors that should not be infinitely retried
+            if (error.message.includes('402')) {
+                const formatBtn = document.getElementById('optimize-scheme-btn');
+                if (formatBtn) {
+                    formatBtn.textContent = 'Auto-Format Scheme';
+                    formatBtn.disabled = false;
+                }
+                throw error;
+            }
+
             attempt++;
             console.warn(`UE Engine attempt ${attempt} failed for ${title}:`, error.message);
 
+            // Infinite retries for guaranteed free-tier grading
             let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
             if (backoffTime > 30000) backoffTime = 30000;
 
@@ -195,12 +183,12 @@ async function callGoogleStudio(apiKey, systemPrompt, userContent, title, target
 async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
     // 1. Primary Grader (Pass 2)
     const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
-    const p2Raw = await callGoogleStudio(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
+    const p2Raw = await callGroq(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
     const p2Data = parseLLMJSON(p2Raw);
 
     // 2. Auditor (Pass 3)
     const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.`;
-    const p3Raw = await callGoogleStudio(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor", LOGIC_MODEL);
+    const p3Raw = await callGroq(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor", LOGIC_MODEL);
     const p3Data = parseLLMJSON(p3Raw);
 
     return {
@@ -214,7 +202,7 @@ async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
 }
 
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
-    const apiKey = await getGoogleKey();
+    const apiKey = await getGroqKey();
 
     // PASS 1: MAP (Image-Level Chunking)
     const semaphorePass1 = new UESemaphore(5); // Keep at 5 to protect Free Tier limits
@@ -236,7 +224,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     { type: "image_url", image_url: { url: imageUrl } }
                 ];
 
-                const mapDataStr = await callGoogleStudio(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
+                const mapDataStr = await callGroq(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
                 const parsedMap = parseLLMJSON(mapDataStr);
 
                 return parsedMap;
@@ -305,8 +293,8 @@ CRITICAL MANDATES:
 `;
 
 async function optimizeMarkingSchemeUE(rawText) {
-    const apiKey = await getGoogleKey();
-    const mapDataStr = await callGoogleStudio(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", LOGIC_MODEL, false);
+    const apiKey = await getGroqKey();
+    const mapDataStr = await callGroq(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", LOGIC_MODEL, false);
     let content = mapDataStr;
     if (content.startsWith('\`\`\`')) {
         content = content.replace(/^\`\`\`[^\n]*\n|\n\`\`\`$/g, '');

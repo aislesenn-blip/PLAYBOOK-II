@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Display Current API Key Status
     const apiInput = document.getElementById('admin-api-key');
-    const googleInput = document.getElementById('admin-google-key');
+    const groqInput = document.getElementById('admin-groq-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -41,11 +41,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusText.push('OpenRouter Missing ❌');
     }
 
-    if (institutionSecret && institutionSecret.google_api_key && institutionSecret.google_api_key !== '') {
-        googleInput.value = institutionSecret.google_api_key;
-        statusText.push('Google AI Active ✔️');
+    if (institutionSecret && institutionSecret.groq_api_key && institutionSecret.groq_api_key !== '') {
+        groqInput.value = institutionSecret.groq_api_key;
+        statusText.push('Groq Active ✔️');
     } else {
-        statusText.push('Google AI Missing ❌');
+        statusText.push('Groq Missing ❌');
     }
 
     statusDiv.textContent = 'Status: ' + statusText.join(' | ');
@@ -60,19 +60,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newKey = apiInput.value.trim();
-        const newGoogleKey = googleInput.value.trim();
+        const newGroqKey = groqInput.value.trim();
 
-        if (newKey || newGoogleKey) {
+        if (newKey || newGroqKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newGoogleKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newGroqKey);
 
                 let updatedStatus = [];
                 if (newKey) updatedStatus.push('OpenRouter Active ✔️');
                 else updatedStatus.push('OpenRouter Missing ❌');
 
-                if (newGoogleKey) updatedStatus.push('Google AI Active ✔️');
-                else updatedStatus.push('Google AI Missing ❌');
+                if (newGroqKey) updatedStatus.push('Groq Active ✔️');
+                else updatedStatus.push('Groq Missing ❌');
 
                 statusDiv.textContent = 'Status: ' + updatedStatus.join(' | ');
                 if (updatedStatus.includes('Missing ❌')) {
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
                 localStorage.setItem('PLAYBOOK_API_KEY', newKey);
-                localStorage.setItem('PLAYBOOK_GOOGLE_API_KEY', newGoogleKey);
+                localStorage.setItem('PLAYBOOK_GROQ_API_KEY', newGroqKey);
 
                 alert("Global Institution Keys saved securely to the encrypted vault.");
             } catch (err) {
