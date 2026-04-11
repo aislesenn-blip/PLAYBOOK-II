@@ -231,7 +231,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     const apiKey = await getSiliconFlowKey();
 
     // PASS 1: MAP (Image-Level Chunking)
-    const semaphorePass1 = new UESemaphore(10); // Balanced to prevent TPM limits
+    const semaphorePass1 = new UESemaphore(50); // Burst parallel processing enabled
 
     let combinedMap = {
         studentName: "Unknown",
@@ -302,7 +302,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     combinedMap.questions = Array.from(questionMap.values());
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphorePass2 = new UESemaphore(15); // Balanced to prevent TPM limits
+    const semaphorePass2 = new UESemaphore(50); // Burst parallel processing enabled
 
     const gradingPromises = combinedMap.questions.map(async (q) => {
         await semaphorePass2.acquire();
