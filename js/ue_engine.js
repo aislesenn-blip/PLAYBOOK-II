@@ -5,8 +5,8 @@
 // API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
-const VISION_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"; // Extracts images fast & cheap
-const LOGIC_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"; // DeepSeek V3: Ultra-cheap, ultra-smart logic
+const VISION_MODEL = "google/gemma-3-27b-it:free"; // Extracts images fast & cheap
+const LOGIC_MODEL = "meta-llama/llama-3.3-70b-instruct:free"; //
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from a SINGLE page of their exam.
