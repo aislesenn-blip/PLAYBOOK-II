@@ -3,7 +3,7 @@
 // Strictly uses Free Tier models with extreme accuracy via Pass 3 Auditing
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL_NAME = "google/gemini-2.0-flash-lite-preview-02-05:free";
+const MODEL_NAME = "google/gemini-2.0-flash-lite-preview-02-05";
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
@@ -166,10 +166,25 @@ async function getSecureKey() {
     }
 }
 
-async function callOpenRouter(apiKey, systemPrompt, userContent, title) {
+async function callOpenRouter(apiKey, systemPrompt, userContent, title, requireJSON = true) {
     let attempt = 0;
     while (true) {
         try {
+            const payload = {
+                model: MODEL_NAME,
+                temperature: 0.0,
+                top_p: 0.1,
+                seed: 42,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userContent }
+                ]
+            };
+
+            if (requireJSON) {
+                payload.response_format = { type: "json_object" };
+            }
+
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
@@ -178,17 +193,7 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title) {
                     'HTTP-Referer': 'https://playbook.edu',
                     'X-Title': title
                 },
-                body: JSON.stringify({
-                    model: MODEL_NAME,
-                    temperature: 0.0,
-                    top_p: 0.1,
-                    seed: 42,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userContent }
-                    ],
-                    response_format: { type: "json_object" }
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -270,7 +275,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     const questions = parsedMap.questions || [];
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphore = new UESemaphore(5); // Ultra-fast parallel rating
+    const semaphore = new UESemaphore(30); // Ultra-fast massive parallel rating
 
     const gradingPromises = questions.map(async (q) => {
         if (q.answer_status === "Skipped") {
@@ -300,4 +305,24 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     return [finalData];
 }
 
-window.UE_Engine = { gradeBatchExams };
+const UE_OPTIMIZE_PROMPT = `
+You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
+
+CRITICAL MANDATES:
+1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
+2. STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
+3. ATOMIC CRITERIA: Break down paragraph answers into explicit, atomic, true/false grading criteria. Each criterion must represent exactly one independently gradable concept.
+4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
+`;
+
+async function optimizeMarkingSchemeUE(rawText) {
+    const apiKey = await getSecureKey();
+    const mapDataStr = await callOpenRouter(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", false);
+    let content = mapDataStr;
+    if (content.startsWith('\`\`\`')) {
+        content = content.replace(/^\`\`\`[^\n]*\n|\n\`\`\`$/g, '');
+    }
+    return content;
+}
+
+window.UE_Engine = { gradeBatchExams, optimizeMarkingSchemeUE };
