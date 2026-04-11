@@ -389,7 +389,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         optimizeBtn.disabled = true;
 
         try {
-            const structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
+            const ueModeToggle = document.getElementById('ue-mode-toggle');
+            let structured;
+            if (ueModeToggle && ueModeToggle.checked && window.UE_Engine) {
+                structured = await window.UE_Engine.optimizeMarkingSchemeUE(rawTextarea.value);
+            } else {
+                structured = await window.PlaybookAI.optimizeMarkingScheme(rawTextarea.value);
+            }
             optimizedTextarea.value = structured;
 
             rawContainer.style.display = 'none';
