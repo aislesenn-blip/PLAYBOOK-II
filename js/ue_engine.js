@@ -6,7 +6,7 @@
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
 const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Extracts images fast & cheap
-const LOGIC_MODEL = "meta-llama/Meta-Llama-3.1-70B-Instruct"; //
+const LOGIC_MODEL = "deepseek-ai/DeepSeek-R1"; //
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from a SINGLE page of their exam.
