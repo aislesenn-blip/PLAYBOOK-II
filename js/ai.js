@@ -2,7 +2,7 @@
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const SILICON_API_URL = "https://api.siliconflow.cn/v1/chat/completions";
+const SILICON_API_URL = "https://api.siliconflow.com/v1/chat/completions";
 
 const PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
