@@ -69,7 +69,7 @@ const PlaybookDB = {
         // Only admins can query this table directly due to RLS.
         const { data, error } = await supabaseClient
             .from('institution_secrets')
-            .select('openrouter_api_key, groq_api_key')
+            .select('openrouter_api_key, siliconflow_api_key')
             .eq('institution_id', institutionId)
             .single();
 
@@ -82,10 +82,10 @@ const PlaybookDB = {
         return data;
     },
 
-    async saveInstitutionSecret(institutionId, apiKey, groqApiKey) {
+    async saveInstitutionSecret(institutionId, apiKey, sfApiKey) {
         let payload = { institution_id: institutionId };
         if (apiKey !== undefined) payload.openrouter_api_key = apiKey;
-        if (groqApiKey !== undefined) payload.groq_api_key = groqApiKey;
+        if (sfApiKey !== undefined) payload.siliconflow_api_key = sfApiKey;
 
         const { error } = await supabaseClient
             .from('institution_secrets')

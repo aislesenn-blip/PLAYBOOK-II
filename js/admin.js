@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Display Current API Key Status
     const apiInput = document.getElementById('admin-api-key');
-    const groqInput = document.getElementById('admin-groq-key');
+    const sfInput = document.getElementById('admin-siliconflow-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -41,11 +41,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusText.push('OpenRouter Missing ❌');
     }
 
-    if (institutionSecret && institutionSecret.groq_api_key && institutionSecret.groq_api_key !== '') {
-        groqInput.value = institutionSecret.groq_api_key;
-        statusText.push('Groq Active ✔️');
+    if (institutionSecret && institutionSecret.siliconflow_api_key && institutionSecret.siliconflow_api_key !== '') {
+        sfInput.value = institutionSecret.siliconflow_api_key;
+        statusText.push('SiliconFlow Active ✔️');
     } else {
-        statusText.push('Groq Missing ❌');
+        statusText.push('SiliconFlow Missing ❌');
     }
 
     statusDiv.textContent = 'Status: ' + statusText.join(' | ');
@@ -60,19 +60,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newKey = apiInput.value.trim();
-        const newGroqKey = groqInput.value.trim();
+        const newSfKey = sfInput.value.trim();
 
-        if (newKey || newGroqKey) {
+        if (newKey || newSfKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newGroqKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newSfKey);
 
                 let updatedStatus = [];
                 if (newKey) updatedStatus.push('OpenRouter Active ✔️');
                 else updatedStatus.push('OpenRouter Missing ❌');
 
-                if (newGroqKey) updatedStatus.push('Groq Active ✔️');
-                else updatedStatus.push('Groq Missing ❌');
+                if (newSfKey) updatedStatus.push('SiliconFlow Active ✔️');
+                else updatedStatus.push('SiliconFlow Missing ❌');
 
                 statusDiv.textContent = 'Status: ' + updatedStatus.join(' | ');
                 if (updatedStatus.join(' | ').includes('Missing ❌')) {
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
                 localStorage.setItem('PLAYBOOK_API_KEY', newKey);
-                localStorage.setItem('PLAYBOOK_GROQ_API_KEY', newGroqKey);
+                localStorage.setItem('PLAYBOOK_SILICONFLOW_API_KEY', newSfKey);
 
                 alert("Global Institution Keys saved securely to the encrypted vault.");
             } catch (err) {
