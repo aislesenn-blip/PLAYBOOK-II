@@ -397,7 +397,13 @@ function parseLLMJSON(content) {
         } catch (e2) {
             // Ultimate fallback for completely shattered JSON objects
             console.error("Advanced JSON repair failed.", e2.message);
-            throw new Error("JSON parse failed completely");
+            // Return a safe fallback object to prevent catastrophic infinite retries downstream
+            return {
+                points_awarded: [],
+                is_entirely_blank: true,
+                justification: "JSON formatting failed due to API limits or stream truncation.",
+                constructive_feedback: "Error retrieving feedback."
+            };
         }
     }
 }
