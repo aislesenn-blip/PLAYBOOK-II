@@ -650,6 +650,10 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
 
                     if (!response.ok) {
                         const errorText = await response.text();
+                        if (response.status === 402) {
+                            alert("Payment Required (402). Your OpenRouter account has insufficient credits for the requested model.");
+                            throw new Error("Payment Required (402). Credits depleted.");
+                        }
                         throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
                     }
 
@@ -661,6 +665,13 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                     }
                     return content;
                 } catch (error) {
+                    // Fatal errors that should not be infinitely retried
+                    if (error.message.includes('402')) {
+                        document.getElementById('optimize-scheme-btn').textContent = 'Auto-Format Scheme';
+                        document.getElementById('optimize-scheme-btn').disabled = false;
+                        throw error;
+                    }
+
                     attempt++;
                     console.warn(`Optimization Attempt ${attempt} failed: ${error.message}`);
 

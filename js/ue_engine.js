@@ -2,7 +2,7 @@
 // Ultra-Fast Consensus Grading Engine (UE Mode)
 // Strictly uses Free Tier models with extreme accuracy via Pass 3 Auditing
 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+// API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
 const VISION_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"; // Extracts images fast & cheap
