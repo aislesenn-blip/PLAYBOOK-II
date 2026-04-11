@@ -5,8 +5,8 @@
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 // Hybrid Enterprise "Cheap & Fast" Model Routing
-const VISION_MODEL = "google/gemini-2.0-flash-lite-preview-02-05"; // Extracts images fast & cheap
-const LOGIC_MODEL = "deepseek/deepseek-chat"; // DeepSeek V3: Ultra-cheap, ultra-smart logic
+const VISION_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"; // Extracts images fast & cheap
+const LOGIC_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"; // DeepSeek V3: Ultra-cheap, ultra-smart logic
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
@@ -278,7 +278,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     const questions = parsedMap.questions || [];
 
     // PASS 2 & 3: REDUCE AND AUDIT
-    const semaphore = new UESemaphore(30); // DeepSeek is highly concurrent and cheap
+    const semaphore = new UESemaphore(5); // Ultra-fast parallel rating
 
     const gradingPromises = questions.map(async (q) => {
         if (q.answer_status === "Skipped") {
