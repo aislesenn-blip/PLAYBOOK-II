@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Display Current API Key Status
     const apiInput = document.getElementById('admin-api-key');
-    const sfInput = document.getElementById('admin-siliconflow-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -33,26 +32,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
-    let statusText = [];
-    if (institutionSecret && institutionSecret.openrouter_api_key && institutionSecret.openrouter_api_key !== '') {
-        apiInput.value = institutionSecret.openrouter_api_key;
-        statusText.push('OpenRouter Active ✔️');
-    } else {
-        statusText.push('OpenRouter Missing ❌');
-    }
-
-    if (institutionSecret && institutionSecret.siliconflow_api_key && institutionSecret.siliconflow_api_key !== '') {
-        sfInput.value = institutionSecret.siliconflow_api_key;
-        statusText.push('SiliconFlow Active ✔️');
-    } else {
-        statusText.push('SiliconFlow Missing ❌');
-    }
-
-    statusDiv.textContent = 'Status: ' + statusText.join(' | ');
-    if (statusText.join(' | ').includes('Missing ❌')) {
-        statusDiv.style.color = 'var(--error-color)';
-    } else {
+    if (institutionSecret && (institutionSecret.siliconflow_api_key || institutionSecret.openrouter_api_key)) {
+        apiInput.value = institutionSecret.siliconflow_api_key || institutionSecret.openrouter_api_key;
+        statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
         statusDiv.style.color = 'var(--success-color)';
+    } else {
+        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until configured)';
+        statusDiv.style.color = 'var(--error-color)';
     }
 
     // 4. Handle API Key Updates
@@ -60,36 +46,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newKey = apiInput.value.trim();
-        const newSfKey = sfInput.value.trim();
 
-        if (newKey || newSfKey) {
+        if (newKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newSfKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey);
 
-                let updatedStatus = [];
-                if (newKey) updatedStatus.push('OpenRouter Active ✔️');
-                else updatedStatus.push('OpenRouter Missing ❌');
-
-                if (newSfKey) updatedStatus.push('SiliconFlow Active ✔️');
-                else updatedStatus.push('SiliconFlow Missing ❌');
-
-                statusDiv.textContent = 'Status: ' + updatedStatus.join(' | ');
-                if (updatedStatus.join(' | ').includes('Missing ❌')) {
-                    statusDiv.style.color = 'var(--error-color)';
-                } else {
-                    statusDiv.style.color = 'var(--success-color)';
-                }
+                statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
+                statusDiv.style.color = 'var(--success-color)';
 
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
                 localStorage.setItem('PLAYBOOK_API_KEY', newKey);
-                localStorage.setItem('PLAYBOOK_SILICONFLOW_API_KEY', newSfKey);
 
-                alert("Global Institution Keys saved securely to the encrypted vault.");
+                alert("Global Institution Key saved securely to the encrypted vault.");
             } catch (err) {
-                console.error("Error saving keys:", err);
-                alert("Failed to save the global API keys to the secure database vault.");
+                console.error("Error saving key:", err);
+                alert("Failed to save the global API key to the secure database vault.");
             }
         }
     });
