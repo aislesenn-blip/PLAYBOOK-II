@@ -221,24 +221,45 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
 // parseLLMJSON is inherited globally from js/ai.js
 
 async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
-    // 1. Primary Grader (Pass 2)
-    const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
-    const p2Raw = await callSiliconFlow(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
-    const p2Data = parseLLMJSON(p2Raw);
+    let attempt = 0;
+    while (true) {
+        try {
+            // 1. Primary Grader (Pass 2)
+            const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
+            const p2Raw = await callSiliconFlow(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
+            const p2Data = parseLLMJSON(p2Raw);
 
-    // 2. Auditor (Pass 3)
-    const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
-    const p3Raw = await callSiliconFlow(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor", LOGIC_MODEL);
-    const p3Data = parseLLMJSON(p3Raw);
+            // 2. Auditor (Pass 3)
+            const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
+            const p3Raw = await callSiliconFlow(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor", LOGIC_MODEL);
+            const p3Data = parseLLMJSON(p3Raw);
 
-    return {
-        ...questionData,
-        points_awarded: Array.isArray(p3Data.points_awarded) ? p3Data.points_awarded : [],
-        is_entirely_blank: p3Data.is_entirely_blank || false,
-        justification: p3Data.justification || p2Data.justification || "No justification provided.",
-        constructive_feedback: p3Data.constructive_feedback || p2Data.constructive_feedback || "Review rubric.",
-        audit_status: p3Data.audit_status || "Approved"
-    };
+            return {
+                ...questionData,
+                points_awarded: Array.isArray(p3Data.points_awarded) ? p3Data.points_awarded : [],
+                is_entirely_blank: p3Data.is_entirely_blank || false,
+                justification: p3Data.justification || p2Data.justification || "No justification provided.",
+                constructive_feedback: p3Data.constructive_feedback || p2Data.constructive_feedback || "Review rubric.",
+                audit_status: p3Data.audit_status || "Approved"
+            };
+        } catch (error) {
+            attempt++;
+            console.warn(`gradeSingleQuestionUE attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
+            if (attempt >= 5) {
+                // Return a graceful fallback instead of crashing the queue if we can't repair after 5 tries
+                return {
+                    ...questionData,
+                    points_awarded: [],
+                    is_entirely_blank: true,
+                    justification: "Error grading after multiple retries.",
+                    constructive_feedback: "Error grading. Please review manually.",
+                    audit_status: "Approved"
+                };
+            }
+            const backoff = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            await delay(Math.min(backoff, 30000));
+        }
+    }
 }
 
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
@@ -259,15 +280,28 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
         const pagePromises = base64PDF.map(async (imageUrl, idx) => {
             await semaphorePass1.acquire();
             try {
-                let userContent = [
-                    { type: "text", text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is Page ${idx + 1} of this single student's exam:` },
-                    { type: "image_url", image_url: { url: imageUrl } }
-                ];
+                let attempt = 0;
+                while (true) {
+                    try {
+                        let userContent = [
+                            { type: "text", text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is Page ${idx + 1} of this single student's exam:` },
+                            { type: "image_url", image_url: { url: imageUrl } }
+                        ];
 
-                const mapDataStr = await callSiliconFlow(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
-                const parsedMap = parseLLMJSON(mapDataStr);
+                        const mapDataStr = await callSiliconFlow(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
+                        const parsedMap = parseLLMJSON(mapDataStr);
 
-                return parsedMap;
+                        return parsedMap;
+                    } catch (error) {
+                        attempt++;
+                        console.warn(`gradeBatchExams Pass 1 attempt ${attempt} failed for Page ${idx + 1}:`, error.message);
+                        if (attempt >= 5) {
+                            return { studentName: "Unknown", registrationNumber: "Unknown", questions_found_on_this_page: [] };
+                        }
+                        const backoff = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+                        await delay(Math.min(backoff, 30000));
+                    }
+                }
             } finally {
                 semaphorePass1.release();
             }
