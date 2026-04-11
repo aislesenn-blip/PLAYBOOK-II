@@ -120,7 +120,7 @@ function calculateDeterministicScores(extractedData, examInstructions, maxScoreP
     return extractedData;
 }
 
-const delay = ms => new Promise(res => setTimeout(res, ms));
+// const delay = ms => new Promise(res => setTimeout(res, ms)); // inherited from ai.js
 
 class UESemaphore {
     constructor(maxConcurrent) {
@@ -149,24 +149,24 @@ class UESemaphore {
     }
 }
 
-async function getSecureKey() {
-    try {
-        const { data: { session } } = await window.supabaseClient.auth.getSession();
-        if (!session) throw new Error("No active session.");
-
-        const userProfile = await window.PlaybookDB.getUserById(session.user.id);
-        const instId = userProfile ? userProfile.institution_id : session.institution_id;
-        if (!instId) throw new Error("Institution ID not found.");
-
-        const secret = await window.PlaybookDB.getInstitutionSecret(instId);
-        if (!secret || !secret.openrouter_api_key) throw new Error("No OpenRouter API key found");
-        return secret.openrouter_api_key;
-    } catch (e) {
-        const mockEnv = localStorage.getItem('playbook_mock_api_key');
-        if (mockEnv) return mockEnv;
-        throw new Error(`Authorization failed: ${e.message}`);
-    }
-}
+// // async function getSecureKey() // inherited from ai.js {
+//     try {
+//         const { data: { session } } = await window.supabaseClient.auth.getSession();
+//         if (!session) throw new Error("No active session.");
+//
+//         const userProfile = await window.PlaybookDB.getUserById(session.user.id);
+//         const instId = userProfile ? userProfile.institution_id : session.institution_id;
+//         if (!instId) throw new Error("Institution ID not found.");
+//
+//         const secret = await window.PlaybookDB.getInstitutionSecret(instId);
+//         if (!secret || !secret.openrouter_api_key) throw new Error("No OpenRouter API key found");
+//         return secret.openrouter_api_key;
+//     } catch (e) {
+//         const mockEnv = localStorage.getItem('playbook_mock_api_key');
+//         if (mockEnv) return mockEnv;
+//         throw new Error(`Authorization failed: ${e.message}`);
+//     }
+// }
 
 async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetModel, requireJSON = true) {
     let attempt = 0;
@@ -233,20 +233,20 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
     }
 }
 
-function parseLLMJSON(content) {
-    if (!content || content.trim() === '') return { is_entirely_blank: true };
-    try {
-        let clean = content.replace(/^```json\s*/gi, '').replace(/^```\s*/gi, '').replace(/```\s*$/gi, '');
-        let startIndex = clean.indexOf('{');
-        let endIndex = clean.lastIndexOf('}');
-        if (startIndex !== -1 && endIndex !== -1) {
-            clean = clean.substring(startIndex, endIndex + 1);
-        }
-        return JSON.parse(clean);
-    } catch (e) {
-        return { is_entirely_blank: true, justification: "JSON Parse Error in Free Model" };
-    }
-}
+// // function parseLLMJSON(content) { // inherited from ai.js
+//     if (!content || content.trim() === '') return { is_entirely_blank: true };
+//     try {
+//         let clean = content.replace(/^```json\s*/gi, '').replace(/^```\s*/gi, '').replace(/```\s*$/gi, '');
+//         let startIndex = clean.indexOf('{');
+//         let endIndex = clean.lastIndexOf('}');
+//         if (startIndex !== -1 && endIndex !== -1) {
+//             clean = clean.substring(startIndex, endIndex + 1);
+//         }
+//         return JSON.parse(clean);
+//     } catch (e) {
+//         return { is_entirely_blank: true, justification: "JSON Parse Error in Free Model" };
+//     }
+// }
 
 async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
     // 1. Primary Grader (Pass 2)
