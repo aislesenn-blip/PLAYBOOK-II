@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Display Current API Key Status
     const apiInput = document.getElementById('admin-api-key');
+    const googleInput = document.getElementById('admin-google-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -32,13 +33,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
+    let statusText = [];
     if (institutionSecret && institutionSecret.openrouter_api_key && institutionSecret.openrouter_api_key !== '') {
         apiInput.value = institutionSecret.openrouter_api_key;
-        statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
-        statusDiv.style.color = 'var(--success-color)';
+        statusText.push('OpenRouter Active ✔️');
     } else {
-        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until configured)';
+        statusText.push('OpenRouter Missing ❌');
+    }
+
+    if (institutionSecret && institutionSecret.google_api_key && institutionSecret.google_api_key !== '') {
+        googleInput.value = institutionSecret.google_api_key;
+        statusText.push('Google AI Active ✔️');
+    } else {
+        statusText.push('Google AI Missing ❌');
+    }
+
+    statusDiv.textContent = 'Status: ' + statusText.join(' | ');
+    if (statusText.includes('Missing ❌')) {
         statusDiv.style.color = 'var(--error-color)';
+    } else {
+        statusDiv.style.color = 'var(--success-color)';
     }
 
     // 4. Handle API Key Updates
@@ -46,23 +60,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newKey = apiInput.value.trim();
+        const newGoogleKey = googleInput.value.trim();
 
-        if (newKey) {
+        if (newKey || newGoogleKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newGoogleKey);
 
-                statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
-                statusDiv.style.color = 'var(--success-color)';
+                let updatedStatus = [];
+                if (newKey) updatedStatus.push('OpenRouter Active ✔️');
+                else updatedStatus.push('OpenRouter Missing ❌');
+
+                if (newGoogleKey) updatedStatus.push('Google AI Active ✔️');
+                else updatedStatus.push('Google AI Missing ❌');
+
+                statusDiv.textContent = 'Status: ' + updatedStatus.join(' | ');
+                if (updatedStatus.includes('Missing ❌')) {
+                    statusDiv.style.color = 'var(--error-color)';
+                } else {
+                    statusDiv.style.color = 'var(--success-color)';
+                }
 
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
                 localStorage.setItem('PLAYBOOK_API_KEY', newKey);
+                localStorage.setItem('PLAYBOOK_GOOGLE_API_KEY', newGoogleKey);
 
-                alert("Global Institution Key saved securely to the encrypted vault.");
+                alert("Global Institution Keys saved securely to the encrypted vault.");
             } catch (err) {
-                console.error("Error saving key:", err);
-                alert("Failed to save the global API key to the secure database vault.");
+                console.error("Error saving keys:", err);
+                alert("Failed to save the global API keys to the secure database vault.");
             }
         }
     });

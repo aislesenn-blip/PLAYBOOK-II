@@ -69,7 +69,7 @@ const PlaybookDB = {
         // Only admins can query this table directly due to RLS.
         const { data, error } = await supabaseClient
             .from('institution_secrets')
-            .select('openrouter_api_key')
+            .select('openrouter_api_key, google_api_key')
             .eq('institution_id', institutionId)
             .single();
 
@@ -82,10 +82,14 @@ const PlaybookDB = {
         return data;
     },
 
-    async saveInstitutionSecret(institutionId, apiKey) {
+    async saveInstitutionSecret(institutionId, apiKey, googleApiKey) {
+        let payload = { institution_id: institutionId };
+        if (apiKey !== undefined) payload.openrouter_api_key = apiKey;
+        if (googleApiKey !== undefined) payload.google_api_key = googleApiKey;
+
         const { error } = await supabaseClient
             .from('institution_secrets')
-            .upsert({ institution_id: institutionId, openrouter_api_key: apiKey });
+            .upsert(payload);
         if (error) throw error;
     },
 
