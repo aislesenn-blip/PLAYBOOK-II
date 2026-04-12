@@ -189,23 +189,19 @@ async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
     let attempt = 0;
     while (true) {
         try {
-            // 1. Primary Grader (Pass 2)
-            const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
+            // Primary Grader (Pass 2)
+            // Note: Pass 3 (Auditor) was removed to cut redundant API calls and halve processing time.
+            const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}\n\n**CRITICAL: Output ONLY valid JSON.**`;
             const p2Raw = await callSiliconFlow(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
             const p2Data = parseLLMJSON(p2Raw);
 
-            // 2. Auditor (Pass 3)
-            const p3Prompt = `Marking Scheme:\n${markingSchemeText}\n\nStudent Answer for Question ${questionData.questionId}:\n${questionData.student_answer_transcription}\n\nPrimary Evaluator's Decision:\n${JSON.stringify(p2Data, null, 2)}\n\nReview this decision now.\n\n**CRITICAL: Please reason step by step, and put your final answer inside the JSON block.**`;
-            const p3Raw = await callSiliconFlow(apiKey, UE_PASS3_AUDITOR_PROMPT, p3Prompt, "UE Pass 3: Auditor", LOGIC_MODEL);
-            const p3Data = parseLLMJSON(p3Raw);
-
             return {
                 ...questionData,
-                points_awarded: Array.isArray(p3Data.points_awarded) ? p3Data.points_awarded : [],
-                is_entirely_blank: p3Data.is_entirely_blank || false,
-                justification: p3Data.justification || p2Data.justification || "No justification provided.",
-                constructive_feedback: p3Data.constructive_feedback || p2Data.constructive_feedback || "Review rubric.",
-                audit_status: p3Data.audit_status || "Approved"
+                points_awarded: Array.isArray(p2Data.points_awarded) ? p2Data.points_awarded : [],
+                is_entirely_blank: p2Data.is_entirely_blank || false,
+                justification: p2Data.justification || "No justification provided.",
+                constructive_feedback: p2Data.constructive_feedback || "Review rubric.",
+                audit_status: "Approved"
             };
         } catch (error) {
             attempt++;
