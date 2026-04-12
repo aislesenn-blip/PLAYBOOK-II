@@ -774,6 +774,14 @@ async function extractMarkingSchemeOCR(base64Images) {
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
             window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            window.Semaphore = Semaphore;
+            window.parseLLMJSON = parseLLMJSON;
+            window.delay = delay;
+            window.calculateDeterministicScores = calculateDeterministicScores;
 } else {
             self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            self.Semaphore = Semaphore;
+            self.parseLLMJSON = parseLLMJSON;
+            self.delay = delay;
+            self.calculateDeterministicScores = calculateDeterministicScores;
 }
