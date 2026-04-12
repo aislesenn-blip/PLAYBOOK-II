@@ -7,8 +7,8 @@
 // Ultra-Fast OpenRouter Native JSON Engine
 // Leverages high-speed free models with strict JSON schema enforcement
 
-const VISION_MODEL = "google/gemma-4-31b-it:free"; // Confirmed high-speed free OpenRouter model for multi-modal context
-const LOGIC_MODEL = "meta-llama/llama-3.3-70b-instruct:free"; // Confirmed highly accurate free OpenRouter logic model
+const VISION_MODEL = "qwen/qwen3.6-plus:free"; // Confirmed high-speed free OpenRouter model for multi-modal context
+const LOGIC_MODEL = "qwen/qwen3.6-plus:free"; // Confirmed highly accurate free OpenRouter logic model
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam page.
@@ -195,8 +195,6 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
         }
     }
 }
-
-// parseLLMJSON is inherited globally from js/ai.js
 
 async function gradeQuestionChunkUE(apiKey, questionChunk, markingSchemeText) {
     let attempt = 0;
