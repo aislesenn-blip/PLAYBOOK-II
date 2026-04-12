@@ -1,14 +1,14 @@
 // js/ue_engine.js
 // Ultra-Fast Consensus Grading Engine (UE Mode)
-// Strictly uses Free Tier models with extreme accuracy via Pass 3 Auditing
+// Strictly uses Paid Tier models with extreme accuracy via Pass 3 Auditing
 
 // API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
 // Ultra-Fast SiliconFlow JSON Engine (Paid Tier)
 // Leverages high-speed V3 models with strict JSON schema enforcement
 
-const VISION_MODEL = "qwen/qwen3.6-plus:free"; // Confirmed high-speed free OpenRouter model for multi-modal context
-const LOGIC_MODEL = "qwen/qwen3.6-plus:free"; // Confirmed highly accurate free OpenRouter logic model
+const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Blazing fast Vision model (131K Context)
+const LOGIC_MODEL = "deepseek-ai/DeepSeek-V3"; // The Ultimate Logic & Math Engine (164K Context)
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam page.
@@ -135,8 +135,10 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
                 ]
             };
 
-            // Note: DeepSeek models on SiliconFlow often reject forced JSON mode
-            // We rely on the prompt instructions to output clean JSON instead.
+            // DeepSeek V3 and Qwen 2.5 support strict JSON mode natively
+            if (requireJSON) {
+                payload.response_format = { type: "json_object" };
+            }
 
             const response = await fetch("https://api.siliconflow.com/v1/chat/completions", {
                 method: 'POST',
@@ -183,7 +185,6 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
 
             let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
 
-            // 429 Limit explicitly requires a longer cooling off period
             if (error.message.includes('429')) {
                 backoffTime = 15000 + Math.floor(Math.random() * 5000);
             }
