@@ -20,7 +20,7 @@ Quote the student's exact phrases exactly as written. DO NOT invent, assume, or 
 1. Extract the student's name and registration number if visible.
 2. Look at the provided marking scheme. Which of these questions are answered on this specific page?
 3. Transcribe the exact text/math/steps for answered questions. For diagrams, describe the labels and structural logic in text.
-4. Output ONLY valid JSON matching the schema precisely. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+4. Output ONLY valid JSON matching the schema precisely. Output ONLY raw JSON. No conversational text. No markdown blocks. Do not use <think> tags. Start your response with {
 
 *** SCHEMA ***
 {
@@ -52,7 +52,7 @@ Do NOT perform final score arithmetic. Extract an array of specific, awarded poi
 "constructive_feedback" MUST be short and actionable: [Acknowledge what they got right] + [State EXACT missing scientific fact] + [Actionable micro-lesson].
 
 *** SCHEMA ***
-Output ONLY valid JSON matching the schema precisely. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+Output ONLY valid JSON matching the schema precisely. Output ONLY raw JSON. No conversational text. No markdown blocks. Do not use <think> tags. Start your response with {
 {
   "graded_questions": [
     {
