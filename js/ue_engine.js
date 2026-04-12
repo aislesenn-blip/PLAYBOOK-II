@@ -228,7 +228,7 @@ async function getSecureGeminiKey() {
         return secret.gemini_api_key;
     } catch (e) {
         // Fallback check for Playwright environment directly using a localStorage mocked API key if DB fails
-        const mockEnv = localStorage.getItem('playbook_gemini_mock_api_key');
+        const mockEnv = localStorage.getItem('PLAYBOOK_GEMINI_API_KEY') || localStorage.getItem('playbook_gemini_mock_api_key');
         if (mockEnv) return mockEnv;
 
         throw new Error(`Authorization failed: ${e.message}`);
@@ -705,73 +705,6 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
             }
         }
 
-// OCR Fallback for Scanned Marking Schemes
-async function extractMarkingSchemeOCR(base64Images) {
-    let attempt = 0;
-    while (true) {
-        try {
-            const apiKey = await getSecureGeminiKey();
-
-            const geminiParts = [];
-            geminiParts.push({ text: "Extract all text from these marking scheme images. Preserve the exact layout, question numbers, and point values. Do not add any conversational text, just output the extracted text." });
-
-            base64Images.forEach(imageUrl => {
-                const mimeTypeMatch = imageUrl.match(/data:([^;]+);base64,/);
-                const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
-                const base64Data = imageUrl.split(',')[1] || imageUrl;
-
-                geminiParts.push({
-                    inlineData: {
-                        mimeType: mimeType,
-                        data: base64Data
-                    }
-                });
-            });
-
-            const response = await fetch(`${API_URL}?key=${apiKey}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contents: [
-                        { role: 'user', parts: geminiParts }
-                    ],
-                    generationConfig: {
-                        temperature: 0.0,
-                        topP: 0.1,
-                        maxOutputTokens: 8192
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                if (response.status === 400 || response.status === 404) {
-                    throw new Error(`Fatal configuration error in OCR (${response.status}): ${errorText}`);
-                }
-                throw new Error(`Gemini API error: ${response.status} ${errorText}`);
-            }
-
-            const data = await response.json();
-            return data.candidates && data.candidates.length > 0 ? data.candidates[0].content.parts[0].text : "";
-
-        } catch (error) {
-            if (error.message.includes('Fatal configuration error')) {
-                throw error;
-            }
-
-            attempt++;
-            console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
-
-            let backoffTime = attempt * 3000;
-            if (backoffTime > 60000) backoffTime = 60000;
-
-            console.log(`Self-Healing Loop activated for OCR: Retrying in ${backoffTime / 1000} seconds...`);
-            await delay(backoffTime);
-        }
-    }
-}
 
 // UE_Engine relies strictly on optimizeMarkingSchemeUE mapping
 async function optimizeMarkingSchemeUE(rawText) {
