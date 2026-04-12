@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 3. Display Current API Key Status
     const apiInput = document.getElementById('admin-api-key');
     const sfInput = document.getElementById('admin-siliconflow-key');
-    const geminiInput = document.getElementById('admin-gemini-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -49,12 +48,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusText.push('SiliconFlow Missing ❌');
     }
 
-    if (institutionSecret && institutionSecret.google_ai_studio_key) {
-        statusText.push('Gemini Active ✔️');
-    } else {
-        statusText.push('Gemini Missing ❌');
-    }
-
     statusDiv.textContent = 'Status: ' + statusText.join(' | ');
     if (statusText.join(' | ').includes('Missing ❌')) {
         statusDiv.style.color = 'var(--error-color)';
@@ -68,12 +61,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         const newKey = apiInput.value.trim();
         const newSfKey = sfInput.value.trim();
-        const newGeminiKey = geminiInput.value.trim();
 
-        if (newKey || newSfKey || newGeminiKey) {
+        if (newKey || newSfKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newSfKey, newGeminiKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newSfKey);
 
                 let updatedStatus = [];
                 if (newKey) updatedStatus.push('OpenRouter Active ✔️');
@@ -81,9 +73,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (newSfKey) updatedStatus.push('SiliconFlow Active ✔️');
                 else updatedStatus.push('SiliconFlow Missing ❌');
-
-                if (newGeminiKey) updatedStatus.push('Gemini Active ✔️');
-                else updatedStatus.push('Gemini Missing ❌');
 
                 statusDiv.textContent = 'Status: ' + updatedStatus.join(' | ');
                 if (updatedStatus.join(' | ').includes('Missing ❌')) {
@@ -96,7 +85,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // so the Web Worker can use it directly just like the old version
                 localStorage.setItem('PLAYBOOK_API_KEY', newKey);
                 localStorage.setItem('PLAYBOOK_SILICONFLOW_API_KEY', newSfKey);
-                localStorage.setItem('PLAYBOOK_GEMINI_API_KEY', newGeminiKey);
 
                 alert("Global Institution Keys saved securely to the encrypted vault.");
             } catch (err) {
