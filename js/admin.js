@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Display Current API Key Status
     const apiInput = document.getElementById('admin-api-key');
-    const sfInput = document.getElementById('admin-siliconflow-key');
+    const geminiInput = document.getElementById('admin-gemini-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -41,11 +41,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusText.push('OpenRouter Missing ❌');
     }
 
-    if (institutionSecret && institutionSecret.siliconflow_api_key && institutionSecret.siliconflow_api_key !== '') {
-        sfInput.value = institutionSecret.siliconflow_api_key;
-        statusText.push('SiliconFlow Active ✔️');
+    if (institutionSecret && institutionSecret.gemini_api_key && institutionSecret.gemini_api_key !== '') {
+        geminiInput.value = institutionSecret.gemini_api_key;
+        statusText.push('Google Gemini Active ✔️');
     } else {
-        statusText.push('SiliconFlow Missing ❌');
+        statusText.push('Google Gemini Missing ❌');
     }
 
     statusDiv.textContent = 'Status: ' + statusText.join(' | ');
@@ -60,19 +60,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newKey = apiInput.value.trim();
-        const newSfKey = sfInput.value.trim();
+        const newGeminiKey = geminiInput.value.trim();
 
-        if (newKey || newSfKey) {
+        if (newKey || newGeminiKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newSfKey);
+                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey, newGeminiKey);
 
                 let updatedStatus = [];
                 if (newKey) updatedStatus.push('OpenRouter Active ✔️');
                 else updatedStatus.push('OpenRouter Missing ❌');
 
-                if (newSfKey) updatedStatus.push('SiliconFlow Active ✔️');
-                else updatedStatus.push('SiliconFlow Missing ❌');
+                if (newGeminiKey) updatedStatus.push('Google Gemini Active ✔️');
+                else updatedStatus.push('Google Gemini Missing ❌');
 
                 statusDiv.textContent = 'Status: ' + updatedStatus.join(' | ');
                 if (updatedStatus.join(' | ').includes('Missing ❌')) {
