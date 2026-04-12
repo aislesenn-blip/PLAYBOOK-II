@@ -4,11 +4,11 @@
 
 // API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
-// Ultra-Fast OpenRouter Native JSON Engine
-// Leverages high-speed free models with strict JSON schema enforcement
+// Ultra-Fast SiliconFlow JSON Engine (Paid Tier)
+// Leverages high-speed V3 models with strict JSON schema enforcement
 
-const VISION_MODEL = "google/gemma-4-31b-it:free"; // Confirmed high-speed free OpenRouter model for multi-modal context
-const LOGIC_MODEL = "meta-llama/llama-3.3-70b-instruct:free"; // Confirmed highly accurate free OpenRouter logic model
+const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Extreme speed for massive bulk page reading
+const LOGIC_MODEL = "deepseek-ai/DeepSeek-V3"; // Maximum accuracy logic mapping without reasoning tags
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam page.
@@ -95,7 +95,7 @@ class UESemaphore {
     }
 }
 
-async function getOpenRouterKey() {
+async function getSiliconFlowKey() {
     try {
         const { data: { session } } = await window.supabaseClient.auth.getSession();
         if (!session) throw new Error("No active session.");
@@ -105,18 +105,18 @@ async function getOpenRouterKey() {
         if (!instId) throw new Error("Institution ID not found.");
 
         const secret = await window.PlaybookDB.getInstitutionSecret(instId);
-        if (!secret || !secret.openrouter_api_key) {
-            throw new Error("No OpenRouter API key found in the secure vault. Ask an Admin to configure it.");
+        if (!secret || !secret.siliconflow_api_key) {
+            throw new Error("No SiliconFlow API key found in the secure vault. Ask an Admin to configure it.");
         }
-        return secret.openrouter_api_key;
+        return secret.siliconflow_api_key;
     } catch (e) {
-        const mockEnv = localStorage.getItem('PLAYBOOK_API_KEY');
+        const mockEnv = localStorage.getItem('PLAYBOOK_SILICONFLOW_API_KEY');
         if (mockEnv) return mockEnv;
         throw new Error(`Authorization failed: ${e.message}`);
     }
 }
 
-async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetModel = VISION_MODEL, requireJSON = true) {
+async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetModel = VISION_MODEL, requireJSON = true) {
     let attempt = 0;
     while (true) {
         try {
@@ -127,7 +127,7 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
                 model: targetModel,
                 temperature: 0.0,
                 top_p: 0.1,
-                seed: 42,
+                stream: false,
                 max_tokens: 8192,
                 messages: [
                     { role: 'system', content: systemPrompt },
@@ -135,11 +135,10 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
                 ]
             };
 
-            if (requireJSON) {
-                payload.response_format = { type: "json_object" };
-            }
+            // Note: DeepSeek models on SiliconFlow often reject forced JSON mode
+            // We rely on the prompt instructions to output clean JSON instead.
 
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            const response = await fetch("https://api.siliconflow.com/v1/chat/completions", {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
@@ -156,7 +155,7 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
             if (!response.ok) {
                 const errorText = await response.text();
                 if (response.status === 402) {
-                    alert("Payment Required (402). Your OpenRouter account has insufficient credits.");
+                    alert("Payment Required (402). Your SiliconFlow account has insufficient credits.");
                     throw new Error("Payment Required (402). Credits depleted.");
                 }
                 throw new Error(`API error: ${response.status} ${errorText}`);
@@ -209,7 +208,7 @@ async function gradeQuestionChunkUE(apiKey, questionChunk, markingSchemeText) {
 
             const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answers:\n\n${answersText}`;
 
-            const p2Raw = await callOpenRouter(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Chunk Grader", LOGIC_MODEL);
+            const p2Raw = await callSiliconFlow(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Chunk Grader", LOGIC_MODEL);
             const p2Data = parseLLMJSON(p2Raw);
 
             // Map results back to original questions safely
@@ -245,10 +244,10 @@ async function gradeQuestionChunkUE(apiKey, questionChunk, markingSchemeText) {
 }
 
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
-    const apiKey = await getOpenRouterKey();
+    const apiKey = await getSiliconFlowKey();
 
     // PASS 1: MAP (Image-Level Chunking)
-    const semaphorePass1 = new UESemaphore(5); // Strict control to prevent 429 TPM Limits on Free Tier
+    const semaphorePass1 = new UESemaphore(10); // Balanced control to prevent 429 TPM Limits on Paid Tier
 
     let combinedMap = {
         studentName: "Unknown",
@@ -270,7 +269,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                             { type: "image_url", image_url: { url: imageUrl } }
                         ];
 
-                        const mapDataStr = await callOpenRouter(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
+                        const mapDataStr = await callSiliconFlow(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
                         const parsedMap = parseLLMJSON(mapDataStr);
 
                         return parsedMap;
@@ -313,7 +312,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     combinedMap.questions = Array.from(questionMap.values());
 
     // PASS 2: REDUCE (Chunked Parallel Logic Grading to prevent Token Multiplier Effect)
-    const semaphorePass2 = new UESemaphore(10); // Safe limit to prevent OpenRouter 429 errors
+    const semaphorePass2 = new UESemaphore(15); // Balanced control to prevent 429 TPM limits on Paid Tier
 
     // Group questions into chunks of 3
     const CHUNK_SIZE = 3;
@@ -362,8 +361,8 @@ CRITICAL MANDATES:
 `;
 
 async function optimizeMarkingSchemeUE(rawText) {
-    const apiKey = await getOpenRouterKey();
-    const mapDataStr = await callOpenRouter(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", VISION_MODEL, false);
+    const apiKey = await getSiliconFlowKey();
+    const mapDataStr = await callSiliconFlow(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", VISION_MODEL, false);
     return mapDataStr;
 }
 
