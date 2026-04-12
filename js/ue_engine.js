@@ -7,91 +7,50 @@
 // Ultra-Fast Gemini Native JSON Engine
 // Bypasses complex Maps and streaming in favor of high-context window processing
 
-const VISION_MODEL = "gemini-1.5-flash"; // Extreme speed for massive bulk page reading
-const LOGIC_MODEL = "gemini-1.5-pro"; // Maximum accuracy for grading and logic mapping
+const VISION_MODEL = "gemini-2.0-flash"; // Extreme speed for massive bulk reading AND logic
 
-const UE_PASS1_SYSTEM_PROMPT = `
-You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam pages.
+const UE_SINGLE_PASS_PROMPT = `
+You are an Elite Examination Board Evaluator capable of parallel task execution.
+You must process an entire student exam (provided via text or images) against the Marking Scheme in a single, comprehensive pass.
 
-*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
-Quote the student's exact phrases exactly as written. DO NOT invent, assume, or inject terms from the marking scheme.
+*** MANDATE 1: EXTRACTION ***
+1. Identify the student's Name and Registration Number. If missing, output "Unknown".
+2. Identify WHICH questions from the marking scheme have been attempted.
 
-*** INSTRUCTIONS ***
-1. Extract the student's name and registration number.
-2. Look at the provided marking scheme. Which of these questions are answered across these pages?
-3. Transcribe the exact text/math/steps for answered questions. For diagrams, describe the labels and structural logic in text.
-4. Output ONLY valid JSON matching the schema precisely.
+*** MANDATE 2: TRANSCRIPTION & EVALUATION ***
+For every attempted question:
+1. Transcribe what the student wrote or drew (mental scratchpad).
+2. Grade the transcribed answer against the Marking Scheme criteria.
+3. Output an array of floats ('points_awarded') representing the exact point values earned from the rubric. DO NOT perform final score arithmetic.
+4. Provide a 'justification' comparing the student's answer to the expected rubric facts.
+5. Provide 'constructive_feedback' using the micro-lesson formula: [Acknowledge what they got right] + [State EXACT missing scientific fact] + [Actionable micro-lesson].
 
-*** SCHEMA ***
+If a question from the marking scheme is NOT ATTEMPTED/SKIPPED by the student, output it with:
+"answer_status": "Skipped", "is_entirely_blank": true, "points_awarded": []
+
+*** FINAL OUTPUT SCHEMA ***
 {
-  "students": [
+  "studentName": "Extracted Name or 'Unknown'",
+  "registrationNumber": "Extracted ID or 'Unknown'",
+  "questions": [
     {
-      "studentName": "Extracted Name or 'Unknown'",
-      "registrationNumber": "Extracted ID or 'Unknown'",
-      "questions": [
-        {
-          "questionId": "1a",
-          "questionTitle": "A short summary",
-          "section": "Section A",
-          "max_marks": 5,
-          "expected_number_of_items": 4,
-          "answer_status": "Answered",
-          "student_answer_transcription": "The exact text written by the student: '...'"
-        }
-      ]
+      "questionId": "1a",
+      "questionTitle": "Summary of question",
+      "section": "Section A",
+      "max_marks": 5,
+      "expected_number_of_items": 4,
+      "answer_status": "Answered | Skipped",
+      "student_answer_transcription": "The exact text/diagram description.",
+      "justification": "The rubric requires X. The student provided X...",
+      "points_awarded": [1.0, 0.5],
+      "is_entirely_blank": false,
+      "constructive_feedback": "You correctly identified X. However, you missed Y."
     }
   ]
 }
 `;
 
-const UE_PASS2_SYSTEM_PROMPT = `
-You are the Primary Evaluator for an Examination Board. Grade exactly ONE question for ONE student.
-
-*** STRICT SCORING GUARDRAIL ***
-Do NOT perform final score arithmetic. Extract an array of specific, awarded points based on the rubric.
-1. 'points_awarded': An array of floats. For EVERY distinct, correct rubric criterion the student successfully met, append the exact point value.
-2. If the student's answer is missing or completely wrong, output 'is_entirely_blank': true and 'points_awarded': [].
-
-*** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
-"constructive_feedback" MUST be short and actionable: [Acknowledge what they got right] + [State EXACT missing scientific fact] + [Actionable micro-lesson].
-
-*** SCHEMA ***
-{
-  "justification": "The rubric requires X and Y. The student provided X but missed Y...",
-  "points_awarded": [0.5],
-  "is_entirely_blank": false,
-  "constructive_feedback": "You correctly identified X. However, you missed Y."
-}
-`;
-
 // Helper: calculateDeterministicScores and delay are inherited globally from js/ai.js
-
-class UESemaphore {
-    constructor(maxConcurrent) {
-        this.maxConcurrent = maxConcurrent;
-        this.currentConcurrent = 0;
-        this.queue = [];
-    }
-
-    async acquire() {
-        if (this.currentConcurrent < this.maxConcurrent) {
-            this.currentConcurrent++;
-            return Promise.resolve();
-        }
-        return new Promise(resolve => {
-            this.queue.push(resolve);
-        });
-    }
-
-    release() {
-        this.currentConcurrent--;
-        if (this.queue.length > 0) {
-            this.currentConcurrent++;
-            const resolve = this.queue.shift();
-            resolve();
-        }
-    }
-}
 
 async function getGeminiKey() {
     try {
@@ -162,8 +121,8 @@ async function callGemini(apiKey, systemPrompt, userParts, title, targetModel = 
             attempt++;
             console.warn(`UE Engine attempt ${attempt} failed for ${title}:`, error.message);
 
-            if (error.message.includes('400')) {
-                throw error; // Fatal configuration error
+            if (error.message.includes('400') || error.message.includes('404')) {
+                throw error; // Fatal configuration or model not found error
             }
 
             let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
@@ -182,50 +141,13 @@ async function callGemini(apiKey, systemPrompt, userParts, title, targetModel = 
 
 // parseLLMJSON is inherited globally from js/ai.js
 
-async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
-    let attempt = 0;
-    while (true) {
-        try {
-            const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
-
-            const userParts = [{ text: p2Prompt }];
-            const p2Raw = await callGemini(apiKey, UE_PASS2_SYSTEM_PROMPT, userParts, "UE Pass 2: Primary Grader", LOGIC_MODEL);
-            const p2Data = parseLLMJSON(p2Raw);
-
-            return {
-                ...questionData,
-                points_awarded: Array.isArray(p2Data.points_awarded) ? p2Data.points_awarded : [],
-                is_entirely_blank: p2Data.is_entirely_blank || false,
-                justification: p2Data.justification || "No justification provided.",
-                constructive_feedback: p2Data.constructive_feedback || "Review rubric.",
-                audit_status: "Approved"
-            };
-        } catch (error) {
-            attempt++;
-            console.warn(`gradeSingleQuestionUE attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
-            if (attempt >= 5) {
-                return {
-                    ...questionData,
-                    points_awarded: [],
-                    is_entirely_blank: true,
-                    justification: "Error grading after multiple retries.",
-                    constructive_feedback: "Error grading. Please review manually.",
-                    audit_status: "Approved"
-                };
-            }
-            const backoff = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            await delay(Math.min(backoff, 30000));
-        }
-    }
-}
-
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
     let attempt = 0;
     while (true) {
         try {
             const apiKey = await getGeminiKey();
 
-            // PASS 1: THE SEGMENTATION MAP (Massive Context Window allows all pages at once)
+            // SINGLE PASS: ONE MASSIVE API CALL TO AVOID THE MAP-REDUCE MULTIPLIER TRAP
             let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
             const userParts = [];
 
@@ -238,7 +160,6 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
                 // For Gemini, base64 images need specific inline_data structure
                 base64PDF.forEach(imageUrl => {
-                    // Extract mime type and raw base64 from data URL (e.g., data:image/jpeg;base64,...)
                     const mimeMatch = imageUrl.match(/data:([^;]+);base64,(.+)/);
                     if (mimeMatch) {
                         userParts.push({
@@ -253,44 +174,39 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 throw new Error("Invalid input format for student exam data.");
             }
 
-            const mapDataStr = await callGemini(apiKey, UE_PASS1_SYSTEM_PROMPT, userParts, "UE Pass 1: Global Segmentation", VISION_MODEL);
-            let parsedMap = parseLLMJSON(mapDataStr);
+            const rawGradedDataStr = await callGemini(apiKey, UE_SINGLE_PASS_PROMPT, userParts, "UE Single Pass Bulk Grading", VISION_MODEL);
+            let parsedExam = parseLLMJSON(rawGradedDataStr);
 
-            if (parsedMap.students && Array.isArray(parsedMap.students)) {
-                parsedMap = parsedMap.students[0];
+            // Handle potential array unwrapping from prompt schema flexibility
+            if (Array.isArray(parsedExam)) {
+                parsedExam = parsedExam[0];
+            } else if (parsedExam.students && Array.isArray(parsedExam.students)) {
+                parsedExam = parsedExam.students[0];
             }
 
-            // PASS 2: PARALLEL QUESTION PROCESSING
-            const questions = parsedMap.questions || [];
-
-            // Free Tier Gemini allows 15 RPM.
-            // Processing 15 questions perfectly respects the free tier limit without triggering 429s.
-            const semaphorePass2 = new UESemaphore(15);
-
-            const gradingPromises = questions.map(async (q) => {
+            // Ensure schema integrity for the math calculation layer
+            parsedExam.questions = (parsedExam.questions || []).map(q => {
                 if (q.answer_status === "Skipped") {
                     return {
                         ...q,
                         is_entirely_blank: true,
-                        marks_awarded_by_ai: 0,
+                        points_awarded: [],
                         justification: "No answer provided",
                         constructive_feedback: "No answer provided"
                     };
                 }
-
-                await semaphorePass2.acquire();
-                try {
-                    return await gradeSingleQuestionUE(apiKey, q, markingSchemeText);
-                } finally {
-                    semaphorePass2.release();
-                }
+                return {
+                    ...q,
+                    points_awarded: Array.isArray(q.points_awarded) ? q.points_awarded : [],
+                    is_entirely_blank: q.is_entirely_blank || false,
+                    justification: q.justification || "No justification provided.",
+                    constructive_feedback: q.constructive_feedback || "Review rubric.",
+                    audit_status: "Approved"
+                };
             });
 
-            const gradedQuestions = await Promise.all(gradingPromises);
-            parsedMap.questions = gradedQuestions;
-
             // MATH (Deterministic JS Calculation)
-            const finalData = calculateDeterministicScores(parsedMap, examInstructions, maxScoreParam);
+            const finalData = calculateDeterministicScores(parsedExam, examInstructions, maxScoreParam);
 
             return [finalData];
 
@@ -298,7 +214,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             attempt++;
             console.warn(`Playbook UE Engine Attempt ${attempt} failed: ${error.message}`);
 
-            if (error.message.includes('400')) throw error;
+            if (error.message.includes('400') || error.message.includes('404')) throw error;
 
             let backoffTime = attempt * 5000;
             if (backoffTime > 60000) backoffTime = 60000;
@@ -322,7 +238,7 @@ CRITICAL MANDATES:
 async function optimizeMarkingSchemeUE(rawText) {
     const apiKey = await getGeminiKey();
     const userParts = [{ text: rawText }];
-    const mapDataStr = await callGemini(apiKey, UE_OPTIMIZE_PROMPT, userParts, "UE Pass 0: Format Scheme", LOGIC_MODEL);
+    const mapDataStr = await callGemini(apiKey, UE_OPTIMIZE_PROMPT, userParts, "UE Pass 0: Format Scheme", VISION_MODEL);
     return mapDataStr;
 }
 
