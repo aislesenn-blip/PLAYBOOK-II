@@ -7,8 +7,8 @@
 // Ultra-Fast SiliconFlow JSON Engine (Paid Tier)
 // Leverages high-speed V3 models with strict JSON schema enforcement
 
-const VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"; // Extreme speed for massive bulk page reading
-const LOGIC_MODEL = "deepseek-ai/DeepSeek-V3"; // Maximum accuracy logic mapping without reasoning tags
+const VISION_MODEL = "qwen/qwen3.6-plus:free"; // Confirmed high-speed free OpenRouter model for multi-modal context
+const LOGIC_MODEL = "qwen/qwen3.6-plus:free"; // Confirmed highly accurate free OpenRouter logic model
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam page.
@@ -194,8 +194,6 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
         }
     }
 }
-
-// parseLLMJSON is inherited globally from js/ai.js
 
 async function gradeQuestionChunkUE(apiKey, questionChunk, markingSchemeText) {
     let attempt = 0;
