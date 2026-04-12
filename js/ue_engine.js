@@ -7,8 +7,8 @@
 // Ultra-Fast OpenRouter Native JSON Engine
 // Leverages high-speed free models with strict JSON schema enforcement
 
-const VISION_MODEL = "google/gemini-2.0-flash-exp:free"; // Extreme speed for massive bulk page reading
-const LOGIC_MODEL = "google/gemini-2.0-flash-exp:free"; // Maximum accuracy logic mapping
+const VISION_MODEL = "google/gemma-3-27b-it:free"; // Extreme speed for massive bulk page reading
+const LOGIC_MODEL = "google/gemma-3-27b-it:free"; // Maximum accuracy logic mapping
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam page.
@@ -41,7 +41,7 @@ Quote the student's exact phrases exactly as written. DO NOT invent, assume, or 
 `;
 
 const UE_PASS2_SYSTEM_PROMPT = `
-You are the Primary Evaluator for an Examination Board. Grade exactly ONE question for ONE student.
+You are the Primary Evaluator for an Examination Board. Grade the provided questions for ONE student.
 
 *** STRICT SCORING GUARDRAIL ***
 Do NOT perform final score arithmetic. Extract an array of specific, awarded points based on the rubric.
@@ -54,10 +54,15 @@ Do NOT perform final score arithmetic. Extract an array of specific, awarded poi
 *** SCHEMA ***
 Output ONLY valid JSON matching the schema precisely. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
 {
-  "justification": "The rubric requires X and Y. The student provided X but missed Y...",
-  "points_awarded": [0.5],
-  "is_entirely_blank": false,
-  "constructive_feedback": "You correctly identified X. However, you missed Y."
+  "results": [
+    {
+      "questionId": "1a",
+      "justification": "The rubric requires X and Y. The student provided X but missed Y...",
+      "points_awarded": [0.5],
+      "is_entirely_blank": false,
+      "constructive_feedback": "You correctly identified X. However, you missed Y."
+    }
+  ]
 }
 `;
 
@@ -193,35 +198,43 @@ async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetMo
 
 // parseLLMJSON is inherited globally from js/ai.js
 
-async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
+async function gradeQuestionChunkUE(apiKey, questionsChunk, markingSchemeText, chunkIndex) {
     let attempt = 0;
     while (true) {
         try {
-            const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
+            let p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answers:\n`;
+            questionsChunk.forEach(q => {
+                p2Prompt += `\n--- Question ${q.questionId} ---\nMax Marks: ${q.max_marks}\nAnswer: ${q.student_answer_transcription}\n`;
+            });
 
-            const p2Raw = await callOpenRouter(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
+            const p2Raw = await callOpenRouter(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, `UE Pass 2: Grader Chunk ${chunkIndex + 1}`, LOGIC_MODEL);
             const p2Data = parseLLMJSON(p2Raw);
 
-            return {
-                ...questionData,
-                points_awarded: Array.isArray(p2Data.points_awarded) ? p2Data.points_awarded : [],
-                is_entirely_blank: p2Data.is_entirely_blank || false,
-                justification: p2Data.justification || "No justification provided.",
-                constructive_feedback: p2Data.constructive_feedback || "Review rubric.",
-                audit_status: "Approved"
-            };
+            let results = Array.isArray(p2Data.results) ? p2Data.results : [];
+
+            return questionsChunk.map(q => {
+                const res = results.find(r => r.questionId === q.questionId) || {};
+                return {
+                    ...q,
+                    points_awarded: Array.isArray(res.points_awarded) ? res.points_awarded : [],
+                    is_entirely_blank: res.is_entirely_blank || false,
+                    justification: res.justification || "No justification provided.",
+                    constructive_feedback: res.constructive_feedback || "Review rubric.",
+                    audit_status: "Approved"
+                };
+            });
         } catch (error) {
             attempt++;
-            console.warn(`gradeSingleQuestionUE attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
+            console.warn(`gradeQuestionChunkUE attempt ${attempt} failed for chunk ${chunkIndex + 1}:`, error.message);
             if (attempt >= 5) {
-                return {
-                    ...questionData,
+                return questionsChunk.map(q => ({
+                    ...q,
                     points_awarded: [],
                     is_entirely_blank: true,
                     justification: "Error grading after multiple retries.",
                     constructive_feedback: "Error grading. Please review manually.",
                     audit_status: "Approved"
-                };
+                }));
             }
             const backoff = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
             await delay(Math.min(backoff, 30000));
@@ -297,19 +310,19 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
     combinedMap.questions = Array.from(questionMap.values());
 
-    // PASS 2: REDUCE (Parallel Logic Grading)
-    const semaphorePass2 = new UESemaphore(10); // Throttle below Free Tier Gemini limit of 15 RPM
+    // CHUNKING: Split questions into chunks of 3
+    const chunks = [];
+    for (let i = 0; i < combinedMap.questions.length; i += 3) {
+        chunks.push(combinedMap.questions.slice(i, i + 3));
+    }
 
-    const gradingPromises = combinedMap.questions.map(async (q) => {
-        await semaphorePass2.acquire();
-        try {
-            return await gradeSingleQuestionUE(apiKey, q, markingSchemeText);
-        } finally {
-            semaphorePass2.release();
-        }
-    });
+    // PASS 2: REDUCE (Sequential Loop over chunks)
+    let gradedQuestions = [];
+    for (let i = 0; i < chunks.length; i++) {
+        const chunkResults = await gradeQuestionChunkUE(apiKey, chunks[i], markingSchemeText, i);
+        gradedQuestions = gradedQuestions.concat(chunkResults);
+    }
 
-    const gradedQuestions = await Promise.all(gradingPromises);
     combinedMap.questions = gradedQuestions;
 
     // MATH
