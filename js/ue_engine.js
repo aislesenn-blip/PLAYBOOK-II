@@ -4,11 +4,11 @@
 
 // API_URL is inherited globally from js/ai.js which is loaded first in upload.html
 
-// Ultra-Fast Gemini Native JSON Engine
-// Bypasses complex Maps and streaming in favor of high-context window processing
+// Ultra-Fast OpenRouter Native JSON Engine
+// Leverages high-speed free models with strict JSON schema enforcement
 
-const VISION_MODEL = "gemini-2.0-flash"; // Extreme speed for massive bulk page reading
-const LOGIC_MODEL = "gemini-2.0-flash"; // Maximum accuracy logic mapping
+const VISION_MODEL = "google/gemini-2.0-flash-exp:free"; // Extreme speed for massive bulk page reading
+const LOGIC_MODEL = "google/gemini-2.0-flash-exp:free"; // Maximum accuracy logic mapping
 
 const UE_PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam page.
@@ -20,7 +20,7 @@ Quote the student's exact phrases exactly as written. DO NOT invent, assume, or 
 1. Extract the student's name and registration number if visible.
 2. Look at the provided marking scheme. Which of these questions are answered on this specific page?
 3. Transcribe the exact text/math/steps for answered questions. For diagrams, describe the labels and structural logic in text.
-4. Output ONLY valid JSON matching the schema precisely.
+4. Output ONLY valid JSON matching the schema precisely. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
 
 *** SCHEMA ***
 {
@@ -52,6 +52,7 @@ Do NOT perform final score arithmetic. Extract an array of specific, awarded poi
 "constructive_feedback" MUST be short and actionable: [Acknowledge what they got right] + [State EXACT missing scientific fact] + [Actionable micro-lesson].
 
 *** SCHEMA ***
+Output ONLY valid JSON matching the schema precisely. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
 {
   "justification": "The rubric requires X and Y. The student provided X but missed Y...",
   "points_awarded": [0.5],
@@ -89,7 +90,7 @@ class UESemaphore {
     }
 }
 
-async function getGeminiKey() {
+async function getOpenRouterKey() {
     try {
         const { data: { session } } = await window.supabaseClient.auth.getSession();
         if (!session) throw new Error("No active session.");
@@ -99,43 +100,49 @@ async function getGeminiKey() {
         if (!instId) throw new Error("Institution ID not found.");
 
         const secret = await window.PlaybookDB.getInstitutionSecret(instId);
-        if (!secret || !secret.google_ai_studio_key) {
-            throw new Error("No Google AI Studio key found in the secure vault. Ask an Admin to configure it.");
+        if (!secret || !secret.openrouter_api_key) {
+            throw new Error("No OpenRouter API key found in the secure vault. Ask an Admin to configure it.");
         }
-        return secret.google_ai_studio_key;
+        return secret.openrouter_api_key;
     } catch (e) {
-        const mockEnv = localStorage.getItem('PLAYBOOK_GEMINI_API_KEY');
+        const mockEnv = localStorage.getItem('PLAYBOOK_API_KEY');
         if (mockEnv) return mockEnv;
         throw new Error(`Authorization failed: ${e.message}`);
     }
 }
 
-async function callGemini(apiKey, systemPrompt, userParts, title, targetModel = VISION_MODEL) {
+async function callOpenRouter(apiKey, systemPrompt, userContent, title, targetModel = VISION_MODEL, requireJSON = true) {
     let attempt = 0;
     while (true) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout for large context
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
+            const payload = {
+                model: targetModel,
+                temperature: 0.0,
+                top_p: 0.1,
+                seed: 42,
+                max_tokens: 8192,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userContent }
+                ]
+            };
+
+            if (requireJSON) {
+                payload.response_format = { type: "json_object" };
+            }
+
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://playbook.edu',
+                    'X-Title': title
                 },
-                body: JSON.stringify({
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
-                    },
-                    contents: [{
-                        role: "user",
-                        parts: userParts
-                    }],
-                    generationConfig: {
-                        temperature: 0.0,
-                        topP: 0.1,
-                        responseMimeType: "application/json"
-                    }
-                }),
+                body: JSON.stringify(payload),
                 signal: controller.signal
             });
 
@@ -143,18 +150,26 @@ async function callGemini(apiKey, systemPrompt, userParts, title, targetModel = 
 
             if (!response.ok) {
                 const errorText = await response.text();
+                if (response.status === 402) {
+                    alert("Payment Required (402). Your OpenRouter account has insufficient credits.");
+                    throw new Error("Payment Required (402). Credits depleted.");
+                }
                 throw new Error(`API error: ${response.status} ${errorText}`);
             }
 
             const responseData = await response.json();
 
-            if (responseData.candidates && responseData.candidates.length > 0) {
-                return responseData.candidates[0].content.parts[0].text;
+            if (responseData.choices && responseData.choices.length > 0) {
+                return responseData.choices[0].message.content;
             } else {
-                throw new Error("Gemini returned empty or blocked response.");
+                throw new Error("API returned empty or blocked response.");
             }
 
         } catch (error) {
+            if (error.message.includes('402')) {
+                throw error; // Fatal configuration error
+            }
+
             attempt++;
             console.warn(`UE Engine attempt ${attempt} failed for ${title}:`, error.message);
 
@@ -184,8 +199,7 @@ async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
         try {
             const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
-            const userParts = [{ text: p2Prompt }];
-            const p2Raw = await callGemini(apiKey, UE_PASS2_SYSTEM_PROMPT, userParts, "UE Pass 2: Primary Grader", LOGIC_MODEL);
+            const p2Raw = await callOpenRouter(apiKey, UE_PASS2_SYSTEM_PROMPT, p2Prompt, "UE Pass 2: Primary Grader", LOGIC_MODEL);
             const p2Data = parseLLMJSON(p2Raw);
 
             return {
@@ -216,7 +230,7 @@ async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
 }
 
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
-    const apiKey = await getGeminiKey();
+    const apiKey = await getOpenRouterKey();
 
     // PASS 1: MAP (Image-Level Chunking)
     const semaphorePass1 = new UESemaphore(5); // Strict control to prevent 429 TPM Limits on Free Tier
@@ -236,21 +250,12 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 let attempt = 0;
                 while (true) {
                     try {
-                        let userParts = [
-                            { text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is Page ${idx + 1} of this single student's exam:` }
+                        let userContent = [
+                            { type: "text", text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is Page ${idx + 1} of this single student's exam:` },
+                            { type: "image_url", image_url: { url: imageUrl } }
                         ];
 
-                        const mimeMatch = imageUrl.match(/data:([^;]+);base64,(.+)/);
-                        if (mimeMatch) {
-                            userParts.push({
-                                inlineData: {
-                                    mimeType: mimeMatch[1],
-                                    data: mimeMatch[2]
-                                }
-                            });
-                        }
-
-                        const mapDataStr = await callGemini(apiKey, UE_PASS1_SYSTEM_PROMPT, userParts, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
+                        const mapDataStr = await callOpenRouter(apiKey, UE_PASS1_SYSTEM_PROMPT, userContent, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
                         const parsedMap = parseLLMJSON(mapDataStr);
 
                         return parsedMap;
@@ -323,9 +328,8 @@ CRITICAL MANDATES:
 `;
 
 async function optimizeMarkingSchemeUE(rawText) {
-    const apiKey = await getGeminiKey();
-    const userParts = [{ text: rawText }];
-    const mapDataStr = await callGemini(apiKey, UE_OPTIMIZE_PROMPT, userParts, "UE Pass 0: Format Scheme", VISION_MODEL);
+    const apiKey = await getOpenRouterKey();
+    const mapDataStr = await callOpenRouter(apiKey, UE_OPTIMIZE_PROMPT, rawText, "UE Pass 0: Format Scheme", VISION_MODEL, false);
     return mapDataStr;
 }
 
