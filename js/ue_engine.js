@@ -679,7 +679,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                     }
 
                     const data = await response.json();
-                    const content = data.candidates && data.candidates.length > 0 ? data.candidates[0].content.parts[0].text : "";
+                    let content = data.candidates && data.candidates.length > 0 ? data.candidates[0].content.parts[0].text : "";
 
                     if (content.startsWith('```')) {
                         content = content.replace(/^```[^\n]*\n|\n```$/g, '');
