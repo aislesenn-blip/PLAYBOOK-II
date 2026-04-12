@@ -136,8 +136,13 @@ async function callSiliconFlow(apiKey, systemPrompt, userContent, title, targetM
             };
 
             // DeepSeek V3 and Qwen 2.5 support strict JSON mode natively
+            // However, SiliconFlow sometimes rejects it for certain models or contexts
+            // If it rejects, we will rely on prompt instructions
             if (requireJSON) {
-                payload.response_format = { type: "json_object" };
+                // Do not force response_format for Qwen2.5-VL-72B-Instruct or DeepSeek-R1 as it may cause 400 Json mode not supported error
+                if (!targetModel.includes("Qwen2.5-VL") && !targetModel.includes("DeepSeek-R1")) {
+                    payload.response_format = { type: "json_object" };
+                }
             }
 
             const response = await fetch("https://api.siliconflow.com/v1/chat/completions", {
@@ -313,8 +318,8 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
     // PASS 2: REDUCE (Chunked Parallel Logic Grading to prevent Token Multiplier Effect)
     const semaphorePass2 = new UESemaphore(15); // Balanced control to prevent 429 TPM limits on Paid Tier
 
-    // Group questions into chunks of 3
-    const CHUNK_SIZE = 3;
+    // Group questions into chunks of 6 to increase speed while balancing limits
+    const CHUNK_SIZE = 6;
     const questionChunks = [];
     const validQuestions = combinedMap.questions.filter(q => q.answer_status !== "Skipped");
     const skippedQuestions = combinedMap.questions.filter(q => q.answer_status === "Skipped").map(q => ({
