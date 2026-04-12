@@ -267,6 +267,9 @@ function parseLLMJSON(content) {
         return { is_entirely_blank: true, justification: "No step-by-step thinking provided", marks_awarded: 0 };
     }
 
+    // PRE-STEP: Remove reasoning/thinking blocks commonly used by models like DeepSeek-R1
+    content = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
     // STEP 1: Extract ONLY the JSON object, ignoring any conversational filler text before or after
     // Custom brace-counting JSON extractor to guarantee perfect extraction
     let startIndex = content.indexOf('{');
