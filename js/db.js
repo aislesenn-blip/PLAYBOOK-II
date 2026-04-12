@@ -82,10 +82,11 @@ const PlaybookDB = {
         return data;
     },
 
-    async saveInstitutionSecret(institutionId, apiKey, sfApiKey) {
+    async saveInstitutionSecret(institutionId, apiKey, sfApiKey, geminiApiKey) {
         let payload = { institution_id: institutionId };
         if (apiKey !== undefined) payload.openrouter_api_key = apiKey;
         if (sfApiKey !== undefined) payload.siliconflow_api_key = sfApiKey;
+        if (geminiApiKey !== undefined) payload.google_ai_studio_key = geminiApiKey;
 
         const { error } = await supabaseClient
             .from('institution_secrets')
