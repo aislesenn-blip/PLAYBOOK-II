@@ -7,50 +7,87 @@
 // Ultra-Fast Gemini Native JSON Engine
 // Bypasses complex Maps and streaming in favor of high-context window processing
 
-const VISION_MODEL = "gemini-2.0-flash"; // Extreme speed for massive bulk reading AND logic
+const VISION_MODEL = "gemini-2.0-flash"; // Extreme speed for massive bulk page reading
+const LOGIC_MODEL = "gemini-2.0-flash"; // Maximum accuracy logic mapping
 
-const UE_SINGLE_PASS_PROMPT = `
-You are an Elite Examination Board Evaluator capable of parallel task execution.
-You must process an entire student exam (provided via text or images) against the Marking Scheme in a single, comprehensive pass.
+const UE_PASS1_SYSTEM_PROMPT = `
+You are the Master Segmenter for an Examination Board. Extract the student's identity and transcribe their answers from the provided exam page.
 
-*** MANDATE 1: EXTRACTION ***
-1. Identify the student's Name and Registration Number. If missing, output "Unknown".
-2. Identify WHICH questions from the marking scheme have been attempted.
+*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
+Quote the student's exact phrases exactly as written. DO NOT invent, assume, or inject terms from the marking scheme.
 
-*** MANDATE 2: TRANSCRIPTION & EVALUATION ***
-For every attempted question:
-1. Transcribe what the student wrote or drew (mental scratchpad).
-2. Grade the transcribed answer against the Marking Scheme criteria.
-3. Output an array of floats ('points_awarded') representing the exact point values earned from the rubric. DO NOT perform final score arithmetic.
-4. Provide a 'justification' comparing the student's answer to the expected rubric facts.
-5. Provide 'constructive_feedback' using the micro-lesson formula: [Acknowledge what they got right] + [State EXACT missing scientific fact] + [Actionable micro-lesson].
+*** INSTRUCTIONS ***
+1. Extract the student's name and registration number if visible.
+2. Look at the provided marking scheme. Which of these questions are answered on this specific page?
+3. Transcribe the exact text/math/steps for answered questions. For diagrams, describe the labels and structural logic in text.
+4. Output ONLY valid JSON matching the schema precisely.
 
-If a question from the marking scheme is NOT ATTEMPTED/SKIPPED by the student, output it with:
-"answer_status": "Skipped", "is_entirely_blank": true, "points_awarded": []
-
-*** FINAL OUTPUT SCHEMA ***
+*** SCHEMA ***
 {
   "studentName": "Extracted Name or 'Unknown'",
   "registrationNumber": "Extracted ID or 'Unknown'",
-  "questions": [
+  "questions_found_on_this_page": [
     {
       "questionId": "1a",
-      "questionTitle": "Summary of question",
+      "questionTitle": "A short summary",
       "section": "Section A",
       "max_marks": 5,
       "expected_number_of_items": 4,
-      "answer_status": "Answered | Skipped",
-      "student_answer_transcription": "The exact text/diagram description.",
-      "justification": "The rubric requires X. The student provided X...",
-      "points_awarded": [1.0, 0.5],
-      "is_entirely_blank": false,
-      "constructive_feedback": "You correctly identified X. However, you missed Y."
+      "answer_status": "Answered",
+      "student_answer_transcription": "The exact text written by the student: '...'"
     }
   ]
 }
 `;
 
+const UE_PASS2_SYSTEM_PROMPT = `
+You are the Primary Evaluator for an Examination Board. Grade exactly ONE question for ONE student.
+
+*** STRICT SCORING GUARDRAIL ***
+Do NOT perform final score arithmetic. Extract an array of specific, awarded points based on the rubric.
+1. 'points_awarded': An array of floats. For EVERY distinct, correct rubric criterion the student successfully met, append the exact point value.
+2. If the student's answer is missing or completely wrong, output 'is_entirely_blank': true and 'points_awarded': [].
+
+*** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
+"constructive_feedback" MUST be short and actionable: [Acknowledge what they got right] + [State EXACT missing scientific fact] + [Actionable micro-lesson].
+
+*** SCHEMA ***
+{
+  "justification": "The rubric requires X and Y. The student provided X but missed Y...",
+  "points_awarded": [0.5],
+  "is_entirely_blank": false,
+  "constructive_feedback": "You correctly identified X. However, you missed Y."
+}
+`;
+
 // Helper: calculateDeterministicScores and delay are inherited globally from js/ai.js
+
+class UESemaphore {
+    constructor(maxConcurrent) {
+        this.maxConcurrent = maxConcurrent;
+        this.currentConcurrent = 0;
+        this.queue = [];
+    }
+
+    async acquire() {
+        if (this.currentConcurrent < this.maxConcurrent) {
+            this.currentConcurrent++;
+            return Promise.resolve();
+        }
+        return new Promise(resolve => {
+            this.queue.push(resolve);
+        });
+    }
+
+    release() {
+        this.currentConcurrent--;
+        if (this.queue.length > 0) {
+            this.currentConcurrent++;
+            const resolve = this.queue.shift();
+            resolve();
+        }
+    }
+}
 
 async function getGeminiKey() {
     try {
@@ -141,88 +178,138 @@ async function callGemini(apiKey, systemPrompt, userParts, title, targetModel = 
 
 // parseLLMJSON is inherited globally from js/ai.js
 
-async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
+async function gradeSingleQuestionUE(apiKey, questionData, markingSchemeText) {
     let attempt = 0;
     while (true) {
         try {
-            const apiKey = await getGeminiKey();
+            const p2Prompt = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
-            // SINGLE PASS: ONE MASSIVE API CALL TO AVOID THE MAP-REDUCE MULTIPLIER TRAP
-            let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
-            const userParts = [];
+            const userParts = [{ text: p2Prompt }];
+            const p2Raw = await callGemini(apiKey, UE_PASS2_SYSTEM_PROMPT, userParts, "UE Pass 2: Primary Grader", LOGIC_MODEL);
+            const p2Data = parseLLMJSON(p2Raw);
 
-            if (typeof base64PDF === 'string') {
-                promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${base64PDF}\n---`;
-                userParts.push({ text: promptText });
-            } else if (Array.isArray(base64PDF)) {
-                promptText += `Here are the scanned pages of this single student's exam:`;
-                userParts.push({ text: promptText });
-
-                // For Gemini, base64 images need specific inline_data structure
-                base64PDF.forEach(imageUrl => {
-                    const mimeMatch = imageUrl.match(/data:([^;]+);base64,(.+)/);
-                    if (mimeMatch) {
-                        userParts.push({
-                            inlineData: {
-                                mimeType: mimeMatch[1],
-                                data: mimeMatch[2]
-                            }
-                        });
-                    }
-                });
-            } else {
-                throw new Error("Invalid input format for student exam data.");
-            }
-
-            const rawGradedDataStr = await callGemini(apiKey, UE_SINGLE_PASS_PROMPT, userParts, "UE Single Pass Bulk Grading", VISION_MODEL);
-            let parsedExam = parseLLMJSON(rawGradedDataStr);
-
-            // Handle potential array unwrapping from prompt schema flexibility
-            if (Array.isArray(parsedExam)) {
-                parsedExam = parsedExam[0];
-            } else if (parsedExam.students && Array.isArray(parsedExam.students)) {
-                parsedExam = parsedExam.students[0];
-            }
-
-            // Ensure schema integrity for the math calculation layer
-            parsedExam.questions = (parsedExam.questions || []).map(q => {
-                if (q.answer_status === "Skipped") {
-                    return {
-                        ...q,
-                        is_entirely_blank: true,
-                        points_awarded: [],
-                        justification: "No answer provided",
-                        constructive_feedback: "No answer provided"
-                    };
-                }
-                return {
-                    ...q,
-                    points_awarded: Array.isArray(q.points_awarded) ? q.points_awarded : [],
-                    is_entirely_blank: q.is_entirely_blank || false,
-                    justification: q.justification || "No justification provided.",
-                    constructive_feedback: q.constructive_feedback || "Review rubric.",
-                    audit_status: "Approved"
-                };
-            });
-
-            // MATH (Deterministic JS Calculation)
-            const finalData = calculateDeterministicScores(parsedExam, examInstructions, maxScoreParam);
-
-            return [finalData];
-
+            return {
+                ...questionData,
+                points_awarded: Array.isArray(p2Data.points_awarded) ? p2Data.points_awarded : [],
+                is_entirely_blank: p2Data.is_entirely_blank || false,
+                justification: p2Data.justification || "No justification provided.",
+                constructive_feedback: p2Data.constructive_feedback || "Review rubric.",
+                audit_status: "Approved"
+            };
         } catch (error) {
             attempt++;
-            console.warn(`Playbook UE Engine Attempt ${attempt} failed: ${error.message}`);
-
-            if (error.message.includes('400') || error.message.includes('404')) throw error;
-
-            let backoffTime = attempt * 5000;
-            if (backoffTime > 60000) backoffTime = 60000;
-
-            console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
-            await delay(backoffTime);
+            console.warn(`gradeSingleQuestionUE attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
+            if (attempt >= 5) {
+                return {
+                    ...questionData,
+                    points_awarded: [],
+                    is_entirely_blank: true,
+                    justification: "Error grading after multiple retries.",
+                    constructive_feedback: "Error grading. Please review manually.",
+                    audit_status: "Approved"
+                };
+            }
+            const backoff = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            await delay(Math.min(backoff, 30000));
         }
     }
+}
+
+async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
+    const apiKey = await getGeminiKey();
+
+    // PASS 1: MAP (Image-Level Chunking)
+    const semaphorePass1 = new UESemaphore(5); // Strict control to prevent 429 TPM Limits on Free Tier
+
+    let combinedMap = {
+        studentName: "Unknown",
+        registrationNumber: "Unknown",
+        questions: []
+    };
+
+    let questionMap = new Map();
+
+    if (Array.isArray(base64PDF)) {
+        const pagePromises = base64PDF.map(async (imageUrl, idx) => {
+            await semaphorePass1.acquire();
+            try {
+                let attempt = 0;
+                while (true) {
+                    try {
+                        let userParts = [
+                            { text: `Here is the marking scheme:\n${markingSchemeText}\n\nHere is Page ${idx + 1} of this single student's exam:` }
+                        ];
+
+                        const mimeMatch = imageUrl.match(/data:([^;]+);base64,(.+)/);
+                        if (mimeMatch) {
+                            userParts.push({
+                                inlineData: {
+                                    mimeType: mimeMatch[1],
+                                    data: mimeMatch[2]
+                                }
+                            });
+                        }
+
+                        const mapDataStr = await callGemini(apiKey, UE_PASS1_SYSTEM_PROMPT, userParts, `UE Pass 1: Segment Page ${idx + 1}`, VISION_MODEL);
+                        const parsedMap = parseLLMJSON(mapDataStr);
+
+                        return parsedMap;
+                    } catch (error) {
+                        attempt++;
+                        console.warn(`gradeBatchExams Pass 1 attempt ${attempt} failed for Page ${idx + 1}:`, error.message);
+                        if (attempt >= 5) {
+                            return { studentName: "Unknown", registrationNumber: "Unknown", questions_found_on_this_page: [] };
+                        }
+                        const backoff = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+                        await delay(Math.min(backoff, 30000));
+                    }
+                }
+            } finally {
+                semaphorePass1.release();
+            }
+        });
+
+        const pagesData = await Promise.all(pagePromises);
+
+        pagesData.forEach(page => {
+            if (page.studentName && page.studentName !== "Unknown") combinedMap.studentName = page.studentName;
+            if (page.registrationNumber && page.registrationNumber !== "Unknown") combinedMap.registrationNumber = page.registrationNumber;
+
+            if (page.questions_found_on_this_page && Array.isArray(page.questions_found_on_this_page)) {
+                page.questions_found_on_this_page.forEach(q => {
+                    if (questionMap.has(q.questionId)) {
+                        const existing = questionMap.get(q.questionId);
+                        existing.student_answer_transcription += "\n [Continued on next page]: " + q.student_answer_transcription;
+                        questionMap.set(q.questionId, existing);
+                    } else {
+                        q.answer_status = "Answered";
+                        questionMap.set(q.questionId, q);
+                    }
+                });
+            }
+        });
+    }
+
+    combinedMap.questions = Array.from(questionMap.values());
+
+    // PASS 2: REDUCE (Parallel Logic Grading)
+    const semaphorePass2 = new UESemaphore(10); // Throttle below Free Tier Gemini limit of 15 RPM
+
+    const gradingPromises = combinedMap.questions.map(async (q) => {
+        await semaphorePass2.acquire();
+        try {
+            return await gradeSingleQuestionUE(apiKey, q, markingSchemeText);
+        } finally {
+            semaphorePass2.release();
+        }
+    });
+
+    const gradedQuestions = await Promise.all(gradingPromises);
+    combinedMap.questions = gradedQuestions;
+
+    // MATH
+    const finalData = calculateDeterministicScores(combinedMap, examInstructions, maxScoreParam);
+    return [finalData];
 }
 
 const UE_OPTIMIZE_PROMPT = `
