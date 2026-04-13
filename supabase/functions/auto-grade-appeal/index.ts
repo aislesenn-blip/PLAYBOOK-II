@@ -54,9 +54,10 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
     while (attempt < 3) {
         try {
             const bodyPayload: any = {
-                model: "gemini-2.5-pro",
+                model: "gemini-2.0-pro-exp-02-05",
                 temperature: 0.0,
                 top_p: 0.1,
+                max_tokens: 8192,
                 max_completion_tokens: 8192,
                 response_format: { type: "json_object" },
                 messages: [

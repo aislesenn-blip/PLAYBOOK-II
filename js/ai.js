@@ -366,13 +366,13 @@ function parseLLMJSON(content) {
 
         repairedContent = repairedContent.substring(0, dropIndex);
 
-        if (inString) {
-            repairedContent += '"';
-        }
-
         // Handle unquoted key remnants by doing a secondary cleanup:
         // Strip trailing whitespace, colons, or partial string fragments
         repairedContent = repairedContent.replace(/(,\s*|:\s*|"\w*\s*)$/, '');
+
+        if (inString) {
+            repairedContent += '"';
+        }
 
         while (stack.length > 0) {
             repairedContent += stack.pop();
@@ -437,9 +437,10 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'gemini-2.5-pro',
+                        model: 'gemini-2.0-pro-exp-02-05',
                         temperature: 0.0,
                         top_p: 0.1,
+                            max_tokens: 8192,
                             max_completion_tokens: 8192,
                         messages: [
                             { role: 'system', content: PASS2_SYSTEM_PROMPT },
@@ -526,9 +527,10 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.5-pro',
+                    model: 'gemini-2.0-pro-exp-02-05',
                     temperature: 0.0,
                     top_p: 0.1,
+                            max_tokens: 8192,
                             max_completion_tokens: 8192,
                     messages: [
                         { role: 'system', content: PASS1_SYSTEM_PROMPT },
@@ -632,9 +634,10 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            model: 'gemini-2.5-pro',
+                            model: 'gemini-2.0-pro-exp-02-05',
                             temperature: 0.0,
                             top_p: 0.1,
+                            max_tokens: 8192,
                             max_completion_tokens: 8192,
                             messages: [
                                 {
@@ -702,9 +705,10 @@ async function extractMarkingSchemeOCR(base64Images) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.5-pro',
+                    model: 'gemini-2.0-pro-exp-02-05',
                     temperature: 0.0,
                     top_p: 0.1,
+                            max_tokens: 8192,
                             max_completion_tokens: 8192,
                     messages: [
                         { role: 'user', content: userContent }
