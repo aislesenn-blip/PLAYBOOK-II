@@ -79,39 +79,69 @@ serve(async (req) => {
 
     const apiKey = secretData.gemini_api_key;
 
-    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-            parts: [{ text: OPTIMIZE_PROMPT }]
-        },
-        contents: [{
-            role: 'user',
-            parts: [{ text: raw_scheme }]
-        }],
-        generationConfig: {
-            temperature: 0.0,
-            maxOutputTokens: 8192
-        }
-      })
-    });
+    // L9 Architecture: Chunked Parallel Optimization for Edge Function
+    const chunks = raw_scheme.split(/(?=\n*Question\s*\d)/i).filter((c: string) => c.trim().length > 0);
+    if (chunks.length === 0) chunks.push(raw_scheme);
 
-    if (!googleAIReq.ok) {
-        const errorText = await googleAIReq.text();
-        throw new Error(`Google AI Studio API error: ${googleAIReq.status} ${errorText}`);
+    // Limit concurrency to avoid Deno Edge memory limits
+    const BATCH_SIZE = 5;
+    let finalOptimizedBlocks = [];
+
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+        const batchChunks = chunks.slice(i, i + BATCH_SIZE);
+
+        const chunkPromises = batchChunks.map(async (chunkText: string) => {
+            let attempt = 0;
+            while (attempt < 3) {
+                try {
+                    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            systemInstruction: {
+                                parts: [{ text: OPTIMIZE_PROMPT }]
+                            },
+                            contents: [{
+                                role: 'user',
+                                parts: [{ text: chunkText }]
+                            }],
+                            generationConfig: {
+                                temperature: 0.0,
+                                maxOutputTokens: 8192
+                            }
+                        })
+                    });
+
+                    if (!googleAIReq.ok) {
+                        const errorText = await googleAIReq.text();
+                        throw new Error(`Google AI Studio API error: ${googleAIReq.status} ${errorText}`);
+                    }
+
+                    const aiResponse = await googleAIReq.json();
+                    let content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+                    if (content.startsWith('```')) {
+                        content = content.replace(/^```[^\n]*\n|\n```$/g, '');
+                    }
+                    return content;
+                } catch (error: any) {
+                    attempt++;
+                    console.warn(`Optimization Chunk Attempt ${attempt} failed: ${error.message}`);
+                    await new Promise(res => setTimeout(res, attempt * 2000));
+                }
+            }
+            return ""; // Failsafe return
+        });
+
+        const batchResults = await Promise.all(chunkPromises);
+        finalOptimizedBlocks.push(...batchResults);
     }
 
-    const aiResponse = await googleAIReq.json();
-    let content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const finalContent = finalOptimizedBlocks.join("\n\n");
 
-    if (content.startsWith('```')) {
-        content = content.replace(/^```[^\n]*\n|\n```$/g, '');
-    }
-
-    return new Response(JSON.stringify({ formatted_scheme: content }), {
+    return new Response(JSON.stringify({ formatted_scheme: finalContent }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
