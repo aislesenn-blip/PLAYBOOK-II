@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const GOOGLE_AI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const GOOGLE_AI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const OPTIMIZE_PROMPT = `
 You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
@@ -79,20 +79,23 @@ serve(async (req) => {
 
     const apiKey = secretData.gemini_api_key;
 
-    const googleAIReq = await fetch(GOOGLE_AI_API_URL, {
+    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-pro',
-        temperature: 0.0,
-        max_tokens: 8192,
-        messages: [
-          { role: 'system', content: OPTIMIZE_PROMPT },
-          { role: 'user', content: raw_scheme }
-        ]
+        systemInstruction: {
+            parts: [{ text: OPTIMIZE_PROMPT }]
+        },
+        contents: [{
+            role: 'user',
+            parts: [{ text: raw_scheme }]
+        }],
+        generationConfig: {
+            temperature: 0.0,
+            maxOutputTokens: 8192
+        }
       })
     });
 
@@ -102,7 +105,7 @@ serve(async (req) => {
     }
 
     const aiResponse = await googleAIReq.json();
-    let content = aiResponse.choices[0].message.content;
+    let content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     if (content.startsWith('```')) {
         content = content.replace(/^```[^\n]*\n|\n```$/g, '');
