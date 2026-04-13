@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const GOOGLE_AI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 const OPTIMIZE_PROMPT = `
 You are an elite educational engineer. Rewrite this raw marking scheme into the strict "Playbook Standard Format".
@@ -69,24 +69,24 @@ serve(async (req) => {
     // Fetch the Institution's API Key securely
     const { data: secretData, error: secretError } = await supabaseClient
       .from('institution_secrets')
-      .select('openrouter_api_key')
+      .select('gemini_api_key')
       .eq('institution_id', userData.institution_id)
       .single();
 
-    if (secretError || !secretData?.openrouter_api_key) {
-        throw new Error("No OpenRouter API key configured for this institution.");
+    if (secretError || !secretData?.gemini_api_key) {
+        throw new Error("No Google AI Studio API key configured for this institution.");
     }
 
-    const apiKey = secretData.openrouter_api_key;
+    const apiKey = secretData.gemini_api_key;
 
-    const openRouterReq = await fetch(OPENROUTER_API_URL, {
+    const googleAIReq = await fetch(GOOGLE_AI_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o',
+        model: 'gemini-2.5-flash',
         temperature: 0.0,
         seed: 42,
         messages: [
@@ -96,12 +96,12 @@ serve(async (req) => {
       })
     });
 
-    if (!openRouterReq.ok) {
-        const errorText = await openRouterReq.text();
-        throw new Error(`OpenRouter API error: ${openRouterReq.status} ${errorText}`);
+    if (!googleAIReq.ok) {
+        const errorText = await googleAIReq.text();
+        throw new Error(`Google AI Studio API error: ${googleAIReq.status} ${errorText}`);
     }
 
-    const aiResponse = await openRouterReq.json();
+    const aiResponse = await googleAIReq.json();
     let content = aiResponse.choices[0].message.content;
 
     if (content.startsWith('```')) {

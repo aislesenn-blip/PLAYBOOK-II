@@ -49,12 +49,12 @@ function parseLLMJSON(content: string) {
     }
 }
 
-async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent: string, title: string) {
+async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: string, title: string) {
     let attempt = 0;
     while (attempt < 3) {
         try {
             const bodyPayload: any = {
-                model: "anthropic/claude-3.7-sonnet",
+                model: "gemini-2.5-flash",
                 temperature: 0.0,
                 seed: 42,
                 top_p: 0.1,
@@ -65,7 +65,7 @@ async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent
                 ]
             };
 
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${apiKey}`,
@@ -78,7 +78,7 @@ async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent
 
             if (!response.ok) {
                 const errText = await response.text();
-                throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+                throw new Error(`Google AI Studio API error (${response.status}): ${errText}`);
             }
 
             const data = await response.json();
@@ -86,7 +86,7 @@ async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent
 
         } catch (error: any) {
             attempt++;
-            console.warn(`Appeal OpenRouter attempt ${attempt} failed: ${error.message}`);
+            console.warn(`Appeal Google AI attempt ${attempt} failed: ${error.message}`);
             await delay(2000 * attempt);
         }
     }
@@ -142,15 +142,15 @@ serve(async (req) => {
     // 2. Fetch API Key
     const { data: secrets, error: secretsError } = await supabase
       .from('institution_secrets')
-      .select('openrouter_api_key')
+      .select('gemini_api_key')
       .eq('institution_id', institutionId)
       .single()
 
-    if (secretsError || !secrets?.openrouter_api_key) {
+    if (secretsError || !secrets?.gemini_api_key) {
         throw new Error('API key not found for institution')
     }
 
-    const openRouterApiKey = secrets.openrouter_api_key;
+    const googleAIApiKey = secrets.gemini_api_key;
 
     // 3. Reconstruct context
     // If the appeal is for 'entire_exam', we provide the full text. If specific question, we filter.
@@ -168,7 +168,7 @@ serve(async (req) => {
     userPrompt += `Based on the marking scheme, the student's submission, and their dispute reason, perform a deep re-evaluation. Are they correct? Determine if their total score should be adjusted. Output only JSON.`;
 
     // 4. Call AI
-    const rawAIResponse = await fetchOpenRouter(openRouterApiKey, APPEAL_SYSTEM_PROMPT, userPrompt, "Playbook Deep-Dive Appeal",);
+    const rawAIResponse = await fetchGoogleAI(googleAIApiKey, APPEAL_SYSTEM_PROMPT, userPrompt, "Playbook Deep-Dive Appeal",);
     const parsedDecision = parseLLMJSON(rawAIResponse);
 
     // 5. Apply Updates
