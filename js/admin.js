@@ -32,8 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
-    if (institutionSecret && institutionSecret.openrouter_api_key && institutionSecret.openrouter_api_key !== '') {
-        apiInput.value = institutionSecret.openrouter_api_key;
+    if (institutionSecret && institutionSecret.siliconflow_api_key && institutionSecret.siliconflow_api_key !== '') {
+        apiInput.value = institutionSecret.siliconflow_api_key;
         statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
         statusDiv.style.color = 'var(--success-color)';
     } else {

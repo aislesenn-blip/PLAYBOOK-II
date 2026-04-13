@@ -421,19 +421,19 @@ async function processGrading(supabase: any, submission: any) {
 
     const { data: secrets, error: secretsError } = await supabase
       .from('institution_secrets')
-      .select('openrouter_api_key')
+      .select('siliconflow_api_key')
       .eq('institution_id', institutionId)
       .single()
 
-    if (secretsError || !secrets?.openrouter_api_key) {
+    if (secretsError || !secrets?.siliconflow_api_key) {
         throw new Error('API key not found for institution')
     }
 
-    const openRouterApiKey = secrets.openrouter_api_key
+    const siliconFlowApiKey = secrets.siliconflow_api_key
     const studentText = submission.text_content
 
     // MAP REDUCE AI GRADING
-    const gradingResult = await gradeBatchExamsCloud(studentText, rawInstructions, openRouterApiKey)
+    const gradingResult = await gradeBatchExamsCloud(studentText, rawInstructions, siliconFlowApiKey)
 
     await supabase
       .from('exam_submissions')
@@ -457,12 +457,12 @@ async function processGrading(supabase: any, submission: any) {
   }
 }
 
-async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent: any, title: string, requireJSON: boolean) {
+async function fetchSiliconFlow(apiKey: string, systemPrompt: string, userContent: any, title: string, requireJSON: boolean) {
     let attempt = 0;
     while (true) {
         try {
             const bodyPayload: any = {
-                model: "anthropic/claude-3.7-sonnet",
+                model: "deepseek-ai/DeepSeek-V3",
                 temperature: 0.0,
                 seed: 42,
                 top_p: 0.1,
@@ -476,7 +476,7 @@ async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent
                 bodyPayload.response_format = { type: "json_object" };
             }
 
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            const response = await fetch("https://api.siliconflow.com/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${apiKey}`,
@@ -489,7 +489,7 @@ async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent
 
             if (!response.ok) {
                 const errText = await response.text();
-                throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+                throw new Error(`SiliconFlow API error (${response.status}): ${errText}`);
             }
 
             const data = await response.json();
@@ -497,7 +497,7 @@ async function fetchOpenRouter(apiKey: string, systemPrompt: string, userContent
 
         } catch (error: any) {
             attempt++;
-            console.warn(`[Infinite Retry] fetchOpenRouter attempt ${attempt} failed for ${title}: ${error.message}`);
+            console.warn(`[Infinite Retry] fetchSiliconFlow attempt ${attempt} failed for ${title}: ${error.message}`);
 
             let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
             if (backoffTime > 60000) backoffTime = 60000;
@@ -512,7 +512,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     let optimizedScheme = rawInstructions;
     if (rawInstructions && rawInstructions.length > 20) {
         try {
-            optimizedScheme = await fetchOpenRouter(apiKey, OPTIMIZE_PROMPT, rawInstructions, "Playbook Autopilot Optimizer", false);
+            optimizedScheme = await fetchSiliconFlow(apiKey, OPTIMIZE_PROMPT, rawInstructions, "Playbook Autopilot Optimizer", false);
             optimizedScheme = optimizedScheme.replace(/^```[^\n]*\n|\n```$/g, '');
         } catch (e: any) {
             console.warn("Scheme optimization failed, using raw scheme. Error:", e.message);
@@ -525,7 +525,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 
     let mapDataStr;
     try {
-        mapDataStr = await fetchOpenRouter(apiKey, PASS1_SYSTEM_PROMPT, promptText, "Playbook Autopilot Map", true);
+        mapDataStr = await fetchSiliconFlow(apiKey, PASS1_SYSTEM_PROMPT, promptText, "Playbook Autopilot Map", true);
     } catch(e: any) {
          throw new Error("Pass 1 Map failed: " + e.message);
     }
@@ -572,7 +572,7 @@ async function gradeSingleQuestionCloud(apiKey: string, questionData: any, marki
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
-            const rawContent = await fetchOpenRouter(apiKey, PASS2_SYSTEM_PROMPT, promptText, "Playbook Autopilot Reduce", true);
+            const rawContent = await fetchSiliconFlow(apiKey, PASS2_SYSTEM_PROMPT, promptText, "Playbook Autopilot Reduce", true);
             const parsed = parseLLMJSON(rawContent);
 
             if (parsed.points_awarded === undefined && parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {

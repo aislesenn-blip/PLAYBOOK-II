@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const SILICONFLOW_API_URL = "https://api.siliconflow.com/v1/chat/completions";
 
 const SYSTEM_PROMPT = `
 You are the Chief Examiner for a World-Class International Examination Board grading MULTIPLE student exams contained in a single document.
@@ -92,15 +92,15 @@ serve(async (req) => {
     const institutionId = session.users.institution_id;
     const { data: secretData, error: secretError } = await supabaseClient
       .from('institution_secrets')
-      .select('openrouter_api_key')
+      .select('siliconflow_api_key')
       .eq('institution_id', institutionId)
       .single();
 
-    if (secretError || !secretData?.openrouter_api_key) {
-        throw new Error("No OpenRouter API key configured for this institution.");
+    if (secretError || !secretData?.siliconflow_api_key) {
+        throw new Error("No SiliconFlow API key configured for this institution.");
     }
 
-    const apiKey = secretData.openrouter_api_key;
+    const apiKey = secretData.siliconflow_api_key;
 
     // 3. Download the PDF from Storage
     const { data: fileData, error: fileError } = await supabaseClient
@@ -125,14 +125,14 @@ serve(async (req) => {
     let successfulStudentsCount = 0;
 
     // 5. Grade the ENTIRE batch PDF via Gemini 2.0 Flash natively
-    const openRouterReq = await fetch(OPENROUTER_API_URL, {
+    const siliconFlowReq = await fetch(SILICONFLOW_API_URL, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'google/gemini-2.0-flash-001', // Required model: Massive context window native PDF handling
+            model: 'Qwen/Qwen2.5-VL-72B-Instruct', // Required model: Massive context window native PDF handling
             temperature: 0.0,
             seed: 42,
             max_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
@@ -150,12 +150,12 @@ serve(async (req) => {
         })
     });
 
-    if (!openRouterReq.ok) {
-        const errorText = await openRouterReq.text();
-        throw new Error(`OpenRouter API error: ${openRouterReq.status} ${errorText}`);
+    if (!siliconFlowReq.ok) {
+        const errorText = await siliconFlowReq.text();
+        throw new Error(`SiliconFlow API error: ${siliconFlowReq.status} ${errorText}`);
     }
 
-    const aiResponse = await openRouterReq.json();
+    const aiResponse = await siliconFlowReq.json();
     let content = aiResponse.choices[0].message.content;
 
     if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
