@@ -86,7 +86,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-pro',
         temperature: 0.0,
         messages: [
           { role: 'system', content: OPTIMIZE_PROMPT },

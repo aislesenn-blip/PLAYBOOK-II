@@ -187,6 +187,9 @@ function parseLLMJSON(content: string) {
         }
 
         repairedContent = repairedContent.substring(0, dropIndex);
+        if (inString) {
+            repairedContent += '"';
+        }
         repairedContent = repairedContent.replace(/(,\s*|:\s*|"\w*\s*)$/, '');
 
         while (stack.length > 0) {
@@ -467,9 +470,10 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
     while (true) {
         try {
             const bodyPayload: any = {
-                model: "gemini-2.5-flash",
+                model: "gemini-2.5-pro",
                 temperature: 0.0,
                 top_p: 0.1,
+                max_completion_tokens: 8192,
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }
