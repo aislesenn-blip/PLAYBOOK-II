@@ -475,7 +475,6 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
                 temperature: 0.0,
                 top_p: 0.1,
                 max_tokens: 8192,
-                max_completion_tokens: 8192,
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }

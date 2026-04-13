@@ -89,7 +89,6 @@ serve(async (req) => {
         model: 'gemini-2.0-pro-exp-02-05',
         temperature: 0.0,
         max_tokens: 8192,
-        max_completion_tokens: 8192,
         messages: [
           { role: 'system', content: OPTIMIZE_PROMPT },
           { role: 'user', content: raw_scheme }

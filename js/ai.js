@@ -441,7 +441,6 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         temperature: 0.0,
                         top_p: 0.1,
                             max_tokens: 8192,
-                            max_completion_tokens: 8192,
                         messages: [
                             { role: 'system', content: PASS2_SYSTEM_PROMPT },
                             { role: 'user', content: promptText }
@@ -531,7 +530,6 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     temperature: 0.0,
                     top_p: 0.1,
                             max_tokens: 8192,
-                            max_completion_tokens: 8192,
                     messages: [
                         { role: 'system', content: PASS1_SYSTEM_PROMPT },
                         { role: 'user', content: userContent }
@@ -638,7 +636,6 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             temperature: 0.0,
                             top_p: 0.1,
                             max_tokens: 8192,
-                            max_completion_tokens: 8192,
                             messages: [
                                 {
                                     role: 'system',
@@ -709,7 +706,6 @@ async function extractMarkingSchemeOCR(base64Images) {
                     temperature: 0.0,
                     top_p: 0.1,
                             max_tokens: 8192,
-                            max_completion_tokens: 8192,
                     messages: [
                         { role: 'user', content: userContent }
                     ]
