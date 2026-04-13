@@ -89,6 +89,7 @@ serve(async (req) => {
         model: 'deepseek-ai/DeepSeek-V3',
         temperature: 0.0,
         seed: 42,
+        max_tokens: 8192,
         messages: [
           { role: 'system', content: OPTIMIZE_PROMPT },
           { role: 'user', content: raw_scheme }
