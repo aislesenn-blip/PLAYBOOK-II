@@ -132,8 +132,9 @@ serve(async (req) => {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'gemini-2.5-pro', // Required model: Massive context window native PDF handling
+            model: 'gemini-2.0-pro-exp-02-05', // Required model: Massive context window native PDF handling
             temperature: 0.0,
+            max_tokens: 8192,
             max_completion_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
