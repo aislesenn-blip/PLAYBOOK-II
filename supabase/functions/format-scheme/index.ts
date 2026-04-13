@@ -83,8 +83,8 @@ serve(async (req) => {
     const chunks = raw_scheme.split(/(?=\n*Question\s*\d)/i).filter((c: string) => c.trim().length > 0);
     if (chunks.length === 0) chunks.push(raw_scheme);
 
-    // Limit concurrency to avoid Deno Edge memory limits
-    const BATCH_SIZE = 5;
+    // Limit concurrency to avoid Google 503 Spike in Demand errors
+    const BATCH_SIZE = 4;
     let finalOptimizedBlocks = [];
 
     for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
