@@ -631,7 +631,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             // PASS 1B & 2: PARALLEL EXTRACTION & GRADING PROCESSING (The "Brain")
             const questions = parsedMap.questions || [];
-            const semaphore = new Semaphore(15); // Throttle to 15 concurrent requests
+            const semaphore = new Semaphore(4); // Throttled to 4 to prevent Google AI 503 'Service Unavailable / Spikes in demand' errors
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
@@ -715,7 +715,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
             if (chunks.length === 0) chunks.push(rawText);
 
             const apiKey = await getSecureKey();
-            const optimizeSemaphore = new Semaphore(10); // Run multiple chunks safely
+            const optimizeSemaphore = new Semaphore(4); // Run multiple chunks safely, scaled back to prevent 503s
 
             const chunkPromises = chunks.map(async (chunkText, index) => {
                 let attempt = 0;

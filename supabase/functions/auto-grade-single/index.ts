@@ -565,7 +565,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     const questions = parsedMap.questions || [];
 
     // 2. Pass 1B & Pass 2: Parallel Extraction & Grading (Reduce)
-    const semaphore = new Semaphore(15);
+    const semaphore = new Semaphore(4); // Throttled to 4 to prevent Google AI 503 'Service Unavailable / Spikes in demand' errors
     const gradingPromises = questions.map(async (q: any) => {
         if (q.answer_status === "Skipped") {
             return {
