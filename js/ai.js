@@ -18,7 +18,7 @@ You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible exactly as written. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
 5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
-6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Do NOT use <think> tags. Start your response with {
 
 *** SCHEMA ***
 {
@@ -64,7 +64,7 @@ CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys an
 Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
 
 *** SCHEMA ***
-You MUST output ONLY valid JSON using the schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+You MUST output ONLY valid JSON using the schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Do NOT use <think> tags. Start your response with {
 
 {
   "justification": "The rubric requires X (worth 0.5 marks) and Y (worth 1.5 marks). The student provided X but missed Y...",
@@ -433,8 +433,8 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                         temperature: 0.0,
                         top_p: 0.1,
-                        seed: 42,
                         max_tokens: 8192,
+                        seed: 42,
                         messages: [
                             { role: 'system', content: PASS2_SYSTEM_PROMPT },
                             { role: 'user', content: promptText }
@@ -524,8 +524,8 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                     temperature: 0.0,
                     top_p: 0.1,
+                        max_tokens: 8192,
                     seed: 42,
-                    max_tokens: 8192,
                     messages: [
                         { role: 'system', content: PASS1_SYSTEM_PROMPT },
                         { role: 'user', content: userContent }
@@ -632,6 +632,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                             temperature: 0.0,
                             top_p: 0.1,
+                        max_tokens: 8192,
                             seed: 42,
                             messages: [
                                 {
@@ -704,6 +705,7 @@ async function extractMarkingSchemeOCR(base64Images) {
                     model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                     temperature: 0.0,
                     top_p: 0.1,
+                        max_tokens: 8192,
                     seed: 42,
                     messages: [
                         { role: 'user', content: userContent }

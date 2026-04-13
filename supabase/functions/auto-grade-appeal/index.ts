@@ -58,6 +58,7 @@ async function fetchSiliconFlow(apiKey: string, systemPrompt: string, userConten
                 temperature: 0.0,
                 seed: 42,
                 top_p: 0.1,
+                max_tokens: 8192,
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }

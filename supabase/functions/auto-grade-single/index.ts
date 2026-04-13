@@ -19,7 +19,7 @@ You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT
 3. If they attempted it, transcribe their exact text/math/steps as accurately as possible exactly as written. For diagrams, describe the diagram's labels and structural logic in text.
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
 5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
-6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Do NOT use <think> tags. Start your response with {
 
 *** SCHEMA ***
 {
@@ -37,7 +37,7 @@ You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT
     }
   ]
 }
-Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+Output ONLY raw JSON. No conversational text. No markdown blocks. Do NOT use <think> tags. Start your response with {
 `;
 
 const PASS2_SYSTEM_PROMPT = `
@@ -66,7 +66,7 @@ CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys an
 Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
 
 *** SCHEMA ***
-You MUST output ONLY valid JSON using the schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+You MUST output ONLY valid JSON using the schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Do NOT use <think> tags. Start your response with {
 
 {
   "justification": "The rubric requires X (worth 0.5 marks) and Y (worth 1.5 marks). The student provided X but missed Y...",
@@ -74,7 +74,7 @@ You MUST output ONLY valid JSON using the schema below. Output ONLY raw JSON. No
   "is_entirely_blank": false,
   "constructive_feedback": "You correctly identified X. However, you missed Y."
 }
-Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+Output ONLY raw JSON. No conversational text. No markdown blocks. Do NOT use <think> tags. Start your response with {
 `;
 
 const OPTIMIZE_PROMPT = `
@@ -457,7 +457,7 @@ async function processGrading(supabase: any, submission: any) {
   }
 }
 
-async function fetchSiliconFlow(apiKey: string, systemPrompt: string, userContent: any, title: string, requireJSON: boolean) {
+async function fetchSiliconFlow(apiKey: string, systemPrompt: string, userContent: any, title: string) {
     let attempt = 0;
     while (true) {
         try {
@@ -466,6 +466,7 @@ async function fetchSiliconFlow(apiKey: string, systemPrompt: string, userConten
                 temperature: 0.0,
                 seed: 42,
                 top_p: 0.1,
+                max_tokens: 8192,
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }
@@ -509,7 +510,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     let optimizedScheme = rawInstructions;
     if (rawInstructions && rawInstructions.length > 20) {
         try {
-            optimizedScheme = await fetchSiliconFlow(apiKey, OPTIMIZE_PROMPT, rawInstructions, "Playbook Autopilot Optimizer", false);
+            optimizedScheme = await fetchSiliconFlow(apiKey, OPTIMIZE_PROMPT, rawInstructions, "Playbook Autopilot Optimizer");
             optimizedScheme = optimizedScheme.replace(/^```[^\n]*\n|\n```$/g, '');
         } catch (e: any) {
             console.warn("Scheme optimization failed, using raw scheme. Error:", e.message);
@@ -522,7 +523,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 
     let mapDataStr;
     try {
-        mapDataStr = await fetchSiliconFlow(apiKey, PASS1_SYSTEM_PROMPT, promptText, "Playbook Autopilot Map", true);
+        mapDataStr = await fetchSiliconFlow(apiKey, PASS1_SYSTEM_PROMPT, promptText, "Playbook Autopilot Map");
     } catch(e: any) {
          throw new Error("Pass 1 Map failed: " + e.message);
     }
@@ -569,7 +570,7 @@ async function gradeSingleQuestionCloud(apiKey: string, questionData: any, marki
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
-            const rawContent = await fetchSiliconFlow(apiKey, PASS2_SYSTEM_PROMPT, promptText, "Playbook Autopilot Reduce", true);
+            const rawContent = await fetchSiliconFlow(apiKey, PASS2_SYSTEM_PROMPT, promptText, "Playbook Autopilot Reduce");
             const parsed = parseLLMJSON(rawContent);
 
             if (parsed.points_awarded === undefined && parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
