@@ -58,7 +58,6 @@ async function fetchSiliconFlow(apiKey: string, systemPrompt: string, userConten
                 temperature: 0.0,
                 seed: 42,
                 top_p: 0.1,
-                response_format: { type: "json_object" },
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }

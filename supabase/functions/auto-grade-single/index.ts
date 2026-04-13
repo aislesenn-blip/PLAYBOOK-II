@@ -472,9 +472,6 @@ async function fetchSiliconFlow(apiKey: string, systemPrompt: string, userConten
                 ]
             };
 
-            if (requireJSON) {
-                bodyPayload.response_format = { type: "json_object" };
-            }
 
             const response = await fetch("https://api.siliconflow.com/v1/chat/completions", {
                 method: "POST",
