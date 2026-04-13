@@ -437,7 +437,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'gemini-2.0-pro-exp-02-05',
+                        model: 'gemini-2.5-pro',
                         temperature: 0.0,
                         top_p: 0.1,
                             max_tokens: 8192,
@@ -526,7 +526,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.0-pro-exp-02-05',
+                    model: 'gemini-2.5-pro',
                     temperature: 0.0,
                     top_p: 0.1,
                             max_tokens: 8192,
@@ -632,7 +632,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            model: 'gemini-2.0-pro-exp-02-05',
+                            model: 'gemini-2.5-pro',
                             temperature: 0.0,
                             top_p: 0.1,
                             max_tokens: 8192,
@@ -702,7 +702,7 @@ async function extractMarkingSchemeOCR(base64Images) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.0-pro-exp-02-05',
+                    model: 'gemini-2.5-pro',
                     temperature: 0.0,
                     top_p: 0.1,
                             max_tokens: 8192,
