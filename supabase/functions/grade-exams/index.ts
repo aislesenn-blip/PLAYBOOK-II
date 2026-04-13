@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const GOOGLE_AI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const GOOGLE_AI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const SYSTEM_PROMPT = `
 You are the Chief Examiner for a World-Class International Examination Board grading MULTIPLE student exams contained in a single document.
@@ -124,28 +124,28 @@ serve(async (req) => {
     let sessionTotalScore = 0;
     let successfulStudentsCount = 0;
 
-    // 5. Grade the ENTIRE batch PDF via Gemini 2.0 Flash natively
-    const googleAIReq = await fetch(GOOGLE_AI_API_URL, {
+    // 5. Grade the ENTIRE batch PDF via Gemini 2.5 Pro natively
+    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'gemini-2.5-pro', // Required model: Massive context window native PDF handling
-            temperature: 0.0,
-            max_completion_tokens: 8192, // Explicitly required so the LLM doesn't truncate massive batch JSON arrays mid-sentence
-            messages: [
-                { role: 'system', content: SYSTEM_PROMPT },
-                {
-                    role: 'user',
-                    content: [
-                        { type: "text", text: `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the bulk exam document containing multiple students:` },
-                        { type: "image_url", image_url: { url: `data:application/pdf;base64,${base64PDF}` } }
-                    ]
-                }
-            ],
-            response_format: { type: "json_object" }
+            systemInstruction: {
+                parts: [{ text: SYSTEM_PROMPT }]
+            },
+            contents: [{
+                role: 'user',
+                parts: [
+                    { text: `Here is the marking scheme:\n${session.marking_scheme}\n\nHere is the bulk exam document containing multiple students:` },
+                    { inlineData: { mimeType: "application/pdf", data: base64PDF } }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.0,
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json"
+            }
         })
     });
 
@@ -155,7 +155,7 @@ serve(async (req) => {
     }
 
     const aiResponse = await googleAIReq.json();
-    let content = aiResponse.choices[0].message.content;
+    let content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
 
     if (content.startsWith('```json')) content = content.replace(/^```json\n|\n```$/g, '');
     else if (content.startsWith('```')) content = content.replace(/^```\n|\n```$/g, '');

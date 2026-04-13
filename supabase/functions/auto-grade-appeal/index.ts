@@ -54,24 +54,24 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
     while (attempt < 3) {
         try {
             const bodyPayload: any = {
-                model: "gemini-2.5-pro",
-                temperature: 0.0,
-                top_p: 0.1,
-                max_completion_tokens: 8192,
-                response_format: { type: "json_object" },
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userContent }
-                ]
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                contents: [{
+                    role: "user",
+                    parts: [{ text: userContent }]
+                }],
+                generationConfig: {
+                    temperature: 0.0,
+                    maxOutputTokens: 8192,
+                    responseMimeType: "application/json"
+                }
             };
 
-            const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${apiKey}`,
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "https://playbook.edu",
-                    "X-Title": title
                 },
                 body: JSON.stringify(bodyPayload)
             });
@@ -82,7 +82,7 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
             }
 
             const data = await response.json();
-            return data.choices[0].message.content.trim();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "{}";
 
         } catch (error: any) {
             attempt++;

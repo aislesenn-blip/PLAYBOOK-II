@@ -1,25 +1,21 @@
 // js/ai.js
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const PASS1_SYSTEM_PROMPT = `
-You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
+You are the Master Mapper for an Examination Board. Your job is to scan the provided exam document, extract the student's identity, and identify EVERY question from the marking scheme that the student attempted.
 
 *** MANDATE ***
-You must analyze the student's exam and segment their answers based on the provided marking scheme. You will return a JSON object with the student's identity and an array of their transcribed answers.
-
-*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
-You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT invent, assume, or inject terms from the marking scheme into the student's answer. If the student did not explicitly write it, you must not extract it.
+You must analyze the student's exam against the provided marking scheme. You will return a lightweight JSON object mapping out the student's exam structure. DO NOT TRANSCRIBE THE ANSWERS YET. Just state if they attempted the question or skipped it.
 
 *** INSTRUCTIONS ***
 1. Identify the student's name and registration number.
-2. For EVERY question listed in the marking scheme, check if the student attempted it.
-3. If they attempted it, transcribe their exact text/math/steps as accurately as possible exactly as written. For diagrams, describe the diagram's labels and structural logic in text.
-4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
-6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
-7. Do not use <think> tags.
+2. For EVERY question listed in the marking scheme, check if the student attempted it anywhere in their document.
+3. Set 'answer_status' to 'Answered' if they wrote anything for it, otherwise 'Skipped'.
+4. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
+5. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+6. Do not use <think> tags.
 
 *** SCHEMA ***
 {
@@ -32,10 +28,27 @@ You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT
       "section": "Section name if applicable, else 'General'",
       "max_marks": 5,
       "expected_number_of_items": 4,
-      "answer_status": "Answered | Skipped",
-      "student_answer_transcription": "The student wrote: '...'"
+      "answer_status": "Answered | Skipped"
     }
   ]
+}
+`;
+
+const PASS1B_EXTRACTION_PROMPT = `
+You are the Chief Transcriber for an Examination Board. You are tasked with locating and transcribing the student's answer for exactly ONE specific question.
+
+*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
+You MUST act as a literal transcriber. Find where the student answered the specific question requested, and quote their exact phrases, math, and steps exactly as written. DO NOT invent, assume, or inject terms from the marking scheme into the student's answer. If the student did not explicitly write it, you must not extract it. For diagrams, describe the diagram's labels and structural logic in text.
+
+*** INSTRUCTIONS ***
+1. Locate the student's answer for the specific Question ID provided by the user.
+2. Transcribe their exact answer.
+3. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+4. Do not use <think> tags.
+
+*** SCHEMA ***
+{
+  "student_answer_transcription": "The student wrote: '...'"
 }
 `;
 
@@ -366,13 +379,13 @@ function parseLLMJSON(content) {
 
         repairedContent = repairedContent.substring(0, dropIndex);
 
-        if (inString) {
-            repairedContent += '"';
-        }
-
         // Handle unquoted key remnants by doing a secondary cleanup:
         // Strip trailing whitespace, colons, or partial string fragments
         repairedContent = repairedContent.replace(/(,\s*|:\s*|"\w*\s*)$/, '');
+
+        if (inString) {
+            repairedContent += '"';
+        }
 
         while (stack.length > 0) {
             repairedContent += stack.pop();
@@ -417,6 +430,60 @@ class Semaphore {
     }
 }
 
+// Pass 1B: Single-Question Extraction
+async function extractSingleQuestion(apiKey, questionId, userParts) {
+    let attempt = 0;
+    while (true) {
+        try {
+            const promptText = `Locate and transcribe the exact answer for Question ID: ${questionId}`;
+
+            // Create a fresh copy of userParts to avoid mutating the original array across parallel calls
+            const currentParts = [...userParts, { text: promptText }];
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+            let response;
+            try {
+                response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        systemInstruction: { parts: [{ text: PASS1B_EXTRACTION_PROMPT }] },
+                        contents: [{ role: "user", parts: currentParts }],
+                        generationConfig: {
+                            temperature: 0.0,
+                            maxOutputTokens: 8192,
+                            responseMimeType: "application/json"
+                        }
+                    }),
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timeoutId);
+            }
+
+            if (!response.ok) {
+                if (response.status === 429) throw new Error("Rate limit exceeded (429)");
+                throw new Error(`Google AI Studio API error: ${response.status} ${await response.text()}`);
+            }
+
+            const data = await response.json();
+            const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            const parsed = parseLLMJSON(textContent);
+            return parsed.student_answer_transcription || "No text extracted.";
+
+        } catch (error) {
+            attempt++;
+            console.warn(`[Infinite Retry] extractSingleQuestion attempt ${attempt} failed for Question ${questionId}:`, error.message);
+            const baseDelay = 4000;
+            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            if (backoffTime > 60000) backoffTime = 60000;
+            await delay(backoffTime);
+        }
+    }
+}
+
 // Pass 2: Single-Question Grading
 async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
     let attempt = 0;
@@ -430,22 +497,24 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
 
             let response;
             try {
-                response = await fetch(API_URL, {
+                response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${apiKey}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'gemini-2.5-pro',
-                        temperature: 0.0,
-                        top_p: 0.1,
-                            max_completion_tokens: 8192,
-                        messages: [
-                            { role: 'system', content: PASS2_SYSTEM_PROMPT },
-                            { role: 'user', content: promptText }
-                        ],
-                        response_format: { type: "json_object" }
+                        systemInstruction: {
+                            parts: [{ text: PASS2_SYSTEM_PROMPT }]
+                        },
+                        contents: [{
+                            role: "user",
+                            parts: [{ text: promptText }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.0,
+                            maxOutputTokens: 8192,
+                            responseMimeType: "application/json"
+                        }
                     }),
                     signal: controller.signal
                 });
@@ -462,7 +531,8 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             }
 
             const data = await response.json();
-            const parsed = parseLLMJSON(data.choices[0].message.content);
+            const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            const parsed = parseLLMJSON(textContent);
 
             if (parsed.points_awarded === undefined && parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
                 throw new Error("Invalid LLM response format: missing points_awarded or is_entirely_blank");
@@ -501,40 +571,48 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             // PASS 1: THE SEGMENTATION MAP
             let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
-            const userContent = [];
+            const userParts = [];
 
             if (typeof base64PDF === 'string') {
                 promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${base64PDF}\n---`;
-                userContent.push({ type: "text", text: promptText });
+                userParts.push({ text: promptText });
             } else if (Array.isArray(base64PDF)) {
                 promptText += `Here are the scanned pages of this single student's exam:`;
-                userContent.push({ type: "text", text: promptText });
+                userParts.push({ text: promptText });
                 base64PDF.forEach(imageUrl => {
-                    userContent.push({
-                        type: "image_url",
-                        image_url: { url: imageUrl }
-                    });
+                    // Extract mime type and base64 data from data URL
+                    const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+                    if (matches) {
+                        userParts.push({
+                            inlineData: {
+                                mimeType: matches[1],
+                                data: matches[2]
+                            }
+                        });
+                    }
                 });
             } else {
                 throw new Error("Invalid input format for student exam data.");
             }
 
-            const mapResponse = await fetch(API_URL, {
+            const mapResponse = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.5-pro',
-                    temperature: 0.0,
-                    top_p: 0.1,
-                            max_completion_tokens: 8192,
-                    messages: [
-                        { role: 'system', content: PASS1_SYSTEM_PROMPT },
-                        { role: 'user', content: userContent }
-                    ],
-                    response_format: { type: "json_object" }
+                    systemInstruction: {
+                        parts: [{ text: PASS1_SYSTEM_PROMPT }]
+                    },
+                    contents: [{
+                        role: "user",
+                        parts: userParts
+                    }],
+                    generationConfig: {
+                        temperature: 0.0,
+                        maxOutputTokens: 8192,
+                        responseMimeType: "application/json"
+                    }
                 })
             });
 
@@ -544,15 +622,16 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             }
 
             const mapData = await mapResponse.json();
-            let parsedMap = parseLLMJSON(mapData.choices[0].message.content);
+            const mapTextContent = mapData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            let parsedMap = parseLLMJSON(mapTextContent);
 
             if (parsedMap.students && Array.isArray(parsedMap.students)) {
                 parsedMap = parsedMap.students[0];
             }
 
-            // PASS 2: PARALLEL QUESTION PROCESSING (The "Brain")
+            // PASS 1B & 2: PARALLEL EXTRACTION & GRADING PROCESSING (The "Brain")
             const questions = parsedMap.questions || [];
-            const semaphore = new Semaphore(15); // Throttle to 15 concurrent requests
+            const semaphore = new Semaphore(4); // Throttled to 4 to prevent Google AI 503 'Service Unavailable / Spikes in demand' errors
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
@@ -567,6 +646,11 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
                 await semaphore.acquire();
                 try {
+                    // Phase 1B: Extract just the answer text for this question
+                    const transcription = await extractSingleQuestion(apiKey, q.questionId, userParts);
+                    q.student_answer_transcription = transcription;
+
+                    // Phase 2: Grade the transcribed text
                     return await gradeSingleQuestion(apiKey, q, markingSchemeText);
                 } finally {
                     semaphore.release();
@@ -620,58 +704,74 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
 `;
 
         async function optimizeMarkingScheme(rawText) {
-            let attempt = 0;
-            while (true) {
-                try {
-                    const apiKey = await getSecureKey();
+            // L9 Architecture: Chunked Parallel Optimization
+            // If the scheme is extremely long, Gemini will hit Output limits and truncate at Question 4.
+            // So we slice the text by 'Question' keywords or chunks of ~2000 chars.
 
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${apiKey}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model: 'gemini-2.5-pro',
-                            temperature: 0.0,
-                            top_p: 0.1,
-                            max_completion_tokens: 8192,
-                            messages: [
-                                {
-                                    role: 'system',
-                                    content: OPTIMIZE_PROMPT
+            // Basic heuristic chunking: Split by "Question"
+            const chunks = rawText.split(/(?=\n*Question\s*\d)/i).filter(c => c.trim().length > 0);
+
+            // If it's a very small text without "Question" headings, wrap it as one chunk.
+            if (chunks.length === 0) chunks.push(rawText);
+
+            const apiKey = await getSecureKey();
+            const optimizeSemaphore = new Semaphore(4); // Run multiple chunks safely, scaled back to prevent 503s
+
+            const chunkPromises = chunks.map(async (chunkText, index) => {
+                let attempt = 0;
+                while (true) {
+                    await optimizeSemaphore.acquire();
+                    try {
+                        const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                systemInstruction: {
+                                    parts: [{ text: OPTIMIZE_PROMPT }]
                                 },
-                                {
-                                    role: 'user',
-                                    content: rawText
+                                contents: [{
+                                    role: "user",
+                                    parts: [{ text: chunkText }]
+                                }],
+                                generationConfig: {
+                                    temperature: 0.0,
+                                    maxOutputTokens: 8192
                                 }
-                            ]
-                        })
-                    });
+                            })
+                        });
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Google AI Studio API error: ${response.status} ${errorText}`);
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`Google AI Studio API error: ${response.status} ${errorText}`);
+                        }
+
+                        const data = await response.json();
+                        let content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+                        if (content.startsWith('```')) {
+                            content = content.replace(/^```[^\n]*\n|\n```$/g, '');
+                        }
+                        return { index, content }; // preserve order
+                    } catch (error) {
+                        attempt++;
+                        console.warn(`Optimization Chunk ${index} Attempt ${attempt} failed: ${error.message}`);
+
+                        let backoffTime = attempt * 3000;
+                        if (backoffTime > 60000) backoffTime = 60000;
+                        await delay(backoffTime);
+                    } finally {
+                        optimizeSemaphore.release();
                     }
-
-                    const data = await response.json();
-                    let content = data.choices[0].message.content;
-
-                    if (content.startsWith('```')) {
-                        content = content.replace(/^```[^\n]*\n|\n```$/g, '');
-                    }
-                    return content;
-                } catch (error) {
-                    attempt++;
-                    console.warn(`Optimization Attempt ${attempt} failed: ${error.message}`);
-
-                    let backoffTime = attempt * 3000;
-                    if (backoffTime > 60000) backoffTime = 60000;
-
-                    console.log(`Self-Healing Loop activated for optimization: Retrying in ${backoffTime / 1000} seconds...`);
-                    await delay(backoffTime);
                 }
-            }
+            });
+
+            // Reassemble the chunks deterministically
+            const results = await Promise.all(chunkPromises);
+            results.sort((a, b) => a.index - b.index);
+
+            return results.map(r => r.content).join("\n\n");
         }
 
 // OCR Fallback for Scanned Marking Schemes
@@ -681,34 +781,38 @@ async function extractMarkingSchemeOCR(base64Images) {
         try {
             const apiKey = await getSecureKey();
 
-            const userContent = [
+            const userParts = [
                 {
-                    type: "text",
                     text: "Extract all text from these marking scheme images. Preserve the exact layout, question numbers, and point values. Do not add any conversational text, just output the extracted text."
                 }
             ];
 
             base64Images.forEach(imageUrl => {
-                userContent.push({
-                    type: "image_url",
-                    image_url: { url: imageUrl }
-                });
+                const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+                if (matches) {
+                    userParts.push({
+                        inlineData: {
+                            mimeType: matches[1],
+                            data: matches[2]
+                        }
+                    });
+                }
             });
 
-            const response = await fetch(API_URL, {
+            const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.5-pro',
-                    temperature: 0.0,
-                    top_p: 0.1,
-                            max_completion_tokens: 8192,
-                    messages: [
-                        { role: 'user', content: userContent }
-                    ]
+                    contents: [{
+                        role: "user",
+                        parts: userParts
+                    }],
+                    generationConfig: {
+                        temperature: 0.0,
+                        maxOutputTokens: 8192
+                    }
                 })
             });
 
@@ -718,7 +822,7 @@ async function extractMarkingSchemeOCR(base64Images) {
             }
 
             const data = await response.json();
-            return data.choices[0].message.content;
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
         } catch (error) {
             attempt++;
