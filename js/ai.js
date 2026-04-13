@@ -1,7 +1,7 @@
 // js/ai.js
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
@@ -430,22 +430,24 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
 
             let response;
             try {
-                response = await fetch(API_URL, {
+                response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${apiKey}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'gemini-2.5-pro',
-                        temperature: 0.0,
-                        top_p: 0.1,
-                            max_tokens: 8192,
-                        messages: [
-                            { role: 'system', content: PASS2_SYSTEM_PROMPT },
-                            { role: 'user', content: promptText }
-                        ],
-                        response_format: { type: "json_object" }
+                        systemInstruction: {
+                            parts: [{ text: PASS2_SYSTEM_PROMPT }]
+                        },
+                        contents: [{
+                            role: "user",
+                            parts: [{ text: promptText }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.0,
+                            maxOutputTokens: 8192,
+                            responseMimeType: "application/json"
+                        }
                     }),
                     signal: controller.signal
                 });
@@ -462,7 +464,8 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             }
 
             const data = await response.json();
-            const parsed = parseLLMJSON(data.choices[0].message.content);
+            const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            const parsed = parseLLMJSON(textContent);
 
             if (parsed.points_awarded === undefined && parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
                 throw new Error("Invalid LLM response format: missing points_awarded or is_entirely_blank");
@@ -501,40 +504,48 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             // PASS 1: THE SEGMENTATION MAP
             let promptText = `Here is the marking scheme:\n${markingSchemeText}\n\n`;
-            const userContent = [];
+            const userParts = [];
 
             if (typeof base64PDF === 'string') {
                 promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${base64PDF}\n---`;
-                userContent.push({ type: "text", text: promptText });
+                userParts.push({ text: promptText });
             } else if (Array.isArray(base64PDF)) {
                 promptText += `Here are the scanned pages of this single student's exam:`;
-                userContent.push({ type: "text", text: promptText });
+                userParts.push({ text: promptText });
                 base64PDF.forEach(imageUrl => {
-                    userContent.push({
-                        type: "image_url",
-                        image_url: { url: imageUrl }
-                    });
+                    // Extract mime type and base64 data from data URL
+                    const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+                    if (matches) {
+                        userParts.push({
+                            inlineData: {
+                                mimeType: matches[1],
+                                data: matches[2]
+                            }
+                        });
+                    }
                 });
             } else {
                 throw new Error("Invalid input format for student exam data.");
             }
 
-            const mapResponse = await fetch(API_URL, {
+            const mapResponse = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.5-pro',
-                    temperature: 0.0,
-                    top_p: 0.1,
-                            max_tokens: 8192,
-                    messages: [
-                        { role: 'system', content: PASS1_SYSTEM_PROMPT },
-                        { role: 'user', content: userContent }
-                    ],
-                    response_format: { type: "json_object" }
+                    systemInstruction: {
+                        parts: [{ text: PASS1_SYSTEM_PROMPT }]
+                    },
+                    contents: [{
+                        role: "user",
+                        parts: userParts
+                    }],
+                    generationConfig: {
+                        temperature: 0.0,
+                        maxOutputTokens: 8192,
+                        responseMimeType: "application/json"
+                    }
                 })
             });
 
@@ -544,7 +555,8 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             }
 
             const mapData = await mapResponse.json();
-            let parsedMap = parseLLMJSON(mapData.choices[0].message.content);
+            const mapTextContent = mapData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            let parsedMap = parseLLMJSON(mapTextContent);
 
             if (parsedMap.students && Array.isArray(parsedMap.students)) {
                 parsedMap = parsedMap.students[0];
@@ -625,27 +637,23 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                 try {
                     const apiKey = await getSecureKey();
 
-                    const response = await fetch(API_URL, {
+                    const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${apiKey}`,
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            model: 'gemini-2.5-pro',
-                            temperature: 0.0,
-                            top_p: 0.1,
-                            max_tokens: 8192,
-                            messages: [
-                                {
-                                    role: 'system',
-                                    content: OPTIMIZE_PROMPT
-                                },
-                                {
-                                    role: 'user',
-                                    content: rawText
-                                }
-                            ]
+                            systemInstruction: {
+                                parts: [{ text: OPTIMIZE_PROMPT }]
+                            },
+                            contents: [{
+                                role: "user",
+                                parts: [{ text: rawText }]
+                            }],
+                            generationConfig: {
+                                temperature: 0.0,
+                                maxOutputTokens: 8192
+                            }
                         })
                     });
 
@@ -655,7 +663,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                     }
 
                     const data = await response.json();
-                    let content = data.choices[0].message.content;
+                    let content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
                     if (content.startsWith('```')) {
                         content = content.replace(/^```[^\n]*\n|\n```$/g, '');
@@ -681,34 +689,38 @@ async function extractMarkingSchemeOCR(base64Images) {
         try {
             const apiKey = await getSecureKey();
 
-            const userContent = [
+            const userParts = [
                 {
-                    type: "text",
                     text: "Extract all text from these marking scheme images. Preserve the exact layout, question numbers, and point values. Do not add any conversational text, just output the extracted text."
                 }
             ];
 
             base64Images.forEach(imageUrl => {
-                userContent.push({
-                    type: "image_url",
-                    image_url: { url: imageUrl }
-                });
+                const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+                if (matches) {
+                    userParts.push({
+                        inlineData: {
+                            mimeType: matches[1],
+                            data: matches[2]
+                        }
+                    });
+                }
             });
 
-            const response = await fetch(API_URL, {
+            const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.5-pro',
-                    temperature: 0.0,
-                    top_p: 0.1,
-                            max_tokens: 8192,
-                    messages: [
-                        { role: 'user', content: userContent }
-                    ]
+                    contents: [{
+                        role: "user",
+                        parts: userParts
+                    }],
+                    generationConfig: {
+                        temperature: 0.0,
+                        maxOutputTokens: 8192
+                    }
                 })
             });
 
@@ -718,7 +730,7 @@ async function extractMarkingSchemeOCR(base64Images) {
             }
 
             const data = await response.json();
-            return data.choices[0].message.content;
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
         } catch (error) {
             attempt++;
