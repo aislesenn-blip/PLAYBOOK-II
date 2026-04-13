@@ -146,7 +146,6 @@ serve(async (req) => {
                     ]
                 }
             ],
-            response_format: { type: "json_object" }
         })
     });
 

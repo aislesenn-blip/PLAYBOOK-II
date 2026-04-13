@@ -439,7 +439,6 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                             { role: 'system', content: PASS2_SYSTEM_PROMPT },
                             { role: 'user', content: promptText }
                         ],
-                        response_format: { type: "json_object" }
                     }),
                     signal: controller.signal
                 });
@@ -531,7 +530,6 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                         { role: 'system', content: PASS1_SYSTEM_PROMPT },
                         { role: 'user', content: userContent }
                     ],
-                    response_format: { type: "json_object" }
                 })
             });
 
