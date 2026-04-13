@@ -1,7 +1,7 @@
 // js/ai.js
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const API_URL = "https://api.siliconflow.com/v1/chat/completions";
 
 const PASS1_SYSTEM_PROMPT = `
 You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
@@ -222,10 +222,10 @@ async function getSecureKey() {
 
         const secret = await window.PlaybookDB.getInstitutionSecret(instId);
 
-        if (!secret || !secret.openrouter_api_key) {
-            throw new Error("No OpenRouter API key found in the secure vault. Ask an Admin to configure it.");
+        if (!secret || !secret.siliconflow_api_key) {
+            throw new Error("No SiliconFlow API key found in the secure vault. Ask an Admin to configure it.");
         }
-        return secret.openrouter_api_key;
+        return secret.siliconflow_api_key;
     } catch (e) {
         // Fallback check for Playwright environment directly using a localStorage mocked API key if DB fails
         const mockEnv = localStorage.getItem('playbook_mock_api_key');
@@ -430,7 +430,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         'X-Title': 'Playbook Grading Engine'
                     },
                     body: JSON.stringify({
-                        model: 'anthropic/claude-3.7-sonnet',
+                        model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                         temperature: 0.0,
                         top_p: 0.1,
                         seed: 42,
@@ -452,7 +452,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                     throw new Error("Rate limit exceeded (429)");
                 }
                 const errorText = await response.text();
-                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+                throw new Error(`SiliconFlow API error: ${response.status} ${errorText}`);
             }
 
             const data = await response.json();
@@ -522,7 +522,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     'X-Title': 'Playbook Grading Engine'
                 },
                 body: JSON.stringify({
-                    model: 'anthropic/claude-3.7-sonnet',
+                    model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
@@ -537,7 +537,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             if (!mapResponse.ok) {
                 const errorText = await mapResponse.text();
-                throw new Error(`OpenRouter API error in Pass 1: ${mapResponse.status} ${errorText}`);
+                throw new Error(`SiliconFlow API error in Pass 1: ${mapResponse.status} ${errorText}`);
             }
 
             const mapData = await mapResponse.json();
@@ -631,7 +631,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             'X-Title': 'Playbook Marking Scheme Optimizer'
                         },
                         body: JSON.stringify({
-                            model: 'anthropic/claude-3.7-sonnet',
+                            model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                             temperature: 0.0,
                             top_p: 0.1,
                             seed: 42,
@@ -650,7 +650,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
 
                     if (!response.ok) {
                         const errorText = await response.text();
-                        throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+                        throw new Error(`SiliconFlow API error: ${response.status} ${errorText}`);
                     }
 
                     const data = await response.json();
@@ -703,7 +703,7 @@ async function extractMarkingSchemeOCR(base64Images) {
                     'X-Title': 'Playbook OCR Engine'
                 },
                 body: JSON.stringify({
-                    model: 'anthropic/claude-3.7-sonnet',
+                    model: 'Qwen/Qwen2.5-VL-72B-Instruct',
                     temperature: 0.0,
                     top_p: 0.1,
                     seed: 42,
@@ -715,7 +715,7 @@ async function extractMarkingSchemeOCR(base64Images) {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+                throw new Error(`SiliconFlow API error: ${response.status} ${errorText}`);
             }
 
             const data = await response.json();
