@@ -5,22 +5,18 @@ import { corsHeaders } from "../_shared/cors.ts"
 // --- PROMPTS PORTED FROM js/ai.js ---
 
 const PASS1_SYSTEM_PROMPT = `
-You are the Master Segmenter for an Examination Board. Your job is to extract the student's identity and transcribe their answers from the provided exam document, mapping each answer to its corresponding question from the marking scheme.
+You are the Master Mapper for an Examination Board. Your job is to scan the provided exam document, extract the student's identity, and identify EVERY question from the marking scheme that the student attempted.
 
 *** MANDATE ***
-You must analyze the student's exam and segment their answers based on the provided marking scheme. You will return a JSON object with the student's identity and an array of their transcribed answers.
-
-*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
-You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT invent, assume, or inject terms from the marking scheme into the student's answer. If the student did not explicitly write it, you must not extract it.
+You must analyze the student's exam against the provided marking scheme. You will return a lightweight JSON object mapping out the student's exam structure. DO NOT TRANSCRIBE THE ANSWERS YET. Just state if they attempted the question or skipped it.
 
 *** INSTRUCTIONS ***
 1. Identify the student's name and registration number.
-2. For EVERY question listed in the marking scheme, check if the student attempted it.
-3. If they attempted it, transcribe their exact text/math/steps as accurately as possible exactly as written. For diagrams, describe the diagram's labels and structural logic in text.
-4. If they skipped the question, set 'answer_status' to 'Skipped'.
-5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
-6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
-7. Do not use <think> tags.
+2. For EVERY question listed in the marking scheme, check if the student attempted it anywhere in their document.
+3. Set 'answer_status' to 'Answered' if they wrote anything for it, otherwise 'Skipped'.
+4. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
+5. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+6. Do not use <think> tags.
 
 *** SCHEMA ***
 {
@@ -33,12 +29,28 @@ You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT
       "section": "Section name if applicable, else 'General'",
       "max_marks": 5,
       "expected_number_of_items": 4,
-      "answer_status": "Answered | Skipped",
-      "student_answer_transcription": "The student wrote: '...'"
+      "answer_status": "Answered | Skipped"
     }
   ]
 }
-Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+`;
+
+const PASS1B_EXTRACTION_PROMPT = `
+You are the Chief Transcriber for an Examination Board. You are tasked with locating and transcribing the student's answer for exactly ONE specific question.
+
+*** ABSOLUTE LITERAL TRANSCRIPTION RULE ***
+You MUST act as a literal transcriber. Find where the student answered the specific question requested, and quote their exact phrases, math, and steps exactly as written. DO NOT invent, assume, or inject terms from the marking scheme into the student's answer. If the student did not explicitly write it, you must not extract it. For diagrams, describe the diagram's labels and structural logic in text.
+
+*** INSTRUCTIONS ***
+1. Locate the student's answer for the specific Question ID provided by the user.
+2. Transcribe their exact answer.
+3. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+4. Do not use <think> tags.
+
+*** SCHEMA ***
+{
+  "student_answer_transcription": "The student wrote: '...'"
+}
 `;
 
 const PASS2_SYSTEM_PROMPT = `
@@ -476,7 +488,7 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
                 },
                 contents: [{
                     role: "user",
-                    parts: [{ text: userContent }]
+                    parts: Array.isArray(userContent) ? userContent : [{ text: userContent }]
                 }],
                 generationConfig: {
                     temperature: 0.0,
@@ -521,14 +533,21 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     let optimizedScheme = rawInstructions;
     if (rawInstructions && rawInstructions.length > 20) {
         try {
-            optimizedScheme = await fetchGoogleAI(apiKey, OPTIMIZE_PROMPT, rawInstructions, "Playbook Autopilot Optimizer", false);
-            optimizedScheme = optimizedScheme.replace(/^```[^\n]*\n|\n```$/g, '');
+            // Edge Function L9 Chunking Optimization
+            const chunks = rawInstructions.split(/(?=\n*Question\s*\d)/i).filter(c => c.trim().length > 0);
+            if (chunks.length === 0) chunks.push(rawInstructions);
+            let combined = "";
+            for (let i = 0; i < chunks.length; i++) {
+                let res = await fetchGoogleAI(apiKey, OPTIMIZE_PROMPT, chunks[i], "Playbook Autopilot Optimizer", false);
+                combined += res.replace(/^```[^\n]*\n|\n```$/g, '') + "\n\n";
+            }
+            optimizedScheme = combined;
         } catch (e: any) {
             console.warn("Scheme optimization failed, using raw scheme. Error:", e.message);
         }
     }
 
-    // 1. Pass 1: Segmentation (Map)
+    // 1. Pass 1: Segmentation (Map - Skeleton Only)
     let promptText = `Here is the marking scheme:\n${optimizedScheme}\n\n`;
     promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${studentText || '[NO CONTENT]'}\n---`;
 
@@ -545,7 +564,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     }
     const questions = parsedMap.questions || [];
 
-    // 2. Pass 2: Parallel Grading (Reduce)
+    // 2. Pass 1B & Pass 2: Parallel Extraction & Grading (Reduce)
     const semaphore = new Semaphore(15);
     const gradingPromises = questions.map(async (q: any) => {
         if (q.answer_status === "Skipped") {
@@ -560,6 +579,13 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 
         await semaphore.acquire();
         try {
+            // Phase 1B: Extract transcription explicitly for this question to avoid Pass 1 bulk token truncation
+            const extractPrompt = `Locate and transcribe the exact answer for Question ID: ${q.questionId}\n\nHere is the raw text of this single student's digital exam submission:\n\n---\n${studentText || '[NO CONTENT]'}\n---`;
+            const transcriptionJSON = await fetchGoogleAI(apiKey, PASS1B_EXTRACTION_PROMPT, extractPrompt, "Playbook Pass1B Transcription", true);
+            const parsedTranscription = parseLLMJSON(transcriptionJSON);
+            q.student_answer_transcription = parsedTranscription.student_answer_transcription || "No text extracted.";
+
+            // Phase 2: Grade
             return await gradeSingleQuestionCloud(apiKey, q, optimizedScheme);
         } finally {
             semaphore.release();
