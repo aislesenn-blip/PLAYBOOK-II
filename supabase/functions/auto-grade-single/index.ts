@@ -20,6 +20,7 @@ You MUST act as a literal transcriber. Quote the student's exact phrases. DO NOT
 4. If they skipped the question, set 'answer_status' to 'Skipped'.
 5. Identify the maximum number of items the student is explicitly asked to provide (e.g., 'Name 5 sensors' = 5). Store this as 'expected_number_of_items'. Do NOT count the total number of possible valid options listed in the rubric. If the rubric lists 17 options but the question asks for 5 (or max marks is 5), the expected number is 5.
 6. ONLY output valid JSON using the exact schema below. Output ONLY raw JSON. No conversational text. No markdown blocks. Start your response with {
+7. Do not use <think> tags.
 
 *** SCHEMA ***
 {
@@ -61,6 +62,7 @@ Example: If the rubric awards 0.5 marks for "defined gravity" and 1.5 marks for 
 Let the external system handle summing the array and clamping it to the max score.
 If the student's answer is blank or completely wrong, output 'is_entirely_blank': true and 'points_awarded': [].
 CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries. Use single quotes (') for quotes inside strings.
+Do not use <think> tags.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
 Your "constructive_feedback" MUST be short and directly actionable. Use this exact formula: [Acknowledge what they got right] + [State the EXACT missing scientific fact from the rubric] + [Actionable micro-lesson].
@@ -110,6 +112,9 @@ function parseLLMJSON(content: string) {
     if (!content || content.trim() === '') {
         return { is_entirely_blank: true, justification: "No step-by-step thinking provided", marks_awarded: 0 };
     }
+
+    // Preemptively strip <think> tags which cause JSON truncation
+    content = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
 
     let startIndex = content.indexOf('{');
     if (startIndex !== -1) {
@@ -536,7 +541,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     const questions = parsedMap.questions || [];
 
     // 2. Pass 2: Parallel Grading (Reduce)
-    const semaphore = new Semaphore(3);
+    const semaphore = new Semaphore(15);
     const gradingPromises = questions.map(async (q: any) => {
         if (q.answer_status === "Skipped") {
             return {
