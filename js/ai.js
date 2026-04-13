@@ -431,7 +431,6 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                         model: 'gemini-2.5-flash',
                         temperature: 0.0,
                         top_p: 0.1,
-                        seed: 42,
                         max_tokens: 8192,
                         messages: [
                             { role: 'system', content: PASS2_SYSTEM_PROMPT },
@@ -521,7 +520,6 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                     model: 'gemini-2.5-flash',
                     temperature: 0.0,
                     top_p: 0.1,
-                    seed: 42,
                     max_tokens: 8192,
                     messages: [
                         { role: 'system', content: PASS1_SYSTEM_PROMPT },
@@ -628,7 +626,6 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                             model: 'gemini-2.5-flash',
                             temperature: 0.0,
                             top_p: 0.1,
-                            seed: 42,
                             messages: [
                                 {
                                     role: 'system',
@@ -698,7 +695,6 @@ async function extractMarkingSchemeOCR(base64Images) {
                     model: 'gemini-2.5-flash',
                     temperature: 0.0,
                     top_p: 0.1,
-                    seed: 42,
                     messages: [
                         { role: 'user', content: userContent }
                     ]

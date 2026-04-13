@@ -88,7 +88,6 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'gemini-2.5-flash',
         temperature: 0.0,
-        seed: 42,
         messages: [
           { role: 'system', content: OPTIMIZE_PROMPT },
           { role: 'user', content: raw_scheme }

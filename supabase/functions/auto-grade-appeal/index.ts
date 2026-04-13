@@ -56,7 +56,6 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
             const bodyPayload: any = {
                 model: "gemini-2.5-flash",
                 temperature: 0.0,
-                seed: 42,
                 top_p: 0.1,
                 response_format: { type: "json_object" },
                 messages: [
