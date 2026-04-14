@@ -865,26 +865,77 @@ async function extractStudentExamsUE(base64PDF, compiledGoldenJson) {
     // Only extract questions defined in the Golden JSON
     const questionsToExtract = Object.keys(compiledGoldenJson.questions || {});
 
-    // Throttle to prevent rate limit
-    const semaphore = new Semaphore(15);
+    // SINGLE-PASS MAP-EXTRACT (O(1) API Call per student)
+    // Prevents rate limit exhaustion and token truncation failures associated with massive O(N) concurrent calls.
+    const extractionPrompt = `
+You are the UE Mass-Extractor for an Examination Board.
+Locate and transcribe the exact answer for the following list of Question IDs from the provided student document:
+[ ${questionsToExtract.join(", ")} ]
 
-    const extractionPromises = questionsToExtract.map(async (qId) => {
-        await semaphore.acquire();
+*** INSTRUCTIONS ***
+1. For each Question ID listed, find where the student answered it and transcribe their exact text, math, or steps.
+2. If the student did not explicitly write anything for a question, output "No text extracted."
+3. For diagram questions, describe the drawn nodes and connection logic.
+4. Output ONLY valid JSON mapping the Question ID to the transcribed answer string.
+
+*** SCHEMA ***
+{
+  "Q1": "The student wrote: '...'",
+  "Q2": "No text extracted."
+}
+`;
+
+    const currentParts = [...userParts, { text: extractionPrompt }];
+    let attempt = 0;
+    let extractionMap = {};
+
+    while (true) {
         try {
-            const transcription = await extractSingleQuestion(apiKey, qId, userParts);
-            extractedQuestions.push({
-                questionId: qId,
-                text: transcription,
-                questionTitle: compiledGoldenJson.questions[qId].title || `Question ${qId}`
-            });
-        } catch (e) {
-             console.error(`Failed to extract ${qId}:`, e);
-        } finally {
-            semaphore.release();
-        }
-    });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s for full document parse
 
-    await Promise.all(extractionPromises);
+            const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ role: "user", parts: currentParts }],
+                    generationConfig: {
+                        temperature: 0.0,
+                        maxOutputTokens: 8192,
+                        responseMimeType: "application/json"
+                    }
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                if (response.status === 429) throw new Error("Rate limit exceeded (429)");
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            extractionMap = parseLLMJSON(textContent);
+            break; // Success
+
+        } catch (error) {
+            attempt++;
+            console.warn(`[Infinite Retry] Single-Pass Extraction attempt ${attempt} failed:`, error.message);
+            const baseDelay = 5000;
+            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
+            if (backoffTime > 60000) backoffTime = 60000;
+            await delay(backoffTime);
+        }
+    }
+
+    for (const qId of questionsToExtract) {
+        extractedQuestions.push({
+            questionId: qId,
+            text: extractionMap[qId] || "No text extracted.",
+            questionTitle: compiledGoldenJson.questions[qId].title || `Question ${qId}`
+        });
+    }
 
     // Extract Student ID and Name using a separate fast vision call
     let studentId = "Unknown ID";
