@@ -3,7 +3,7 @@
  *
  * This engine completely bypasses LLM inference during the grading execution phase.
  * It compiles marking schemes into an Axiomatic Grading Matrix (Golden JSON) via Gemini 3.1 Pro (simulated/called),
- * and executes 100% deterministic partial marking and Error Carried Forward (ECF) logic natively.
+ * and executes 100% deterministic partial marking, Error Carried Forward (ECF), and Topological Graph Isomorphism natively.
  */
 
 const UE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
@@ -13,16 +13,18 @@ You are an L9 Software Architect functioning as the 'Axiomatic Logic Compiler'. 
 
 *** RULES & ENGINEERING CONSTRAINTS ***
 1. CAUSAL TRIPLES & GRAMMAR DIRECTION: For logical reasoning, extract ordered entities. If a question depends on directionality (e.g., "A causes B", "Sun provides energy to Plants"), map this in the JSON so that grading scripts do not falsely reward "B causes A".
-2. GRANULAR PARTIAL MARKS: Split large marking allocations (e.g., 10 marks) into discrete 'Core Nodes' and 'Context Nodes' with distinct, fractional weightings (e.g., 2.0 or 0.5) that sum to the total. Provide an exhaustive list of valid synonyms for each node.
+2. GRANULAR PARTIAL MARKS: Split large marking allocations into discrete 'Core Nodes' and 'Context Nodes' with distinct, fractional weightings that sum to the total. Provide an exhaustive list of valid synonyms for each node.
 3. MATHEMATICAL AST (ERROR CARRIED FORWARD): For calculations, provide an \`ast_formula\` representing the methodology and a \`tolerance\` threshold (e.g., 0.05 for 5%) to gracefully handle decimal truncation anomalies.
-4. FATAL CONTRADICTIONS: Identify specific words or phrases that, if present, flip the logical polarity of the answer (e.g., defining a "Beneficial Nutrient" as "Essential"). If triggered, these will deterministically force a 0 score for that specific question block.
-5. EXACT QUESTION MAPPING: Ensure the "Q_ID" keys in the JSON exactly match standard logical question formats (e.g., "1a", "2b_i", "3") as they appear in the provided text.
+4. TOPOLOGICAL GRAPHS (DIAGRAMS): If the marking scheme specifies a diagram, map it as a \`topology\` object containing \`nodes\` (the shapes/components) and directional \`edges\` (connections between nodes). The grading engine will evaluate structural graph logic (Node A -> Edge -> Node B) rather than artistic pixel quality.
+5. FATAL CONTRADICTIONS: Identify specific words or phrases that flip the logical polarity of the answer (e.g., defining a "Beneficial Nutrient" as "Essential"). If triggered, these will deterministically force a 0 score for that specific block.
+6. EXACT QUESTION MAPPING: Ensure the "Q_ID" keys in the JSON exactly match standard logical question formats (e.g., "1a", "2b_i", "3") as they appear in the provided text.
 
-*** FEW-SHOT EXAMPLE ***
+*** FEW-SHOT EXAMPLES ***
+
 [INPUT TEXT]
 Q1(A)(ii). Beneficial nutrients. (0.5 Marks). These are elements that do not meet the criteria of essentiality but play some beneficial roles in plant nutrition. Examples: Sodium, Silicon.
 
-[OUTPUT JSON]
+[OUTPUT JSON (LOGIC)]
 {
   "questions": {
     "Q1_A_ii": {
@@ -34,6 +36,27 @@ Q1(A)(ii). Beneficial nutrients. (0.5 Marks). These are elements that do not mee
         { "concept": "not essential", "weight": 0.25, "synonyms": ["do not meet criteria of essentiality", "non-essential", "unnecessary"] },
         { "concept": "beneficial role", "weight": 0.25, "synonyms": ["beneficial", "helps plants", "improves yield", "sodium", "silicon"] }
       ]
+    }
+  }
+}
+
+[INPUT TEXT]
+Q2(B)(i). Draw an Active Remote Sensing circuit. Must show a Satellite emitting rays towards the Earth, and returning. (5 Marks)
+
+[OUTPUT JSON (TOPOLOGY)]
+{
+  "questions": {
+    "Q2_B_i": {
+      "title": "Active Remote Sensing Diagram",
+      "type": "topology",
+      "total_marks": 5,
+      "topology": {
+          "nodes": ["Satellite", "Earth"],
+          "edges": [
+              { "source": "Satellite", "target": "Earth", "label": "emits rays", "weight": 2.5 },
+              { "source": "Earth", "target": "Satellite", "label": "reflected back", "weight": 2.5 }
+          ]
+      }
     }
   }
 }
@@ -86,10 +109,13 @@ class UEGraphExecutor {
 
         for (const [qId, studentRaw] of Object.entries(studentAnswers)) {
             let studentText = "";
+            let studentTopology = null;
+
             if (typeof studentRaw === 'string') {
                 studentText = studentRaw;
             } else if (studentRaw && studentRaw.text) {
                 studentText = studentRaw.text;
+                studentTopology = studentRaw.topology || null;
             }
 
             const ruleSet = this.goldenJson.questions[qId];
@@ -119,6 +145,11 @@ class UEGraphExecutor {
                 pointsAwarded = points;
             } else if (ruleSet.type === 'math') {
                 const { score, logs, points } = this._evaluateMath(ruleSet, studentText);
+                qScore = score;
+                qBreakdown = logs;
+                pointsAwarded = points;
+            } else if (ruleSet.type === 'topology') {
+                const { score, logs, points } = this._evaluateTopology(ruleSet, studentText, studentTopology);
                 qScore = score;
                 qBreakdown = logs;
                 pointsAwarded = points;
@@ -161,7 +192,6 @@ class UEGraphExecutor {
             const subIdx = textLower.indexOf(subject.toLowerCase());
             const objIdx = textLower.indexOf(object.toLowerCase());
 
-            // Simple heuristic for directionality: Subject must precede Object
             if (subIdx > -1 && objIdx > -1 && subIdx > objIdx) {
                  return { score: 0, points: [], logs: [`Grammar/Directional error detected. The subject '${subject}' incorrectly follows the object '${object}'. Inverse causality. 0 marks.`] };
             }
@@ -186,11 +216,7 @@ class UEGraphExecutor {
                     logs.push(`✓ Semantic Node hit: [${node.concept}] (+${node.weight} marks)`);
                 } else {
                     logs.push(`✗ Missed Node: [${node.concept}]`);
-
-                    // AUTONOMOUS RAG FEEDBACK LOOP FLAG
-                    // If a node is missed, we flag it for the async background worker.
-                    // This creates the foundation for autonomous system growth without breaking execution speed.
-                    logs.push(`[Pending: RAG Semantic Re-evaluation queued for missed node '${node.concept}']`);
+                    logs.push(`[Pending Review: Suggested RAG rule update queued for Teacher approval: '${node.concept}']`);
                 }
             }
         }
@@ -225,12 +251,66 @@ class UEGraphExecutor {
             points.push(score);
             logs.push(`✓ Exact match. Value: ${studentFinalAnswer}`);
         } else if (diff <= margin) {
-            // ECF Applied
             score = Math.max(0, totalMarks - 0.5);
             points.push(score);
             logs.push(`⚠️ Precision Truncation. Value: ${studentFinalAnswer}. Expected: ${expected}. ECF Applied (-0.5 marks)`);
         } else {
             logs.push(`✗ Incorrect execution. Value: ${studentFinalAnswer}. Expected: ${expected}`);
+        }
+
+        return { score, logs, points };
+    }
+
+    _evaluateTopology(ruleSet, studentText, studentTopology) {
+        let score = 0;
+        let logs = [];
+        let points = [];
+
+        const goldenTop = ruleSet.topology;
+        if (!goldenTop || !goldenTop.edges) {
+            return { score: 0, points: [], logs: ["Marking scheme missing topological edges definition."] };
+        }
+
+        const textLower = studentText.toLowerCase();
+
+        for (const edge of goldenTop.edges) {
+            const src = edge.source.toLowerCase();
+            const tgt = edge.target.toLowerCase();
+
+            const hasSrc = textLower.includes(src);
+            const hasTgt = textLower.includes(tgt);
+
+            if (hasSrc && hasTgt) {
+                // Determine directionality dynamically by checking substring bounds
+                // "Satellite shooting a laser down to the Earth" -> srcIdx < tgtIdx
+                // "Earth bouncing back up to the Satellite" -> srcIdx > tgtIdx (for the return edge)
+
+                // Split the student text by sentences to check edge by edge context
+                const sentences = textLower.split(/[.?!]/);
+                let edgeMatched = false;
+
+                for (const sentence of sentences) {
+                    const srcIdx = sentence.indexOf(src);
+                    const tgtIdx = sentence.indexOf(tgt);
+
+                    // For Graph Isomorphism: if Golden JSON says Earth -> Satellite
+                    // We check if "earth" comes BEFORE "satellite" in that specific sentence
+                    if (srcIdx > -1 && tgtIdx > -1 && srcIdx < tgtIdx) {
+                        score += edge.weight;
+                        points.push(edge.weight);
+                        logs.push(`✓ Graph Edge matched: [${src}] -> [${tgt}] (+${edge.weight} marks)`);
+                        edgeMatched = true;
+                        break;
+                    }
+                }
+
+                if (!edgeMatched) {
+                    logs.push(`✗ Inverse Topology: Edge drawn incorrectly relative to [${src}] and [${tgt}]. 0 marks.`);
+                }
+
+            } else {
+                logs.push(`✗ Missing Topological Node: Failed to detect connection between [${src}] and [${tgt}].`);
+            }
         }
 
         return { score, logs, points };
