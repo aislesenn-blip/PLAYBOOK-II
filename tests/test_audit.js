@@ -6,6 +6,11 @@ const goldenJSON = {
             "title": "Field invariabilities",
             "type": "logic",
             "total_marks": 0.5,
+            "causal_triple": {
+                "subject": "Absence",
+                "verb": "causes",
+                "object": "invariability"
+            },
             "nodes": [
                 { "concept": "absence of heterogeneity", "weight": 0.25, "synonyms": ["uniformity", "does not change", "invariability"] },
                 { "concept": "soil properties", "weight": 0.25, "synonyms": ["physical and chemical properties", "soil context"] }
@@ -24,7 +29,8 @@ const goldenJSON = {
 };
 
 const studentAnswers = {
-    "Q1_A_i": "Conditions of crop, soil which does not change within the field.",
+    // Failing directionality ("Man bites dog")
+    "Q1_A_i": "The invariability is the reason there is an absence of changes in soil.",
     "Q6_B_ii": "Number of bags = 133.33 bags. Price to pay = 133.33 bags * 70,000 Tsh = 9,333,333.33 Tsh."
 };
 
