@@ -90,7 +90,11 @@ async function compileGoldenJSON(apiKey, markingSchemeText) {
         }
 
         const data = await response.json();
-        const textResponse = data.candidates[0].content.parts[0].text;
+        let textResponse = data.candidates[0].content.parts[0].text;
+
+        // Strip markdown backticks if Gemini includes them despite responseMimeType
+        textResponse = textResponse.replace(/^```json\n?/i, '').replace(/\n?```$/i, '').trim();
+
         return JSON.parse(textResponse);
     } catch (e) {
         console.error("UE Compiler Error:", e);
