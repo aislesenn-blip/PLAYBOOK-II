@@ -1,258 +1,218 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UE Mode - The Ultimate Engine | Playbook</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
-    <style>
-        .ue-hero {
-            background: linear-gradient(135deg, var(--card-bg) 0%, rgba(245, 158, 11, 0.1) 100%);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .ue-hero h1 {
-            color: var(--warning-color);
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
-        }
-        .ue-hero p {
-            color: var(--text-secondary);
-            max-width: 600px;
-            margin: 0 auto 1.5rem auto;
-            font-size: 1.1rem;
-        }
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Playbook - UE Mode</title>
+<link href="css/style.css" rel="stylesheet"/>
+<style>
+    /* Styling adjustments specific to UE layout but matching brand */
+    .ue-card {
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        margin-bottom: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
 
-        .ue-setup-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
+    .ue-card.active {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
 
-        .ue-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-            position: relative;
-            overflow: hidden;
-        }
+    .ue-step-badge {
+        background: var(--primary-color);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
 
-        .ue-card.active {
-            border-color: var(--warning-color);
-            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
-        }
+    .ue-header-text {
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
 
-        .ue-step-badge {
-            background: var(--warning-color);
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
+    .ue-description {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
+    }
 
-        .ue-card h3 {
-            margin-bottom: 0.5rem;
-            font-size: 1.2rem;
-        }
-
-        .ue-card p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .file-upload-area {
-            border: 2px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 1.5rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: var(--bg-color);
-        }
-
-        .file-upload-area:hover {
-            border-color: var(--warning-color);
-            background: rgba(245, 158, 11, 0.05);
-        }
-
-        .btn-ue-primary {
-            background: var(--warning-color);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            width: 100%;
-            transition: opacity 0.2s;
-        }
-
-        .btn-ue-primary:hover {
-            opacity: 0.9;
-        }
-
-        .btn-ue-primary:disabled {
-            background: var(--border-color);
-            cursor: not-allowed;
-            color: var(--text-secondary);
-        }
-
-        .terminal-output {
-            background: #1e1e1e;
-            color: #4ade80;
-            font-family: 'Courier New', Courier, monospace;
-            padding: 1.5rem;
-            border-radius: 8px;
-            height: 200px;
-            overflow-y: auto;
-            font-size: 0.9rem;
-            margin-top: 2rem;
-            display: none;
-        }
-
-        .terminal-output p {
-            margin: 0.2rem 0;
-            color: inherit;
-        }
-
-        .terminal-output .log-warn { color: #facc15; }
-        .terminal-output .log-error { color: #ef4444; }
-        .terminal-output .log-info { color: #60a5fa; }
-    </style>
+    .terminal-output {
+        background: #1e293b;
+        color: #4ade80;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        padding: 1rem;
+        border-radius: var(--radius-sm);
+        height: 180px;
+        overflow-y: auto;
+        font-size: 0.85rem;
+        margin-top: 1.5rem;
+        border: 1px solid #0f172a;
+    }
+    .terminal-output p { margin: 0.2rem 0; }
+    .log-warn { color: #fbbf24; }
+    .log-error { color: #f87171; }
+    .log-info { color: #60a5fa; }
+</style>
 </head>
-<body class="light-mode">
-    <nav class="navbar flex justify-between items-center">
-        <div class="nav-brand flex items-center gap-1">
-            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-            </svg>
-            <span class="logo-text">Playbook</span>
+<body>
+<div class="app-container">
+<!-- Minimalist Top Navigation -->
+<nav class="top-nav">
+<div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+<div class="flex items-center gap-2">
+<div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
+<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
+<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
+<line x1="3" x2="21" y1="12" y2="12"></line>
+<line x1="3" x2="21" y1="6" y2="6"></line>
+<line x1="3" x2="21" y1="18" y2="18"></line>
+</svg>
+</button>
+<ul class="nav-links flex gap-1 items-center">
+<li><a href="index.html">Dashboard</a></li>
+<li><a href="upload.html">Upload Exams</a></li>
+<li><a class="active" href="ue.html" style="color: var(--primary-color); font-weight: 600;">UE Mode</a></li>
+<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
+</div>
+<div class="flex items-center gap-1 nav-actions">
+<a class="nav-icon-link" href="manual.html">User Manual</a>
+<a class="nav-icon-link" href="settings.html">Settings</a>
+<button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+</div>
+</div>
+</nav>
+
+<main class="main-content max-w-5xl mx-auto" style="padding-top: 2rem;">
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem;">
+        <div>
+            <h1 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary);">Ultimate Engine</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Compile marking schemes into determinist graphs and execute at millisecond speeds.</p>
         </div>
-
-        <div class="desktop-nav">
-            <button class="mobile-menu-toggle" id="mobile-menu-btn" aria-label="Toggle Menu">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>
-            </button>
-            <ul class="nav-links flex gap-1 items-center">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="upload.html">Upload Exams</a></li>
-                <li><a class="active" href="ue.html" style="color: var(--warning-color); font-weight: bold;">UE Mode</a></li>
-                <li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li>
-            </ul>
-        </div>
-        <div class="flex items-center gap-1 nav-actions">
-            <a class="nav-icon-link" href="manual.html">User Manual</a>
-            <button class="theme-toggle" id="theme-toggle-btn" aria-label="Toggle Dark Mode">
-                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-            </button>
-            <div class="user-profile dropdown-container">
-                <div class="avatar" id="nav-avatar">U</div>
-                <div class="dropdown-menu">
-                    <div class="dropdown-header">
-                        <strong id="dropdown-name">User</strong>
-                        <span id="dropdown-role">Professor</span>
-                    </div>
-                    <a href="settings.html" class="dropdown-item">Settings</a>
-                    <div class="dropdown-divider"></div>
-                    <a href="#" class="dropdown-item text-danger" id="signout-btn">Sign Out</a>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <main class="app-container">
-        <div class="ue-hero">
-            <h1>The Ultimate Engine</h1>
-            <p>100% Deterministic Grading. Compile your marking scheme once, and grade thousands of scripts instantly with human-level partial marking and zero AI hallucinations.</p>
-        </div>
-
-        <div class="ue-setup-grid">
-            <!-- Step 1: Syllabus Training Data -->
-            <div class="ue-card active" id="card-step-1">
-                <div class="ue-step-badge">1</div>
-                <h3>Inject Knowledge Base</h3>
-                <p>Provide foundational context for this exam. Paste URLs of textbooks, articles, or syllabus documents.</p>
-                <textarea id="ue-urls" class="form-input" rows="3" placeholder="https://example.com/agriculture-syllabus.pdf
-https://example.com/gis-guide.pdf"></textarea>
-                <button class="btn-ue-primary" id="btn-ingest" style="margin-top: 1rem;">Train Engine</button>
-            </div>
-
-            <!-- Step 2: Marking Scheme Compilation -->
-            <div class="ue-card" id="card-step-2" style="opacity: 0.5;">
-                <div class="ue-step-badge">2</div>
-                <h3>Compile Logic Graph</h3>
-                <p>Upload the strict marking scheme. The Engine will convert it into immutable math and logic rules.</p>
-                <div class="file-upload-area" id="scheme-upload">
-                    <svg viewBox="0 0 24 24" width="32" height="32" stroke="var(--warning-color)" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <p style="margin-top: 0.5rem; margin-bottom: 0;">Click to upload Marking Scheme</p>
-                    <input type="file" id="scheme-file" accept=".txt,.pdf,.docx" style="display:none;">
-                </div>
-                <button class="btn-ue-primary" id="btn-compile" style="margin-top: 1rem;" disabled>Compile Rules</button>
-            </div>
-
-            <!-- Step 3: Execution -->
-            <div class="ue-card" id="card-step-3" style="opacity: 0.5;">
-                <div class="ue-step-badge">3</div>
-                <h3>Grade Exams</h3>
-                <p>Upload student scripts. The Engine will apply the compiled logic rules at millisecond speed.</p>
-                <div class="file-upload-area" id="scripts-upload">
-                    <svg viewBox="0 0 24 24" width="32" height="32" stroke="var(--warning-color)" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                    <p style="margin-top: 0.5rem; margin-bottom: 0;">Click to upload Student PDFs</p>
-                    <input type="file" id="scripts-file" accept="application/pdf" multiple style="display:none;">
-                </div>
-                <button class="btn-ue-primary" id="btn-execute" style="margin-top: 1rem;" disabled>Execute Engine</button>
-            </div>
-        </div>
-
-        <div class="terminal-output" id="ue-terminal">
-            <p>> UE Engine v3.0 Initialized.</p>
-            <p>> Awaiting Knowledge Base Ingestion...</p>
-        </div>
-
-    </main>
-
-    <div class="mobile-nav">
-        <a href="index.html" class="mobile-tab ">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            <span>Home</span>
-        </a>
-        <a href="upload.html" class="mobile-tab ">
-            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-            <span>Upload</span>
-        </a>
-        <a href="ue.html" class="mobile-tab active" style="color: var(--warning-color);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-            <span>UE</span>
-        </a>
-        <a href="analytics.html" class="mobile-tab ">
-            <svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            <span>Stats</span>
-        </a>
     </div>
 
-    <!-- Firebase / Supabase SDKs -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- App Scripts -->
-    <script src="js/db.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/ue.js"></script>
+    <!-- Step 1: Select Context -->
+    <div class="ue-card active" id="card-step-1">
+        <div class="ue-step-badge">1</div>
+        <div class="ue-header-text">Select Grading Context</div>
+        <p class="ue-description">Choose the course and active session you are grading for.</p>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Course</label>
+            <select class="form-select" id="ue-course-select" required>
+                <option value="">Select a Course...</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Session</label>
+            <select class="form-select" id="ue-session-select" required disabled>
+                <option value="">Select a Session...</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Step 2: Train & Compile Golden JSON -->
+    <div class="ue-card" id="card-step-2" style="opacity: 0.5; pointer-events: none;">
+        <div class="ue-step-badge">2</div>
+        <div class="ue-header-text">Compile Knowledge & Scheme</div>
+        <p class="ue-description">Provide Base Knowledge URLs (optional) and upload the Marking Scheme to generate the Golden Engine.</p>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Base Knowledge URLs (One per line)</label>
+            <textarea class="form-input" id="ue-urls" rows="2" placeholder="https://example.com/syllabus.pdf"></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Marking Scheme Document (.pdf, .docx, .txt)</label>
+            <div class="upload-zone" id="ue-scheme-upload">
+                <div class="upload-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+                <div class="upload-text">Drag & drop or <span class="text-primary">browse</span> marking scheme</div>
+                <div class="upload-hint">Supported formats: PDF, DOCX, TXT</div>
+                <input type="file" id="ue-scheme-file" accept=".pdf,.docx,.txt" style="display: none;">
+            </div>
+            <div id="ue-scheme-status" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 500;"></div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-compile" style="width: 100%;">Compile Golden Engine</button>
+    </div>
+
+    <!-- Step 3: Execute Grading -->
+    <div class="ue-card" id="card-step-3" style="opacity: 0.5; pointer-events: none;">
+        <div class="ue-step-badge">3</div>
+        <div class="ue-header-text">Execute Deterministic Grading</div>
+        <p class="ue-description">Upload student exams. The Engine extracts answers and evaluates against the compiled graphs.</p>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Student Exams (.pdf)</label>
+            <div class="upload-zone" id="ue-students-upload">
+                <div class="upload-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+                <div class="upload-text">Drag & drop or <span class="text-primary">browse</span> student PDFs</div>
+                <div class="upload-hint">Supported format: PDF only</div>
+                <input type="file" id="ue-students-file" accept="application/pdf" multiple style="display: none;">
+            </div>
+            <div id="ue-students-status" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 500;"></div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-execute" style="width: 100%;">Run Execution</button>
+    </div>
+
+    <!-- Terminal Status -->
+    <div class="terminal-output" id="ue-terminal" style="display: none;">
+        <p>> Engine Initialized. Select context to proceed.</p>
+    </div>
+
+</main>
+</div>
+
+<!-- Mobile Bottom Navigation -->
+<nav class="mobile-nav">
+<a class="mobile-tab" href="index.html">
+<svg fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+<span>Home</span>
+</a>
+<a class="mobile-tab" href="upload.html">
+<svg fill="none" viewBox="0 0 24 24"><rect height="18" rx="2" ry="2" width="18" x="3" y="3"></rect><line x1="12" x2="12" y1="8" y2="16"></line><line x1="8" x2="16" y1="12" y2="12"></line></svg>
+<span>Upload</span>
+</a>
+<a class="mobile-tab active" href="ue.html" style="color: var(--primary-color);">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+<span>UE</span>
+</a>
+<a class="mobile-tab" href="analytics.html">
+<svg fill="none" viewBox="0 0 24 24"><line x1="18" x2="18" y1="20" y2="10"></line><line x1="12" x2="12" y1="20" y2="4"></line><line x1="6" x2="6" y1="20" y2="14"></line></svg>
+<span>Stats</span>
+</a>
+</nav>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+<!-- Playbook Scripts -->
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/ue_engine.js"></script>
+<script src="js/ue_extractors.js"></script>
+<script src="js/ue.js"></script>
 </body>
 </html>
