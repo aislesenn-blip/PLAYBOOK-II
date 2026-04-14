@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // UI Elements
     const terminal = document.getElementById('ue-terminal');
-    const courseSelect = document.getElementById('ue-course-select');
+    const classSelect = document.getElementById('ue-class-select');
     const sessionNameInput = document.getElementById('ue-session-name');
 
     const cardStep1 = document.getElementById('card-step-1');
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const studentsFileInput = document.getElementById('ue-students-file');
     const studentsStatus = document.getElementById('ue-students-status');
 
-    let selectedCourseId = null;
+    let selectedClassId = null;
     let selectedSessionId = null;
     let schemeText = null;
     let studentFiles = [];
@@ -55,27 +55,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             logTerminal("CRITICAL: Gemini API Key missing in institution secrets. UE Compilation will fail.", "log-error");
         }
 
-        const courses = await window.PlaybookDB.getCourses(sessionUser.id);
-        courses.forEach(c => {
+        const classes = await window.PlaybookDB.getCourses();
+        classes.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
             opt.textContent = c.name;
-            courseSelect.appendChild(opt);
+            classSelect.appendChild(opt);
         });
-        logTerminal(`Fetched ${courses.length} courses.`);
+        logTerminal(`Fetched ${classes.length} classes.`);
     } catch (e) {
         logTerminal(`Error fetching init data: ${e.message}`, "log-error");
     }
 
     // Context Listeners
-    courseSelect.addEventListener('change', (e) => {
-        selectedCourseId = e.target.value;
+    classSelect.addEventListener('change', (e) => {
+        selectedClassId = e.target.value;
     });
 
     btnCreateSession.addEventListener('click', async () => {
         const sessionName = sessionNameInput.value.trim();
 
-        if (!selectedCourseId || !sessionName) {
+        if (!selectedClassId || !sessionName) {
             alert('Please select a course and enter a new session name.');
             return;
         }
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const newSession = {
-                course_id: selectedCourseId,
+                course_id: selectedClassId,
                 professor_id: sessionUser.id,
                 name: sessionName,
                 status: 'processing', // UE runs instantly, no 'pending' queue state needed
