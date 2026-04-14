@@ -274,23 +274,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     logTerminal(`Evaluated. Score: ${result.totalScore} | Persisting to DB...`);
 
-                    // Actually Write results to public.submissions
+                    // Actually Write results to exam_submissions
                     // To handle unauthenticated students in physical exam uploads,
                     // we map by full_name or leave auth_id null.
                     // In playbook standard flow, we just push the string student_id.
                     const submissionRecord = {
                         session_id: selectedSessionId,
-                        student_id: chunk.student_id_uuid || sessionUser.user_id, // Fallback to professor auth for test cases
-                        answers: chunk.questions,
-                        marks_awarded_by_ai: result.totalScore,
-                        status: 'graded',
-                        ai_feedback: {
-                            ue_breakdown: result.breakdown,
-                            note: "Evaluated deterministically via Ultimate Engine v3.0"
-                        }
+                        student_name: `Student ID ${chunk.student_id}`, // Match Playbook schema
+                        registration_number: chunk.student_id,
+                        total_score: result.totalScore,
+                        max_score: 100, // Assume 100 or pull from Golden JSON later
+                        grading_data: {
+                            questions: chunk.questions.map(q => ({
+                                questionId: q.questionId,
+                                raw_answer: q.text,
+                                points_awarded: result.breakdown[q.questionId]?.score || 0,
+                                ue_details: result.breakdown[q.questionId]?.details || []
+                            }))
+                        },
+                        status: 'completed',
+                        completed_at: new Date().toISOString()
                     };
 
-                    const { error: insErr } = await supabaseClient.from('submissions').insert([submissionRecord]);
+                    const { error: insErr } = await supabaseClient.from('exam_submissions').insert(submissionRecord);
                     if (insErr) {
                         logTerminal(`DB Insert Error: ${insErr.message}`, "log-error");
                     } else {
@@ -299,13 +305,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
+            // Update session status to Needs Review so it appears correctly in dashboards
+            await supabaseClient.from('sessions').update({
+                status: 'needs_review',
+                total_students: processedCount
+            }).eq('id', selectedSessionId);
+
             logTerminal(`Execution Complete. ${processedCount} scripts processed.`, "log-info");
             btnExecute.textContent = "✓ Executed Successfully";
             btnExecute.style.background = "var(--success-color)";
             btnExecute.style.borderColor = "var(--success-color)";
 
             setTimeout(() => {
-                window.location.href = `class_detail.html?session_id=${selectedSessionId}`;
+                window.location.href = `review.html?session=${selectedSessionId}`;
             }, 2000);
 
         } catch (err) {
