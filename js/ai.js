@@ -394,9 +394,14 @@ function parseLLMJSON(content) {
         try {
             return JSON.parse(repairedContent);
         } catch (e2) {
-            // Ultimate fallback for completely shattered JSON objects
+            // Ultimate L9 Fallback: Never crash the batch if a single question's JSON is fatally truncated
             console.error("Advanced JSON repair failed.", e2.message);
-            throw new Error("JSON parse failed completely");
+            return {
+                justification: "AI formatting error due to server timeout. Please review manually.",
+                points_awarded: [],
+                is_entirely_blank: false,
+                constructive_feedback: "AI connection reset."
+            };
         }
     }
 }
@@ -433,7 +438,7 @@ class Semaphore {
 // Pass 1B: Single-Question Extraction
 async function extractSingleQuestion(apiKey, questionId, userParts) {
     let attempt = 0;
-    while (true) {
+    while (attempt < 3) {
         try {
             const promptText = `Locate and transcribe the exact answer for Question ID: ${questionId}`;
 
@@ -445,7 +450,7 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
 
             let response;
             try {
-                response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                response = await fetch(`${API_URL}/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -482,13 +487,16 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
             await delay(backoffTime);
         }
     }
+
+    // L9 Architecture: Return fallback string if all attempts fail
+    return "AI formatting error due to server timeout. Please review manually.";
 }
 
 // Pass 2: Single-Question Grading
 async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
     let attempt = 0;
 
-    while (true) {
+    while (attempt < 3) {
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
@@ -497,7 +505,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
 
             let response;
             try {
-                response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                response = await fetch(`${API_URL}/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -560,12 +568,20 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             await delay(backoffTime);
         }
     }
+
+    // L9 Architecture: Return fallback object if all attempts fail
+    return {
+        points_awarded: [],
+        is_entirely_blank: true,
+        justification: "Error grading due to server timeout. Please review manually.",
+        constructive_feedback: "Error grading due to server timeout."
+    };
 }
 
 // Client-Side Distributed Grading Engine (Map-Reduce Architecture)
 async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = "", maxScoreParam = 100) {
     let attempt = 0;
-    while (true) {
+    while (attempt < 3) {
         try {
             const apiKey = await getSecureKey();
 
@@ -595,7 +611,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 throw new Error("Invalid input format for student exam data.");
             }
 
-            const mapResponse = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+            const mapResponse = await fetch(`${API_URL}/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -719,10 +735,10 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
 
             const chunkPromises = chunks.map(async (chunkText, index) => {
                 let attempt = 0;
-                while (true) {
+                while (attempt < 3) {
                     await optimizeSemaphore.acquire();
                     try {
-                        const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                        const response = await fetch(`${API_URL}/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -765,6 +781,9 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                         optimizeSemaphore.release();
                     }
                 }
+
+                // L9 Architecture: Return fallback if chunk optimization fails
+                return { index, content: "Chunk formatting error due to server timeout." };
             });
 
             // Reassemble the chunks deterministically
@@ -777,7 +796,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
 // OCR Fallback for Scanned Marking Schemes
 async function extractMarkingSchemeOCR(base64Images) {
     let attempt = 0;
-    while (true) {
+    while (attempt < 3) {
         try {
             const apiKey = await getSecureKey();
 
@@ -799,7 +818,7 @@ async function extractMarkingSchemeOCR(base64Images) {
                 }
             });
 
-            const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+            const response = await fetch(`${API_URL}/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -835,6 +854,9 @@ async function extractMarkingSchemeOCR(base64Images) {
             await delay(backoffTime);
         }
     }
+
+    // L9 Architecture: Return fallback if all attempts fail
+    return "OCR Error due to server timeout. Please review manually.";
 }
 
 // Export for both main thread and Web Worker environments

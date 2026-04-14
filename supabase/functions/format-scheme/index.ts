@@ -94,7 +94,7 @@ serve(async (req) => {
             let attempt = 0;
             while (attempt < 3) {
                 try {
-                    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

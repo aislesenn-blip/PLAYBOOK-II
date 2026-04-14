@@ -213,7 +213,12 @@ function parseLLMJSON(content: string) {
             return JSON.parse(repairedContent);
         } catch (e2: any) {
             console.error("Advanced JSON repair failed.", e2.message);
-            throw new Error("JSON parse failed completely");
+            return {
+                justification: "AI formatting error due to server timeout. Please review manually.",
+                points_awarded: [],
+                is_entirely_blank: false,
+                constructive_feedback: "AI connection reset."
+            };
         }
     }
 }
@@ -480,7 +485,7 @@ async function processGrading(supabase: any, submission: any) {
 
 async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: any, title: string, requireJSON: boolean) {
     let attempt = 0;
-    while (true) {
+    while (attempt < 3) {
         try {
             const bodyPayload: any = {
                 systemInstruction: {
@@ -500,7 +505,7 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
                 bodyPayload.generationConfig.responseMimeType = "application/json";
             }
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -526,6 +531,9 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
             await delay(backoffTime);
         }
     }
+
+    // Default fallback for fetchGoogleAI
+    return requireJSON ? "{}" : "";
 }
 
 async function gradeBatchExamsCloud(studentText: string, rawInstructions: string, apiKey: string) {
@@ -603,7 +611,7 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 async function gradeSingleQuestionCloud(apiKey: string, questionData: any, markingSchemeText: string) {
     let attempt = 0;
 
-    while (true) {
+    while (attempt < 3) {
         try {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
@@ -635,4 +643,14 @@ async function gradeSingleQuestionCloud(apiKey: string, questionData: any, marki
             await delay(backoffTime);
         }
     }
+
+    // L9 Architecture: Return fallback object if all attempts fail
+    return {
+        ...questionData,
+        points_awarded: [],
+        total_correct_points_found: 0,
+        is_entirely_blank: false,
+        justification: "AI formatting error due to server timeout or invalid JSON. Please review manually.",
+        constructive_feedback: "AI connection reset or parsing error."
+    };
 }

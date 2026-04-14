@@ -125,7 +125,7 @@ serve(async (req) => {
     let successfulStudentsCount = 0;
 
     // 5. Grade the ENTIRE batch PDF via Gemini 2.5 Pro natively
-    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+    const googleAIReq = await fetch(`${GOOGLE_AI_API_URL}/gemini-2.0-pro-exp-02-05:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
