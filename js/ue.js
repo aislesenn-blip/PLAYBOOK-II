@@ -151,9 +151,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             // Real extraction using standard playbook utils
             if (file.name.endsWith('.pdf')) {
-                schemeText = await window.UEExtractors.extractTextFromPDF(file);
+                schemeText = await window.PlaybookAI.extractTextFromPDF(file);
             } else if (file.name.endsWith('.docx')) {
-                schemeText = await window.UEExtractors.extractTextFromWord(file);
+                schemeText = await window.PlaybookAI.extractTextFromWord(file);
             } else if (file.name.endsWith('.txt')) {
                 schemeText = await file.text();
             }
@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 logTerminal(`Extracting text from: ${file.name}`);
 
                 // Actual Playbook OCR Chunked Extraction (will use Gemini Map-Extract architecture)
-                const textChunks = await window.UEExtractors.extractStudentExamsUE(apiKey, file);
+                const textChunks = await window.PlaybookAI.extractStudentExamsUE([await fileToDataUrl(file)], compiledGoldenJson);
 
                 if (!textChunks || textChunks.length === 0) {
                     logTerminal(`No valid responses extracted from ${file.name}.`, "log-error");
@@ -285,12 +285,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         total_score: result.totalScore,
                         max_score: 100, // Assume 100 or pull from Golden JSON later
                         grading_data: {
-                            questions: chunk.questions.map(q => ({
-                                questionId: q.questionId,
-                                raw_answer: q.text,
-                                points_awarded: result.breakdown[q.questionId]?.score || 0,
-                                ue_details: result.breakdown[q.questionId]?.details || []
-                            }))
+                            questions: chunk.questions.map(q => {
+                                const bd = result.breakdown[q.questionId];
+                                return {
+                                    questionId: q.questionId,
+                                    questionTitle: bd?.title || `Question ${q.questionId}`,
+                                    raw_answer: q.text,
+                                    points_awarded: bd?.points_awarded || [],
+                                    marks_awarded_by_ai: bd?.score || 0,
+                                    max_marks: bd?.max_marks || 1,
+                                    justification: bd?.justification || "No justification generated.",
+                                    constructive_feedback: bd?.feedback || "No feedback generated.",
+                                    answer_status: bd?.answer_status || "Answered",
+                                    is_entirely_blank: bd?.is_entirely_blank || false
+                                };
+                            })
                         },
                         status: 'completed',
                         completed_at: new Date().toISOString()
@@ -327,3 +336,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+// Helper to convert file to data url
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}

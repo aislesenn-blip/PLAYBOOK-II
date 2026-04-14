@@ -843,3 +843,99 @@ if (typeof window !== 'undefined') {
 } else {
             self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 }
+
+// EXPOSE EXTRACTOR TO UE
+async function extractStudentExamsUE(base64PDF, compiledGoldenJson) {
+    const apiKey = await getSecureKey();
+    const userParts = [];
+    if (typeof base64PDF === 'string') {
+        userParts.push({ text: `Student Exam Text:\n\n---\n${base64PDF}\n---` });
+    } else if (Array.isArray(base64PDF)) {
+        base64PDF.forEach(imageUrl => {
+            const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+                userParts.push({
+                    inlineData: { mimeType: matches[1], data: matches[2] }
+                });
+            }
+        });
+    }
+
+    const extractedQuestions = [];
+    // Only extract questions defined in the Golden JSON
+    const questionsToExtract = Object.keys(compiledGoldenJson.questions || {});
+
+    // Throttle to prevent rate limit
+    const semaphore = new Semaphore(15);
+
+    const extractionPromises = questionsToExtract.map(async (qId) => {
+        await semaphore.acquire();
+        try {
+            const transcription = await extractSingleQuestion(apiKey, qId, userParts);
+            extractedQuestions.push({
+                questionId: qId,
+                text: transcription,
+                questionTitle: compiledGoldenJson.questions[qId].title || `Question ${qId}`
+            });
+        } catch (e) {
+             console.error(`Failed to extract ${qId}:`, e);
+        } finally {
+            semaphore.release();
+        }
+    });
+
+    await Promise.all(extractionPromises);
+
+    // Return Playbook compliant structure
+    return [{
+        student_id_uuid: null, // assigned in ue.js logic
+        questions: extractedQuestions
+    }];
+}
+
+if (typeof window !== 'undefined') {
+    window.PlaybookAI.extractStudentExamsUE = extractStudentExamsUE;
+} else {
+    self.PlaybookAI.extractStudentExamsUE = extractStudentExamsUE;
+}
+
+// Extract Text From PDF (for schemes)
+async function extractTextFromPDF(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+
+    if (pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let extractedText = "";
+
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        extractedText += pageText + "\n";
+    }
+
+    if (extractedText.trim().length < 50) {
+        throw new Error("PDF seems to be scanned (no native text). Please ensure marking schemes are digital text or use the main upload OCR flow.");
+    }
+
+    return extractedText;
+}
+
+// Extract Text From Word (for schemes)
+async function extractTextFromWord(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+    return result.value;
+}
+
+if (typeof window !== 'undefined') {
+    window.PlaybookAI.extractTextFromPDF = extractTextFromPDF;
+    window.PlaybookAI.extractTextFromWord = extractTextFromWord;
+} else {
+    self.PlaybookAI.extractTextFromPDF = extractTextFromPDF;
+    self.PlaybookAI.extractTextFromWord = extractTextFromWord;
+}
