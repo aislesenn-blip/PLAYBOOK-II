@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     requireAuth(['professor', 'admin']);
-    requireAuth("UE Mode initialized");
+    console.log("UE Mode initialized");
 
     const terminal = document.getElementById('ue-terminal');
     const btnIngest = document.getElementById('btn-ingest');
