@@ -5,12 +5,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // UI Elements
     const terminal = document.getElementById('ue-terminal');
     const courseSelect = document.getElementById('ue-course-select');
-    const sessionSelect = document.getElementById('ue-session-select');
+    const sessionNameInput = document.getElementById('ue-session-name');
 
     const cardStep1 = document.getElementById('card-step-1');
     const cardStep2 = document.getElementById('card-step-2');
     const cardStep3 = document.getElementById('card-step-3');
 
+    const btnCreateSession = document.getElementById('btn-create-session');
     const btnCompile = document.getElementById('btn-compile');
     const btnExecute = document.getElementById('btn-execute');
 
@@ -67,57 +68,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Context Listeners
-    courseSelect.addEventListener('change', async (e) => {
+    courseSelect.addEventListener('change', (e) => {
         selectedCourseId = e.target.value;
-        sessionSelect.innerHTML = '<option value="">Select a Session...</option>';
-        sessionSelect.disabled = true;
-
-        if (selectedCourseId) {
-            try {
-                const sessions = await window.PlaybookDB.getSessions(selectedCourseId);
-                sessions.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.textContent = `${s.name} (${new Date(s.due_date).toLocaleDateString()})`;
-                    sessionSelect.appendChild(opt);
-                });
-                sessionSelect.disabled = false;
-                logTerminal(`Fetched ${sessions.length} sessions for selected course.`);
-            } catch (err) {
-                logTerminal(`Error fetching sessions: ${err.message}`, "log-error");
-            }
-        }
     });
 
-    sessionSelect.addEventListener('change', async (e) => {
-        selectedSessionId = e.target.value;
-        if (selectedSessionId) {
+    btnCreateSession.addEventListener('click', async () => {
+        const sessionName = sessionNameInput.value.trim();
+
+        if (!selectedCourseId || !sessionName) {
+            alert('Please select a course and enter a new session name.');
+            return;
+        }
+
+        btnCreateSession.disabled = true;
+        btnCreateSession.textContent = 'Creating Session...';
+        logTerminal(`Creating session '${sessionName}' in database...`);
+
+        try {
+            const newSession = {
+                course_id: selectedCourseId,
+                professor_id: sessionUser.id,
+                name: sessionName,
+                status: 'processing', // UE runs instantly, no 'pending' queue state needed
+                total_students: 0
+            };
+
+            const savedSession = await window.PlaybookDB.saveSession(newSession);
+            selectedSessionId = savedSession.id;
+
             logTerminal(`Context locked. Session ID: ${selectedSessionId.substring(0, 8)}...`);
 
-            // Check if Golden JSON already exists for this session
-            const { data: existingScheme } = await supabaseClient
-                .from('ue_golden_schemes')
-                .select('golden_json')
-                .eq('session_id', selectedSessionId)
-                .single();
+            btnCreateSession.textContent = '✓ Session Created';
+            btnCreateSession.style.background = "var(--success-color)";
+            btnCreateSession.style.borderColor = "var(--success-color)";
 
-            if (existingScheme) {
-                compiledGoldenJson = existingScheme.golden_json;
-                logTerminal("Existing Golden Scheme found and loaded from database.", "log-info");
+            // Proceed to Step 2 Compilation
+            cardStep1.classList.remove('active');
+            cardStep2.style.opacity = '1';
+            cardStep2.style.pointerEvents = 'auto';
+            cardStep2.classList.add('active');
 
-                // Skip directly to Step 3
-                cardStep1.classList.remove('active');
-                cardStep2.style.opacity = '0.5';
-                cardStep3.style.opacity = '1';
-                cardStep3.style.pointerEvents = 'auto';
-                cardStep3.classList.add('active');
-            } else {
-                // Proceed to Step 2 Compilation
-                cardStep1.classList.remove('active');
-                cardStep2.style.opacity = '1';
-                cardStep2.style.pointerEvents = 'auto';
-                cardStep2.classList.add('active');
-            }
+        } catch (err) {
+            logTerminal(`Error creating session: ${err.message}`, "log-error");
+            btnCreateSession.disabled = false;
+            btnCreateSession.textContent = 'Create Session';
         }
     });
 

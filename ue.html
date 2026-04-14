@@ -107,8 +107,8 @@
     <!-- Step 1: Select Context -->
     <div class="ue-card active" id="card-step-1">
         <div class="ue-step-badge">1</div>
-        <div class="ue-header-text">Select Grading Context</div>
-        <p class="ue-description">Choose the course and active session you are grading for.</p>
+        <div class="ue-header-text">Create Grading Context</div>
+        <p class="ue-description">Select the course and provide a name for this new grading session.</p>
 
         <div class="form-group" style="margin-bottom: 1rem;">
             <label class="form-label">Course</label>
@@ -116,12 +116,12 @@
                 <option value="">Select a Course...</option>
             </select>
         </div>
-        <div class="form-group">
-            <label class="form-label">Session</label>
-            <select class="form-select" id="ue-session-select" required disabled>
-                <option value="">Select a Session...</option>
-            </select>
+        <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">New Session Name</label>
+            <input type="text" class="form-input" id="ue-session-name" placeholder="e.g. Midterm Ag Exam" required>
         </div>
+
+        <button class="btn btn-primary" id="btn-create-session" style="width: 100%;">Create Session</button>
     </div>
 
     <!-- Step 2: Train & Compile Golden JSON -->
