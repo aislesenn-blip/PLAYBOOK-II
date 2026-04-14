@@ -179,6 +179,50 @@ class UEGraphExecutor {
         return { totalScore, breakdown };
     }
 
+    // NATIVE FUZZY STRING MATCHING (Levenshtein Distance)
+    // Solves semantic blindspots (e.g. "physically contact" vs "physical contact")
+    _fuzzyMatch(studentText, term, threshold = 0.85) {
+        const textWords = studentText.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+        const termWords = term.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+
+        // If exact phrase is found
+        if (studentText.toLowerCase().includes(term.toLowerCase())) return true;
+
+        // Sliding window over student words matching term length
+        for (let i = 0; i <= textWords.length - termWords.length; i++) {
+            let windowPhrase = textWords.slice(i, i + termWords.length).join(" ");
+            let targetPhrase = termWords.join(" ");
+
+            const distance = this._levenshtein(windowPhrase, targetPhrase);
+            const maxLength = Math.max(windowPhrase.length, targetPhrase.length);
+            const similarity = 1 - (distance / maxLength);
+
+            if (similarity >= threshold) return true;
+        }
+        return false;
+    }
+
+    _levenshtein(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+        for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+                    );
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    }
+
     _evaluateLogic(ruleSet, studentText) {
         let score = 0;
         let logs = [];
@@ -246,36 +290,34 @@ class UEGraphExecutor {
                     const sDoc = this.nlp(sentence.text);
 
                     for (const term of termsToCheck) {
-                        // NLP Match: Automatically handles lemmatization (e.g. "make" matches "making")
+                        // Semantic Blindspot Fix: Implement Fuzzy Matching alongside NLP Lemmatization
                         const match = sDoc.match(term);
+                        const fuzzyFound = this._fuzzyMatch(sentence.text, term, 0.85);
 
-                        if (match.found) {
+                        if (match.found || fuzzyFound) {
                             // NLP NEGATION ANCHOR:
-                            // Check if the specific clause/verb phrase governing this match is negated.
-                            // We find the specific verb closest to our match to see if it is negated,
-                            // ignoring negations on other verbs in complex sentences.
-                            // E.g. "Plants do NOT die easily because they use water" -> 'die' is negated, 'use' is not.
-
                             const verbs = sDoc.verbs();
                             let isMatchNegated = false;
 
-                            // If our term contains a verb, check if that specific verb is negated
-                            const termVerb = match.verbs();
-                            if (termVerb.found && termVerb.isNegative().found) {
-                                isMatchNegated = true;
-                            } else if (verbs.found) {
-                                // If the term isn't a verb, check if the closest verb to the term is negated
-                                // This is a simplified dependency check for the client side.
-                                // If the ONLY verb in the sentence is negated, we assume the whole clause is negated.
-                                if (verbs.length === 1 && verbs.isNegative().found) {
+                            if (match.found) {
+                                const termVerb = match.verbs();
+                                if (termVerb.found && termVerb.isNegative().found) {
                                     isMatchNegated = true;
+                                } else if (verbs.found) {
+                                    if (verbs.length === 1 && verbs.isNegative().found) {
+                                        isMatchNegated = true;
+                                    }
+                                }
+                            } else if (fuzzyFound) {
+                                // If we fuzzy matched, do a global sentence negation check as fallback
+                                if (verbs.found && verbs.length === 1 && verbs.isNegative().found) {
+                                     isMatchNegated = true;
                                 }
                             }
 
-                            // If the specific concept isn't negated by its governing verb, it's a hit.
                             if (!isMatchNegated) {
                                 nodeHit = true;
-                                matchedTerm = match.out('text');
+                                matchedTerm = match.found ? match.out('text') : term;
                                 break;
                             }
                         }
@@ -295,9 +337,14 @@ class UEGraphExecutor {
             }
         }
 
+        // Fix A: Ensure accurate math capping. Do not arbitrarily inflate.
+        // We only cap if they somehow exceeded max marks due to overlap, but we never invent marks.
         if (ruleSet.total_marks && score > ruleSet.total_marks) {
              score = ruleSet.total_marks;
         }
+
+        // Final precision rounding to prevent floating point `.9999999` issues.
+        score = Math.round(score * 100) / 100;
 
         return { score, logs, points };
     }

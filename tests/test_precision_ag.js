@@ -18,7 +18,7 @@ const goldenJSON = {
     "Q3_A_iii": { "title": "Building Blocks", "type": "logic", "total_marks": 5.5, "nodes": [ { "concept": "Information", "weight": 1.83, "synonyms": ["database"] }, { "concept": "Technology", "weight": 1.83 }, { "concept": "Management", "weight": 1.83 } ] },
 
     "Q2_A_i": { "title": "Remote Sensing", "type": "logic", "total_marks": 1.0, "nodes": [ { "concept": "control an object", "weight": 0.5, "synonyms": ["collecting information"] }, { "concept": "without physical contact", "weight": 0.5 } ] },
-    "Q2_A_ii": { "title": "Sensors", "type": "logic", "total_marks": 2.5, "nodes": [ { "concept": "Grain flow", "weight": 0.5 }, { "concept": "Grain loss", "weight": 0.5 }, { "concept": "Speed sensors", "weight": 0.5 }, { "concept": "Header Position", "weight": 0.5 }, { "concept": "Moisture content", "weight": 0.5 } ] },
+    "Q2_A_ii": { "title": "Environment Sensors", "type": "logic", "total_marks": 2.5, "nodes": [ { "concept": "Soil moisture", "weight": 0.5, "synonyms": ["moisture content"] }, { "concept": "Soil pH", "weight": 0.5 }, { "concept": "Nutrient sensor", "weight": 0.5 }, { "concept": "Temperature sensor", "weight": 0.5 }, { "concept": "Relative humidity", "weight": 0.5 } ] },
     "Q2_A_iii": { "title": "Steps to apply", "type": "logic", "total_marks": 3.5, "nodes": [ { "concept": "Collection", "weight": 0.5 }, { "concept": "Pre-processing", "weight": 0.5 }, { "concept": "Image analysis", "weight": 0.5 }, { "concept": "Validation", "weight": 0.5, "synonyms": ["verification"] }, { "concept": "Incorporation", "weight": 0.5 }, { "concept": "Identification", "weight": 0.5 }, { "concept": "Action", "weight": 0.5 } ] },
 
     "Q2_B_i": { "title": "Types of RS", "type": "logic", "total_marks": 5.5, "nodes": [ { "concept": "Active", "weight": 2.75, "synonyms": ["emits its own signals"] }, { "concept": "Passive", "weight": 2.75, "synonyms": ["uses already reflected radiations"] } ] },
@@ -26,7 +26,7 @@ const goldenJSON = {
 
     "Q5_A_i": { "title": "Define GPS", "type": "logic", "total_marks": 0.5, "nodes": [ { "concept": "determine accurate location", "weight": 0.25 }, { "concept": "satellite-based", "weight": 0.25 } ] },
     "Q5_A_ii": { "title": "GNSS in PA", "type": "logic", "total_marks": 0.5, "nodes": [ { "concept": "GPS", "weight": 0.5 } ] },
-    "Q5_A_iii": { "title": "DGPS Principles", "type": "logic", "total_marks": 10, "nodes": [ { "concept": "Rover", "weight": 2.0 }, { "concept": "Base receiver", "weight": 2.0 }, { "concept": "Satellites transmit signals", "weight": 2.0 }, { "concept": "differential radiations", "weight": 2.0 }, { "concept": "corrects location", "weight": 2.0 } ] },
+    "Q5_C": { "title": "DGPS Principles Diagram", "type": "logic", "total_marks": 10, "nodes": [ { "concept": "Rover", "weight": 2.0 }, { "concept": "Base receiver", "weight": 2.0 }, { "concept": "Satellites transmit signals", "weight": 2.0 }, { "concept": "differential radiations", "weight": 2.0 }, { "concept": "corrects location", "weight": 2.0 } ] },
     "Q5_B": { "title": "Types of DGPS", "type": "logic", "total_marks": 9, "nodes": [ { "concept": "SBAS", "weight": 3.0 }, { "concept": "RTCM", "weight": 3.0 }, { "concept": "RTK", "weight": 3.0 } ] },
 
     "Q1_A_i": { "title": "Field Invariabilities", "type": "logic", "total_marks": 0.5, "nodes": [ { "concept": "conditions of crop, soil", "weight": 0.25 }, { "concept": "does not change", "weight": 0.25 } ] },
@@ -68,7 +68,7 @@ const studentAnswers = {
     "Q2_B_ii": "a) Via Sensor - Frame-by-frame b) Whisk broom sensor c) Array (line) method",
     "Q5_A_i": "Global Positioning System is the technology which used to determine accurate location",
     "Q5_A_ii": "GPS (USA)",
-    "Q5_A_iii": "Satellites transmit signals to both two receivers of DGPS (Rover and Base receiver)... sending differential radiations to the rover. DGPS corrects the location exactly.",
+    "Q5_C": "Satellites transmit signals to both two receivers of DGPS (Rover and Base receiver)... sending differential radiations to the rover. DGPS corrects the location exactly.",
     "Q5_B": "SBAS, RTCM, RTK",
     "Q1_A_i": "Field invariabilities - Are those conditions of crop, soil and environment which does not change",
     "Q1_A_ii": "Are essential or important nutrients which are required for growth and production. Examples: Sodium (Na)",
