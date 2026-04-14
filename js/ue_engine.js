@@ -57,9 +57,12 @@ async function compileGoldenJSON(apiKey, markingSchemeText) {
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) throw new Error(`Compilation failed: ${response.status}`);
-        const data = await response.json();
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(`Compilation failed: ${response.status} - ${errData?.error?.message || response.statusText}`);
+        }
 
+        const data = await response.json();
         const textResponse = data.candidates[0].content.parts[0].text;
         return JSON.parse(textResponse);
     } catch (e) {
