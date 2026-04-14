@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-    requireAuth(['professor', 'admin']);
+    const sessionUser = requireAuth(['professor', 'admin']);
+    if (!sessionUser) return;
     console.log("UE Mode initialized");
 
     const terminal = document.getElementById('ue-terminal');
