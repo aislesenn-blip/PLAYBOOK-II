@@ -886,9 +886,34 @@ async function extractStudentExamsUE(base64PDF, compiledGoldenJson) {
 
     await Promise.all(extractionPromises);
 
+    // Extract Student ID and Name using a separate fast vision call
+    let studentId = "Unknown ID";
+    let studentName = "Unknown Student";
+    try {
+        const idPrompt = "Scan this document and output a JSON object with 'student_id' and 'student_name'. If you cannot find them, output 'Unknown'.";
+        const idResponse = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: "user", parts: [...userParts, { text: idPrompt }] }],
+                generationConfig: { temperature: 0.0, responseMimeType: "application/json" }
+            })
+        });
+        if (idResponse.ok) {
+            const idData = await idResponse.json();
+            const idParsed = parseLLMJSON(idData.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+            if (idParsed.student_id) studentId = idParsed.student_id;
+            if (idParsed.student_name) studentName = idParsed.student_name;
+        }
+    } catch (e) {
+        console.error("Failed to extract student identity:", e);
+    }
+
     // Return Playbook compliant structure
     return [{
-        student_id_uuid: null, // assigned in ue.js logic
+        student_id: studentId,
+        student_name: studentName,
+        student_id_uuid: null, // assigned in ue.js logic fallback if needed
         questions: extractedQuestions
     }];
 }

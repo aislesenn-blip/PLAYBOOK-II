@@ -280,8 +280,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // In playbook standard flow, we just push the string student_id.
                     const submissionRecord = {
                         session_id: selectedSessionId,
-                        student_name: `Student ID ${chunk.student_id}`, // Match Playbook schema
+                        student_name: chunk.student_name || `Student ID ${chunk.student_id}`, // Match Playbook schema
                         registration_number: chunk.student_id,
+                        pdf_storage_path: null, // Would be updated if stored natively in storage buckets
                         total_score: result.totalScore,
                         max_score: 100, // Assume 100 or pull from Golden JSON later
                         grading_data: {
