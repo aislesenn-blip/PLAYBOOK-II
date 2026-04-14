@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load API Key and Courses simultaneously
     try {
-        const instRes = await supabaseClient.from('users').select('institution_id').eq('id', sessionUser.id).single();
+        const instRes = await supabaseClient.from('users').select('institution_id').eq('id', sessionUser.user_id).single();
         if (instRes.data && instRes.data.institution_id) {
             const secRes = await supabaseClient.from('institution_secrets').select('gemini_api_key').eq('institution_id', instRes.data.institution_id).single();
             apiKey = secRes.data?.gemini_api_key;
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const newSession = {
                 course_id: selectedClassId,
-                professor_id: sessionUser.id,
+                professor_id: sessionUser.user_id,
                 name: sessionName,
                 status: 'processing', // UE runs instantly, no 'pending' queue state needed
                 total_students: 0
@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // In playbook standard flow, we just push the string student_id.
                     const submissionRecord = {
                         session_id: selectedSessionId,
-                        student_id: chunk.student_id_uuid || sessionUser.id, // Fallback to professor auth for test cases
+                        student_id: chunk.student_id_uuid || sessionUser.user_id, // Fallback to professor auth for test cases
                         answers: chunk.questions,
                         marks_awarded_by_ai: result.totalScore,
                         status: 'graded',
