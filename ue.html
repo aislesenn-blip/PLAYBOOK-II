@@ -3,50 +3,15 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Playbook - UE Mode</title>
+<title>Playbook - UE Neuro-Symbolic Engine (Beta)</title>
 <link href="css/style.css" rel="stylesheet"/>
 <style>
-    /* Styling adjustments specific to UE layout but matching brand */
     .ue-card {
         background: var(--surface-color);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
         padding: 1.5rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        margin-bottom: 1.5rem;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .ue-card.active {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-    }
-
-    .ue-step-badge {
-        background: var(--primary-color);
-        color: white;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
-    }
-
-    .ue-header-text {
-        color: var(--text-primary);
-        font-weight: 600;
-        font-size: 1.1rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .ue-description {
-        color: var(--text-secondary);
-        font-size: 0.9rem;
         margin-bottom: 1.5rem;
     }
 
@@ -68,151 +33,95 @@
     .log-info { color: #60a5fa; }
 </style>
 </head>
-<body>
-<div class="app-container">
-<!-- Minimalist Top Navigation -->
+<body style="overflow: auto; background-color: var(--bg-color);">
+<div class="app-container" style="display: flex; flex-direction: column; min-height: 100vh;">
+
 <nav class="top-nav">
-<div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
+<div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
 <div class="flex items-center gap-2">
 <div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
-<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
-<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
-<line x1="3" x2="21" y1="12" y2="12"></line>
-<line x1="3" x2="21" y1="6" y2="6"></line>
-<line x1="3" x2="21" y1="18" y2="18"></line>
-</svg>
-</button>
 <ul class="nav-links flex gap-1 items-center">
 <li><a href="index.html">Dashboard</a></li>
 <li><a href="upload.html">Upload Exams</a></li>
-<li><a class="active" href="ue.html" style="color: var(--primary-color); font-weight: 600;">UE Mode</a></li>
-<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
+<li><a class="active" href="ue.html" style="color: var(--primary-color); font-weight: 600;">UE Mode (Paste)</a></li>
+</ul>
 </div>
 <div class="flex items-center gap-1 nav-actions">
 <a class="nav-icon-link" href="manual.html">User Manual</a>
-<a class="nav-icon-link" href="settings.html">Settings</a>
 <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
 </div>
 </div>
 </nav>
 
-<main class="main-content max-w-5xl mx-auto" style="padding-top: 2rem;">
-    <div class="flex justify-between items-center" style="margin-bottom: 2rem;">
-        <div>
-            <h1 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary);">Ultimate Engine</h1>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Compile marking schemes into determinist graphs and execute at millisecond speeds.</p>
-        </div>
-    </div>
+<main class="main-content max-w-7xl mx-auto" style="padding: 2rem; width: 100%;">
+    <header class="mb-2">
+        <h1>Ultimate Engine (Text Paste Mode)</h1>
+        <p>Test the Neuro-Symbolic Vector Engine locally by pasting a single Marking Scheme and a single Student Exam.</p>
+    </header>
 
-    <!-- Step 1: Select Context -->
-    <div class="ue-card active" id="card-step-1">
-        <div class="ue-step-badge">1</div>
-        <div class="ue-header-text">Create Grading Context</div>
-        <p class="ue-description">Select the class and provide a name for this new grading session.</p>
-
-        <div class="form-group" style="margin-bottom: 1rem;">
-            <label class="form-label">Class</label>
-            <select class="form-select" id="ue-class-select" required>
-                <option value="">Select a Class...</option>
-            </select>
-        </div>
-        <div class="form-group" style="margin-bottom: 1rem;">
-            <label class="form-label">New Session Name</label>
-            <input type="text" class="form-input" id="ue-session-name" placeholder="e.g. Midterm Ag Exam" required>
-        </div>
-
-        <button class="btn btn-primary" id="btn-create-session" style="width: 100%;">Create Session</button>
-    </div>
-
-    <!-- Step 2: Train & Compile Golden JSON -->
-    <div class="ue-card" id="card-step-2" style="opacity: 0.5; pointer-events: none;">
-        <div class="ue-step-badge">2</div>
-        <div class="ue-header-text">Compile Knowledge & Scheme</div>
-        <p class="ue-description">Provide Base Knowledge URLs (optional) and upload the Marking Scheme to generate the Golden Engine.</p>
-
-        <div class="form-group" style="margin-bottom: 1rem;">
-            <label class="form-label">Base Knowledge URLs (One per line)</label>
-            <textarea class="form-input" id="ue-urls" rows="2" placeholder="https://example.com/syllabus.pdf"></textarea>
-        </div>
-
-        <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label class="form-label">Marking Scheme Document (.pdf, .docx, .txt)</label>
-            <div class="upload-zone" id="ue-scheme-upload">
-                <div class="upload-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+    <!-- INPUT PHASE -->
+    <div id="input-phase">
+        <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
+            <!-- Marking Scheme Input -->
+            <div class="card flex-col">
+                <div class="flex justify-between items-center w-100">
+                    <h3 class="mb-1">1. The Marking Scheme (JSON)</h3>
                 </div>
-                <div class="upload-text">Drag & drop or <span class="text-primary">browse</span> marking scheme</div>
-                <div class="upload-hint">Supported formats: PDF, DOCX, TXT</div>
-                <input type="file" id="ue-scheme-file" accept=".pdf,.docx,.txt" style="display: none;">
-            </div>
-            <div id="ue-scheme-status" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 500;"></div>
-        </div>
-
-        <button class="btn btn-primary" id="btn-compile" style="width: 100%;">Compile Golden Engine</button>
-    </div>
-
-    <!-- Step 3: Execute Grading -->
-    <div class="ue-card" id="card-step-3" style="opacity: 0.5; pointer-events: none;">
-        <div class="ue-step-badge">3</div>
-        <div class="ue-header-text">Execute Deterministic Grading</div>
-        <p class="ue-description">Upload student exams. The Engine extracts answers and evaluates against the compiled graphs.</p>
-
-        <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label class="form-label">Student Exams (.pdf)</label>
-            <div class="upload-zone" id="ue-students-upload">
-                <div class="upload-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <div style="display: block; width: 100%;">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste the structured Golden JSON (or Raw Text if using external compiler).</p>
+                    <textarea class="form-control" id="ue-scheme-text" placeholder='{"questions": {"Q1": {...}}}' style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm); font-family: monospace;"></textarea>
                 </div>
-                <div class="upload-text">Drag & drop or <span class="text-primary">browse</span> student PDFs</div>
-                <div class="upload-hint">Supported format: PDF only</div>
-                <input type="file" id="ue-students-file" accept="application/pdf" multiple style="display: none;">
             </div>
-            <div id="ue-students-status" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 500;"></div>
+
+            <!-- Student Answer Input -->
+            <div class="card flex-col">
+                <div class="flex justify-between items-center w-100">
+                    <h3 class="mb-1">2. Single Student Exam Text</h3>
+                </div>
+                <div style="display: block; width: 100%;">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste the raw text of the student's exam here. Vectors will find the answers.</p>
+                    <textarea class="form-control" id="ue-student-text" placeholder="Basically, the plant produces glucose..." style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
+                </div>
+            </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-execute" style="width: 100%;">Run Execution</button>
+        <div class="text-center mt-2">
+            <button class="btn" id="start-ue-btn" style="padding: 1rem 3rem; font-size: 1.1rem; width: 100%; max-width: 400px;">Execute Deterministic Grading</button>
+        </div>
     </div>
 
-    <!-- Terminal Status -->
-    <div class="terminal-output" id="ue-terminal" style="display: none;">
-        <p>> Engine Initialized. Select context to proceed.</p>
+    <!-- TERMINAL OUTPUT -->
+    <div class="terminal-output" id="ue-terminal" style="display: none; margin-bottom: 2rem;">
+        <p>> Engine Initialized. Waiting for execution...</p>
+    </div>
+
+    <!-- REVIEW PHASE (Hidden initially) -->
+    <div id="review-phase" style="display: none; width: 100%;">
+        <header class="flex justify-between items-center mb-2 px-4 py-2" style="background-color: var(--surface-color); border-bottom: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div class="flex items-center gap-2">
+                <span class="font-semibold" style="color: var(--text-primary);">Student Score: <span id="final-score">0</span></span>
+            </div>
+            <div>
+                <button class="btn btn-sm" id="reset-ue-btn">Grade Another</button>
+            </div>
+        </header>
+
+        <div class="grid" id="main-grid" style="grid-template-columns: 1fr; gap: var(--spacing-md); width: 100%;">
+            <!-- Left Column: Rubric/Grading Checklist -->
+            <div class="card flex-col" style="height: 100%; display: flex; flex-direction: column;">
+                <h3 class="mb-1" style="flex-shrink: 0;">Evaluation Breakdown</h3>
+                <div id="rubric-container" style="flex-grow: 1; overflow-y: auto; padding-right: 0.5rem;">
+                    <!-- Question Cards will be injected here -->
+                </div>
+            </div>
+        </div>
     </div>
 
 </main>
 </div>
 
-<!-- Mobile Bottom Navigation -->
-<nav class="mobile-nav">
-<a class="mobile-tab" href="index.html">
-<svg fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-<span>Home</span>
-</a>
-<a class="mobile-tab" href="upload.html">
-<svg fill="none" viewBox="0 0 24 24"><rect height="18" rx="2" ry="2" width="18" x="3" y="3"></rect><line x1="12" x2="12" y1="8" y2="16"></line><line x1="8" x2="16" y1="12" y2="12"></line></svg>
-<span>Upload</span>
-</a>
-<a class="mobile-tab active" href="ue.html" style="color: var(--primary-color);">
-<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-<span>UE</span>
-</a>
-<a class="mobile-tab" href="analytics.html">
-<svg fill="none" viewBox="0 0 24 24"><line x1="18" x2="18" y1="20" y2="10"></line><line x1="12" x2="12" y1="20" y2="4"></line><line x1="6" x2="6" y1="20" y2="14"></line></svg>
-<span>Stats</span>
-</a>
-</nav>
-
 <!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-
-<!-- Playbook Scripts -->
-<script src="js/db.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/ai.js"></script>
 <script src="js/ue_engine.js"></script>
-
 <script src="js/ue.js"></script>
 </body>
 </html>
