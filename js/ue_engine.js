@@ -271,7 +271,10 @@ class UEGraphExecutor {
         const sentencesIterator = this.segmenter.segment(shadowText);
         const chunks = Array.from(sentencesIterator).map(s => s.segment.trim()).filter(s => s.length > 5);
 
-        const chunkVectors = await Promise.all(chunks.map(chunk => this._getVectorEmbedding(chunk)));
+        let chunkVectors = [];
+        for (const chunk of chunks) {
+            chunkVectors.push(await this._getVectorEmbedding(chunk));
+        }
 
         for (const [qId, ruleSet] of Object.entries(this.goldenJson.questions)) {
             let qScore = 0;
@@ -466,11 +469,14 @@ class UEGraphExecutor {
         const candidates = [];
 
         while ((match = numberRegex.exec(studentText)) !== null) {
-            candidates.push({
-                value: parseFloat(match[0].replace(/,/g, '')),
-                index: match.index,
-                raw: match[0]
-            });
+            const val = parseFloat(match[0].replace(/,/g, ''));
+            if (!isNaN(val)) {
+                candidates.push({
+                    value: val,
+                    index: match.index,
+                    raw: match[0]
+                });
+            }
         }
 
         if (candidates.length === 0) {
@@ -482,13 +488,22 @@ class UEGraphExecutor {
         const targetVariables = ruleSet.target_variables || ["jibu", "final", "total", "="];
         const units = ruleSet.units || [];
 
+        // 0. Primary Safety Check - Scan all numbers. If exactly one number matches the expected answer (or ECF), grab it immediately.
+        // This prevents format-breaking strings from hiding the right answer.
+        const expectedTest = ruleSet.expected_answer;
+        const marginTest = expectedTest * (ruleSet.tolerance || 0.05);
+        for (const candidate of candidates) {
+             if (Math.abs(candidate.value - expectedTest) <= marginTest) {
+                  studentFinalAnswer = candidate.value;
+             }
+        }
+
         // Contextual Units Check
-        if (units.length > 0) {
+        if (studentFinalAnswer === null && units.length > 0) {
             for (const candidate of candidates) {
                 const textAfter = studentText.substring(candidate.index + candidate.raw.length, candidate.index + candidate.raw.length + 15).toLowerCase();
                 if (units.some(unit => textAfter.includes(unit.toLowerCase()))) {
-                    studentFinalAnswer = candidate.value;
-                    break;
+                    studentFinalAnswer = candidate.value; // Keeps overwriting so it gets the LAST mention of the unit
                 }
             }
         }
@@ -498,11 +513,12 @@ class UEGraphExecutor {
             let bestCandidate = null;
             let minDistance = Infinity;
             for (const candidate of candidates) {
-                const textBefore = studentText.substring(Math.max(0, candidate.index - 50), candidate.index).toLowerCase();
+                const textBefore = studentText.substring(Math.max(0, candidate.index - 100), candidate.index).toLowerCase();
                 for (const target of targetVariables) {
                     const targetIdx = textBefore.lastIndexOf(target.toLowerCase());
                     if (targetIdx !== -1) {
-                        const distance = candidate.index - (Math.max(0, candidate.index - 50) + targetIdx + target.length);
+                        // Relaxing the distance requirement to find any number near the target within a window
+                        const distance = Math.abs(candidate.index - (Math.max(0, candidate.index - 100) + targetIdx + target.length));
                         if (distance < minDistance) {
                             minDistance = distance;
                             bestCandidate = candidate.value;
@@ -517,8 +533,25 @@ class UEGraphExecutor {
 
         // Fallback
         if (studentFinalAnswer === null) {
-             studentFinalAnswer = candidates[candidates.length - 1].value;
-             logs.push(`⚠️ No contextual anchors found. Defaulted to the last number found: ${studentFinalAnswer}`);
+             // Fallback: If no anchors found, search if any candidate matches the expected answer exactly or within tolerance
+             const expected = ruleSet.expected_answer;
+             const margin = expected * (ruleSet.tolerance || 0.05);
+             let foundMatch = null;
+
+             for (const candidate of candidates) {
+                  if (Math.abs(candidate.value - expected) <= margin) {
+                       foundMatch = candidate.value;
+                       break;
+                  }
+             }
+
+             if (foundMatch !== null) {
+                  studentFinalAnswer = foundMatch;
+                  logs.push(`⚠️ Contextual anchors missed, but value ${studentFinalAnswer} was found matching expected bounds.`);
+             } else {
+                  studentFinalAnswer = candidates[candidates.length - 1].value;
+                  logs.push(`⚠️ No contextual anchors or matching bounds found. Defaulted to the last number found: ${studentFinalAnswer}`);
+             }
         }
 
         const expected = ruleSet.expected_answer;
