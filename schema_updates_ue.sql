@@ -12,5 +12,9 @@ CREATE TABLE public.knowledge_graphs (
 -- Enable RLS (Read-only for Execution Engine)
 ALTER TABLE public.knowledge_graphs ENABLE ROW LEVEL SECURITY;
 
+<<<<<<< Updated upstream
 CREATE POLICY "Allow public read access for Execution Engine"
+=======
+CREATE POLICY "Allow public read access for Execution Engine"
+>>>>>>> Stashed changes
 ON public.knowledge_graphs FOR SELECT USING (true);
