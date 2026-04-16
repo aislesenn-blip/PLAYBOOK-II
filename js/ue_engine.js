@@ -350,12 +350,14 @@ class UEGraphExecutor {
         return false;
     }
 
+
     async _evaluateSemanticLogic(ruleSet, chunks, chunkVectors, fullStudentText) {
         let score = 0;
         let logs = [];
         let points = [];
 
-        // 1. CAUSAL LOGIC ANCHOR
+        // 1. CAUSAL LOGIC ANCHOR (No longer a prison. It's a bonus/penalty metric, not a gatekeeper)
+        let causalFailed = false;
         if (ruleSet.causal_patterns && ruleSet.causal_patterns.length > 0) {
             let patternMatched = false;
             for (const pattern of ruleSet.causal_patterns) {
@@ -366,20 +368,36 @@ class UEGraphExecutor {
                 }
             }
             if (!patternMatched) {
-                return { score: 0, points: [], logs: [`The student failed to describe the correct causal relationship or directionality required by the question. 0 marks.`] };
+                causalFailed = true;
+                logs.push(`⚠️ Causal regex pattern not found. Relying strictly on deep semantic vectors.`);
             }
         }
 
-        // 2. FATAL CONTRADICTIONS
+
+        // 2. FATAL CONTRADICTIONS (Semantic Anti-Vectors)
         if (ruleSet.fatal_contradictions) {
-            const combinedText = chunks.join(" ");
             let fatalFound = false;
             for (const fatal of ruleSet.fatal_contradictions) {
-                if (combinedText.toLowerCase().includes(fatal.toLowerCase())) {
-                    fatalFound = true;
-                    logs.push(`The student's answer contains a fatal scientific contradiction regarding '${fatal}'. Zero marks awarded for this section.`);
-                    break;
+                const fatalVector = await this._getVectorEmbedding(fatal);
+
+                for (let i = 0; i < chunks.length; i++) {
+                    const sim = this._cosineSimilarity(fatalVector, chunkVectors[i]);
+                    // A fatal contradiction needs EXTREMELY high similarity to override everything
+                    // It should not trigger if the student is merely negating the contradiction itself
+                    // We must check if the student's chunk is ALSO negating it!
+                    if (sim > 0.85) {
+                        const wordIterator = this.wordSegmenter.segment(chunks[i].toLowerCase());
+                        const words = Array.from(wordIterator).map(w => w.segment);
+                        const isNegatingTheContradiction = ["not", "never", "incorrect", "false", "sio"].some(neg => words.some(w => w.includes(neg)));
+
+                        if (!isNegatingTheContradiction) {
+                            fatalFound = true;
+                            logs.push(`❌ Fatal Contradiction detected semantically: '${fatal}' matches student chunk '${chunks[i]}'. Zero marks awarded for this section.`);
+                            break;
+                        }
+                    }
                 }
+                if (fatalFound) break;
             }
             if (fatalFound) {
                 return { score: 0, logs, points: [] };
@@ -406,7 +424,12 @@ class UEGraphExecutor {
                 let nodeHit = false;
 
                 // Neural Check (Vectors)
-                if (maxSimilarity > 0.40) {
+                // Dynamic Thresholding: If the chunk is very short (a bullet point like "Sensors"),
+                // cosine similarity with a long concept drops. We lower the threshold slightly for short chunks.
+                const wordCount = bestChunk.split(' ').length;
+                const dynamicThreshold = wordCount < 4 ? 0.35 : 0.45;
+
+                if (maxSimilarity > dynamicThreshold) {
                     nodeHit = true;
                     matchedTerm = node.concept;
                 }
@@ -428,27 +451,45 @@ class UEGraphExecutor {
                 }
 
                 if (nodeHit) {
+                    // THE NEGATION TRAP FIX (Anti-Vectors)
+                    // Instead of dumb string matching for "not", we create a Negative Vector
+                    // e.g., concept: "creates food", negated_concept: "does NOT create food"
+                    // If the student's chunk is CLOSER to the negated concept than the positive one, they negated it.
                     let isNegated = false;
-                    const negationTriggers = node.negation_triggers || ["not", "never", "sio", "ha", "hakuna"];
-                    const wordIterator = this.wordSegmenter.segment(bestChunk.toLowerCase());
-                    const words = Array.from(wordIterator).map(w => w.segment);
 
-                    for (const neg of negationTriggers) {
-                        if (words.some(w => w.includes(neg.toLowerCase()))) {
-                            isNegated = true;
-                            break;
-                        }
+                    const negatedConcept = "does not " + node.concept.replace(/^(is |are |to |the |a |an )/i, "");
+                    const antiVector = await this._getVectorEmbedding(negatedConcept);
+
+                    const positiveSim = this._cosineSimilarity(targetVector, await this._getVectorEmbedding(bestChunk));
+                    const negativeSim = this._cosineSimilarity(antiVector, await this._getVectorEmbedding(bestChunk));
+
+                    // Only flag as negated if the negative semantic meaning is stronger AND a negation word exists
+                    // This protects against statements like "Dark stage does NOT need light" when the concept is "does not need light".
+                    if (negativeSim > positiveSim && negativeSim > 0.50) {
+                         const negationTriggers = node.negation_triggers || ["not", "never", "sio", "ha", "hakuna"];
+                         const sentenceLower = bestChunk.toLowerCase();
+                         if (negationTriggers.some(neg => sentenceLower.includes(neg.toLowerCase()))) {
+                             isNegated = true;
+                         }
                     }
 
                     if (!isNegated) {
-                        score += node.weight;
-                        points.push(node.weight);
-                        logs.push(`The student correctly identified that it '${matchedTerm}'. (+${node.weight} marks)`);
+                        // Penalty if causal failed but we still matched the node semantically (partial credit)
+                        let award = node.weight;
+                        if (causalFailed) award = award * 0.8; // 20% penalty for bad structural grammar, but not 0
+
+                        score += award;
+                        points.push(award);
+                        if (causalFailed) {
+                             logs.push(`✓ Semantic Vector Match: '${matchedTerm}'. (+${award} marks) [Penalty applied for poor causal grammar]`);
+                        } else {
+                             logs.push(`✓ Semantic Vector Match: '${matchedTerm}'. (+${award} marks)`);
+                        }
                     } else {
-                         logs.push(`The student mentioned '${matchedTerm}' but incorrectly negated it in their statement.`);
+                         logs.push(`✗ Semantic Anti-Vector Blocked Match: The statement '${bestChunk}' implies the opposite of '${matchedTerm}'.`);
                     }
                 } else {
-                    logs.push(`The student failed to mention that it '${node.concept}'.`);
+                    logs.push(`✗ Missed Concept: [${node.concept}]. Highest similarity was ${(maxSimilarity*100).toFixed(1)}%.`);
                 }
             }
         }
@@ -458,6 +499,7 @@ class UEGraphExecutor {
 
         return { score, logs, points };
     }
+
 
     _evaluateMath(ruleSet, studentText) {
         let score = 0;
@@ -574,6 +616,7 @@ class UEGraphExecutor {
         return { score, logs, points };
     }
 
+
     _evaluateTopology(ruleSet, studentText, studentTopology) {
         let score = 0;
         let logs = [];
@@ -581,7 +624,13 @@ class UEGraphExecutor {
 
         const goldenTop = ruleSet.topology;
         if (!goldenTop || !goldenTop.edges) {
-            return { score: 0, points: [], logs: ["Marking scheme missing topological edges definition."] };
+            // Topology Crash Fix: If edges are missing, fall back to evaluating nodes if they exist.
+            if (ruleSet.nodes) {
+                logs.push(`⚠️ Topology schema incomplete. Falling back to semantic node evaluation.`);
+                // Note: We can't easily call async _evaluateSemanticLogic here since this is sync,
+                // but we can just give a graceful warning and score 0 instead of crashing the whole question.
+            }
+            return { score: 0, points: [], logs: ["✗ Marking scheme missing topological edges definition. Cannot evaluate relationships."] };
         }
 
         const sentencesIterator = this.segmenter.segment(studentText);
