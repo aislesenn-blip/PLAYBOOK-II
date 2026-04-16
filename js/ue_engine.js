@@ -140,7 +140,7 @@ class UEGraphExecutor {
         this.wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
     }
 
-    execute(studentAnswers) {
+    async execute(studentAnswers) {
         let totalScore = 0;
         let breakdown = {};
 
@@ -176,7 +176,7 @@ class UEGraphExecutor {
             let pointsAwarded = [];
 
             if (ruleSet.type === 'logic') {
-                const { score, logs, points } = this._evaluateLogic(ruleSet, studentText);
+                const { score, logs, points } = await this._evaluateLogic(ruleSet, studentText);
                 qScore = score;
                 qBreakdown = logs;
                 pointsAwarded = points;
@@ -208,7 +208,28 @@ class UEGraphExecutor {
         return { totalScore, breakdown };
     }
 
-    // NATIVE FUZZY STRING MATCHING (Levenshtein Distance)
+    // LOCAL LLM OLLAMA INTEGRATION (The Vector Space Anchor)
+    async _getEmbedding(text) {
+        // Safe fallback if local model is offline
+        try {
+            const response = await fetch("http://localhost:11434/api/embeddings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: "nomic-embed-text", // Lightweight robust embedding model
+                    prompt: text
+                })
+            });
+            if (!response.ok) throw new Error("Local Ollama Embedding failed.");
+            const data = await response.json();
+            return data.embedding;
+        } catch (error) {
+            console.warn("Vector Model unreachable. Falling back to Fuzzy Matrix Math.", error);
+            return null; // Signals the engine to fallback to Levenshtein Distance
+        }
+    }
+
+    // NATIVE FUZZY STRING MATCHING (Levenshtein Distance - Fallback)
     // Solves semantic blindspots (e.g. "physically contact" vs "physical contact")
     _fuzzyMatch(studentText, term, threshold = 0.85) {
         const textWords = studentText.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
@@ -252,7 +273,7 @@ class UEGraphExecutor {
         return matrix[b.length][a.length];
     }
 
-    _evaluateLogic(ruleSet, studentText) {
+    async _evaluateLogic(ruleSet, studentText) {
         let score = 0;
         let logs = [];
         let points = [];
@@ -281,66 +302,118 @@ class UEGraphExecutor {
             }
         }
 
-        // 3. COLLAPSED NODE EVALUATION (Native Segmenter + Negation Proximity)
+        // 3. THE VECTOR SPACE MATH EVALUATION
         if (ruleSet.nodes) {
-            // Segment into sentences using native Intl.Segmenter
+            // Segment student text into discrete thoughts
             const sentencesIterator = this.segmenter.segment(studentText);
             const sentences = Array.from(sentencesIterator).map(s => s.segment);
+
+            // Generate Local Embedding Matrix for Student (Batching could be implemented later)
+            const studentVectors = [];
+            for (const sentence of sentences) {
+                if (sentence.trim().length > 3) {
+                    const vec = await this._getEmbedding(sentence);
+                    if (vec) studentVectors.push({ text: sentence, vec: vec });
+                }
+            }
+
+            const isVectorSpaceActive = studentVectors.length > 0;
 
             for (const node of ruleSet.nodes) {
                 let nodeHit = false;
                 let matchedTerm = null;
+                let highestSimilarity = 0;
+
                 const termsToCheck = [node.concept, ...(node.synonyms || [])];
                 const negationTriggers = node.negation_triggers || ["not", "never", "sio", "ha", "hakuna"];
 
-                for (const sentence of sentences) {
+                if (isVectorSpaceActive) {
+                    // VECTOR DOT PRODUCT GRADING
+                    // Compile node concepts into vectors
                     for (const term of termsToCheck) {
-                        const fuzzyFound = this._fuzzyMatch(sentence, term, 0.85);
+                        const termVec = await this._getEmbedding(term);
+                        if (!termVec) continue;
 
-                        if (fuzzyFound) {
-                            // Check for negation words within the same sentence
-                            let isMatchNegated = false;
-                            const sentenceLower = sentence.toLowerCase();
+                        for (const studentSentence of studentVectors) {
+                            const similarity = this._cosineSimilarity(termVec, studentSentence.vec);
+                            if (similarity > highestSimilarity) {
+                                highestSimilarity = similarity;
+                                matchedTerm = term;
+                            }
 
-                            const wordIterator = this.wordSegmenter.segment(sentenceLower);
-                            const words = Array.from(wordIterator).map(w => w.segment);
+                            // High-dimensional Intent Threshold (0.78 Cosine usually implies deep semantic correlation)
+                            if (similarity > 0.78) {
+                                // Double check negations even in vector space for safety
+                                let isMatchNegated = false;
+                                const sentenceLower = studentSentence.text.toLowerCase();
+                                const wordIterator = this.wordSegmenter.segment(sentenceLower);
+                                const words = Array.from(wordIterator).map(w => w.segment);
 
-                            for (const neg of negationTriggers) {
-                                // Check if the negation trigger is a standalone word or part of a word (prefix)
-                                if (words.some(w => w.includes(neg.toLowerCase()))) {
-                                    isMatchNegated = true;
+                                for (const neg of negationTriggers) {
+                                    if (words.some(w => w.includes(neg.toLowerCase()))) {
+                                        isMatchNegated = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!isMatchNegated) {
+                                    nodeHit = true;
                                     break;
                                 }
                             }
+                        }
+                        if (nodeHit) break;
+                    }
+                }
 
-                            if (!isMatchNegated) {
-                                nodeHit = true;
-                                matchedTerm = term; // using the target term for logging
-                                break;
+                // FALLBACK TO FUZZY MATRIX (If Vector DB offline)
+                if (!nodeHit && !isVectorSpaceActive) {
+                    for (const sentence of sentences) {
+                        for (const term of termsToCheck) {
+                            const fuzzyFound = this._fuzzyMatch(sentence, term, 0.85);
+
+                            if (fuzzyFound) {
+                                let isMatchNegated = false;
+                                const sentenceLower = sentence.toLowerCase();
+
+                                const wordIterator = this.wordSegmenter.segment(sentenceLower);
+                                const words = Array.from(wordIterator).map(w => w.segment);
+
+                                for (const neg of negationTriggers) {
+                                    if (words.some(w => w.includes(neg.toLowerCase()))) {
+                                        isMatchNegated = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!isMatchNegated) {
+                                    nodeHit = true;
+                                    matchedTerm = term;
+                                    break;
+                                }
                             }
                         }
+                        if (nodeHit) break;
                     }
-                    if (nodeHit) break;
                 }
 
                 if (nodeHit) {
+                    // Prevent specific node from being rewarded twice (already handled by outer node loop)
                     score += node.weight;
                     points.push(node.weight);
-                    logs.push(`✓ Semantic Node hit: [${node.concept}] via '${matchedTerm}' (+${node.weight} marks)`);
+                    const method = isVectorSpaceActive ? `Vector Similarity: ${(highestSimilarity * 100).toFixed(1)}%` : `Fuzzy String Match`;
+                    logs.push(`✓ Semantic Node hit: [${node.concept}] via '${matchedTerm}' (${method}) (+${node.weight} marks)`);
                 } else {
                     logs.push(`✗ Missed Node: [${node.concept}]`);
-                    logs.push(`[Pending Review: Suggested RAG rule update queued for Teacher approval: '${node.concept}']`);
                 }
             }
         }
 
-        // Fix A: Ensure accurate math capping. Do not arbitrarily inflate.
-        // We only cap if they somehow exceeded max marks due to overlap, but we never invent marks.
+        // ABSOLUTE MATH CAPPING (Solves the "24 Score Overflow" issue)
         if (ruleSet.total_marks && score > ruleSet.total_marks) {
              score = ruleSet.total_marks;
         }
 
-        // Final precision rounding to prevent floating point `.9999999` issues.
         score = Math.round(score * 100) / 100;
 
         return { score, logs, points };
