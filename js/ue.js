@@ -1,8 +1,9 @@
 document.addEventListener("DOMContentLoaded", async () => {
     // Check Auth
     let sessionUser;
-    if (window.PlaybookDB && typeof window.PlaybookDB.requireAuth === 'function') {
-        sessionUser = await window.PlaybookDB.requireAuth(['Teacher', 'Administrator']);
+    if (typeof window.requireAuth === 'function') {
+        sessionUser = window.requireAuth(['professor', 'admin']);
+        if (!sessionUser) return; // User is redirected
     } else {
         console.warn("Auth disabled or unavailable in sandbox.");
         sessionUser = { user_id: 'sandbox-teacher' };
@@ -15,13 +16,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Setup Target Classes (Dummy for sandbox, logic for DB)
     const classSelect = document.getElementById("target-class");
-    if (window.PlaybookDB && typeof window.PlaybookDB.getTeacherCourses === 'function') {
+    if (window.PlaybookDB && typeof window.PlaybookDB.getCourses === 'function') {
         try {
-            const courses = await window.PlaybookDB.getTeacherCourses(sessionUser.user_id);
+            const courses = await window.PlaybookDB.getCourses();
             if (courses && courses.length > 0) {
                 courses.forEach(c => {
                     const option = document.createElement("option");
-                    option.value = c.course_id;
+                    option.value = c.id;
                     option.textContent = c.name;
                     classSelect.appendChild(option);
                 });
@@ -86,11 +87,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             logTerminal(`Execution Complete. Score: ${results.totalScore}. Saving to DB...`, "success");
 
-            // 1. Create a dummy/real session in the DB
+            // 1. Create a real session in the DB
             let sessionId = "sandbox-session-" + Date.now();
-            if (window.PlaybookDB && typeof window.PlaybookDB.createSession === 'function') {
-                const sess = await window.PlaybookDB.createSession(sessionName, courseId, 'sandbox');
-                if (sess) sessionId = sess.session_id;
+            if (window.PlaybookDB && typeof window.PlaybookDB.saveSession === 'function') {
+                const sess = await window.PlaybookDB.saveSession({
+                    name: sessionName,
+                    course_id: courseId,
+                    publish_status: 'draft',
+                    total_submissions: 1
+                });
+                if (sess) sessionId = sess.id;
             }
 
             // Save to DB
@@ -101,12 +107,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 await window.PlaybookDB.saveStudentGradeUE(sessionId, regNo, stuName, results);
                 logTerminal(`Saved results to database. Redirecting...`);
             } else {
-                localStorage.setItem(`sandbox_ue_result_${sessionId}`, JSON.stringify({
-                    studentName: stuName,
-                    studentId: regNo,
-                    totalScore: results.totalScore,
-                    breakdown: results.breakdown
-                }));
+                try {
+                    localStorage.setItem(`sandbox_ue_result_${sessionId}`, JSON.stringify({
+                        studentName: stuName,
+                        studentId: regNo,
+                        totalScore: results.totalScore,
+                        breakdown: results.breakdown
+                    }));
+                } catch(e) {
+                    console.warn("Could not save to localStorage", e);
+                }
             }
 
             setTimeout(() => {
