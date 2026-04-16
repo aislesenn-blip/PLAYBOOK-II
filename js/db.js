@@ -337,6 +337,29 @@ const PlaybookDB = {
 
     async saveSetting(settingData) {
         localStorage.setItem(`playbook_setting_${settingData.id}`, JSON.stringify(settingData));
+    },
+
+    // 7. MOCK SAVE FOR UE MODE (Sandbox only)
+    async saveStudentGradeUE(sessionId, studentId, studentName, results) {
+        try {
+            let existingData = localStorage.getItem(`ue_sessions_${sessionId}`) || "[]";
+            let students = JSON.parse(existingData);
+
+            students.push({
+                submission_id: `sub-${Date.now()}`,
+                student_id: studentId,
+                student_name: studentName,
+                marks_awarded_by_ai: results.totalScore,
+                review_status: 'graded',
+                grade_breakdown: results.breakdown
+            });
+
+            localStorage.setItem(`ue_sessions_${sessionId}`, JSON.stringify(students));
+            return true;
+        } catch (error) {
+            console.error('Error saving UE Grade:', error);
+            throw error;
+        }
     }
 };
 
