@@ -93,8 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const sess = await window.PlaybookDB.saveSession({
                     name: sessionName,
                     course_id: courseId,
-                    publish_status: 'draft',
-                    total_submissions: 1
+                    publish_status: 'draft'
                 });
                 if (sess) sessionId = sess.id;
             }
