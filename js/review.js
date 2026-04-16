@@ -30,6 +30,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             students = [];
         }
 
+        // UE MODE SANDBOX FALLBACK
+        if (students.length === 0) {
+            const ueDataStr = localStorage.getItem(`ue_sessions_${sessionId}`);
+            if (ueDataStr) {
+                const rawUE = JSON.parse(ueDataStr);
+                // Map the UE structure to what Review.js expects
+                students = rawUE.map(s => ({
+                    submission_id: s.submission_id,
+                    studentName: s.student_name,
+                    registrationNumber: s.student_id,
+                    marksAwardedByAi: s.marks_awarded_by_ai,
+                    reviewStatus: s.review_status,
+                    gradeBreakdown: s.grade_breakdown
+                }));
+            }
+        }
+
         if (students.length === 0) {
             document.getElementById('grading-items-container').innerHTML = '<p style="text-align: center; padding: 2rem;">No grading data found. Ensure submissions exist and have been processed by the AI.</p>';
             return;
@@ -332,6 +349,23 @@ document.addEventListener('DOMContentLoaded', async () => {
              }
         }
         // --- END APPEALS INTEGRATION ---
+
+        // UE MODE DATA NORMALIZATION
+        // In UE mode, results are stored in gradeBreakdown and marksAwardedByAi
+        if (!student.grading && student.gradeBreakdown) {
+            student.grading = {
+                totalScore: student.marksAwardedByAi,
+                maxScore: Object.values(student.gradeBreakdown).reduce((sum, q) => sum + (q.max_marks || 0), 0),
+                questions: Object.entries(student.gradeBreakdown).map(([id, data]) => ({
+                    questionTitle: data.title || id,
+                    pointsAwarded: data.points_awarded || [],
+                    justification: data.justification || "",
+                    feedback: data.feedback || "",
+                    isEntirelyBlank: data.is_entirely_blank,
+                    score: data.score
+                }))
+            };
+        }
 
         if (!student.grading || !student.grading.questions) {
             gradingContainer.innerHTML = '<p>No grading data found.</p>';

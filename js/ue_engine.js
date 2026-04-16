@@ -311,6 +311,12 @@ class UEGraphExecutor {
                 qPoints.push(...result.points);
             }
 
+            // SCORE CAPPING FIX: Prevent marks from exceeding the max_marks allocated
+            if (ruleSet.total_marks !== undefined && qScore > ruleSet.total_marks) {
+                qLogs.push(`⚠️ Score capped at max marks (${ruleSet.total_marks}). Student earned ${qScore} prior to capping.`);
+                qScore = ruleSet.total_marks;
+            }
+
             breakdown[qId] = {
                 score: qScore,
                 points_awarded: qPoints,
@@ -356,22 +362,9 @@ class UEGraphExecutor {
         let logs = [];
         let points = [];
 
-        // 1. CAUSAL LOGIC ANCHOR (No longer a prison. It's a bonus/penalty metric, not a gatekeeper)
-        let causalFailed = false;
-        if (ruleSet.causal_patterns && ruleSet.causal_patterns.length > 0) {
-            let patternMatched = false;
-            for (const pattern of ruleSet.causal_patterns) {
-                const regex = new RegExp(pattern, 'i');
-                if (regex.test(fullStudentText)) {
-                    patternMatched = true;
-                    break;
-                }
-            }
-            if (!patternMatched) {
-                causalFailed = true;
-                logs.push(`⚠️ Causal regex pattern not found. Relying strictly on deep semantic vectors.`);
-            }
-        }
+        // 1. CAUSAL LOGIC ANCHOR (No longer a penalty. Removed completely to fix grammar tyranny)
+        // Causal relationships should only be evaluated structurally if 'type' is 'topology'.
+        // For 'logic', we just care about extracting the entity/intent match.
 
 
         // 2. FATAL CONTRADICTIONS (Semantic Anti-Vectors)
@@ -474,17 +467,10 @@ class UEGraphExecutor {
                     }
 
                     if (!isNegated) {
-                        // Penalty if causal failed but we still matched the node semantically (partial credit)
                         let award = node.weight;
-                        if (causalFailed) award = award * 0.8; // 20% penalty for bad structural grammar, but not 0
-
                         score += award;
                         points.push(award);
-                        if (causalFailed) {
-                             logs.push(`✓ Semantic Vector Match: '${matchedTerm}'. (+${award} marks) [Penalty applied for poor causal grammar]`);
-                        } else {
-                             logs.push(`✓ Semantic Vector Match: '${matchedTerm}'. (+${award} marks)`);
-                        }
+                        logs.push(`✓ Semantic Vector Match: '${matchedTerm}'. (+${award} marks)`);
                     } else {
                          logs.push(`✗ Semantic Anti-Vector Blocked Match: The statement '${bestChunk}' implies the opposite of '${matchedTerm}'.`);
                     }
