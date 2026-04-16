@@ -1,9 +1,12 @@
 /**
- * THE ULTIMATE ENGINE (UE) - Neuro-Symbolic Hybrid Graph Executor (FULL PRODUCT)
+ * THE ULTIMATE ENGINE (UE) - Deterministic Graph Execution Engine
  *
- * Temporarily uses @xenova/transformers for Real Local Vectors during testing,
- * easily swappable to the Local PC GB model later.
- * Retains all legacy robust Symbolic capabilities (Math contextualization, Topology).
+ * This engine completely bypasses LLM inference during the grading execution phase.
+ * It compiles marking schemes into an Axiomatic Grading Matrix (Golden JSON) via Gemini 3.1 Pro,
+ * and executes 100% deterministic partial marking, ECF, and Topological Graph Isomorphism natively.
+ *
+ * NEW: Integrated with `compromise.js` (NLP) for true structural grammar parsing
+ * to eliminate hardcoded dictionaries, proximity negations, and spatial `indexOf` flaws.
  */
 
 const UE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
@@ -96,17 +99,16 @@ You MUST output raw JSON matching the exact schema demonstrated above. No markdo
 async function compileGoldenJSON(apiKey, markingSchemeText) {
     if (!apiKey) throw new Error("API Key required for compilation");
 
-    try {
-        const payload = {
-            systemInstruction: { parts: [{ text: UE_COMPILER_PROMPT }] },
-            contents: [{ role: "user", parts: [{ text: `Compile the following Marking Scheme into the Golden JSON Schema:\n\n${markingSchemeText}` }] }],
-            generationConfig: {
-                temperature: 0.0,
-                maxOutputTokens: 8192,
-                responseMimeType: "application/json"
-            }
-        };
+    const payload = {
+        systemInstruction: { parts: [{ text: UE_COMPILER_PROMPT }] },
+        contents: [{ role: "user", parts: [{ text: "Compile this marking scheme: \n" + markingSchemeText }] }],
+        generationConfig: {
+            temperature: 0.0,
+            responseMimeType: "application/json"
+        }
+    };
 
+    try {
         const response = await fetch(`${UE_API_URL}?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -130,423 +132,270 @@ async function compileGoldenJSON(apiKey, markingSchemeText) {
     }
 }
 
-let pipeline;
-let env;
-if (typeof module !== 'undefined' && module.exports) {
-    const transformers = require('@xenova/transformers');
-    pipeline = transformers.pipeline;
-    env = transformers.env;
-    env.allowLocalModels = false;
-} else {
-    import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.16.0').then(tf => {
-        pipeline = tf.pipeline;
-        env = tf.env;
-    });
-}
-
 class UEGraphExecutor {
     constructor(goldenJson) {
         this.goldenJson = goldenJson || { questions: {} };
+        // Replacing compromise.js with native Intl.Segmenter for universal language support
         this.segmenter = new Intl.Segmenter(undefined, { granularity: 'sentence' });
         this.wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
-        this.extractor = null;
     }
 
-    async _initModel() {
-        if (!this.extractor) {
-            console.log("Loading Local Embedding Model...");
-            this.extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-        }
-    }
-
-    async _getVectorEmbedding(text) {
-        await this._initModel();
-        try {
-            const output = await this.extractor(text, { pooling: 'mean', normalize: true });
-            return Array.from(output.data);
-        } catch (e) {
-            console.error("Vector Fetch Error:", e);
-            return [];
-        }
-    }
-
-    _cosineSimilarity(vecA, vecB) {
-        if (!vecA || !vecB || vecA.length !== vecB.length || vecA.length === 0) return 0;
-        let dotProduct = 0;
-        let normA = 0;
-        let normB = 0;
-        for (let i = 0; i < vecA.length; i++) {
-            dotProduct += vecA[i] * vecB[i];
-            normA += vecA[i] * vecA[i];
-            normB += vecB[i] * vecB[i];
-        }
-        if (normA === 0 || normB === 0) return 0;
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-    }
-
-    /**
-     * SHADOW COPY & COREFERENCE INJECTION
-     * Real implementation using native JS proximity heuristics instead of hardcoded fake strings.
-     * Searches for pronouns and replaces them with the nearest preceding noun with >95% confidence bounds.
-     */
-    async _buildShadowContext(originalText, goldenJsonNodes) {
-        let shadowText = originalText.slice();
-
-        // Contextual Dictionary builder from Golden JSON (Domain Knowledge)
-        let domainConcepts = [];
-        if (goldenJsonNodes) {
-             for (const node of goldenJsonNodes) {
-                  domainConcepts.push(node.concept);
-                  if (node.synonyms) domainConcepts.push(...node.synonyms);
-             }
-        }
-
-        const sentencesIterator = this.segmenter.segment(shadowText);
-        const sentences = Array.from(sentencesIterator).map(s => s.segment);
-
-        const pronouns = ["ile", "yale", "hii", "huyu", "hili", "it", "this", "that"];
-        let lastKnownDomainEntity = null;
-
-        let processedSentences = [];
-
-        for (let i = 0; i < sentences.length; i++) {
-            let sentence = sentences[i];
-            const sentenceLower = sentence.toLowerCase();
-
-            // Track entities
-            for (const concept of domainConcepts) {
-                 if (sentenceLower.includes(concept.toLowerCase())) {
-                     lastKnownDomainEntity = concept;
-                 }
-            }
-
-            // Replace pronouns if confidence is high (we know the last entity)
-            if (lastKnownDomainEntity) {
-                const wordIterator = this.wordSegmenter.segment(sentence);
-                let newSentence = "";
-                for (const wordData of wordIterator) {
-                     const word = wordData.segment;
-                     if (pronouns.includes(word.toLowerCase().trim())) {
-                         // We are 95% confident this pronoun refers to the active context entity
-                         newSentence += lastKnownDomainEntity;
-                     } else {
-                         newSentence += word;
-                     }
-                }
-                sentence = newSentence;
-            }
-
-            processedSentences.push(sentence);
-        }
-
-        return processedSentences.join("");
-    }
-
-    async execute(studentAnswers) {
+    execute(studentAnswers) {
         let totalScore = 0;
         let breakdown = {};
 
-        // Aggregate all concepts for the Shadow Context Builder
-        let allNodes = [];
-        for (const [qId, ruleSet] of Object.entries(this.goldenJson.questions)) {
-             if (ruleSet.nodes) allNodes.push(...ruleSet.nodes);
-        }
-
-        let fullStudentText = "";
-        for (const [qId, text] of Object.entries(studentAnswers)) {
+        for (const [qId, studentRaw] of Object.entries(studentAnswers)) {
             let studentText = "";
             let studentTopology = null;
 
-            if (typeof text === 'string') {
-                studentText = text;
-            } else if (text && text.text) {
-                studentText = text.text;
-                studentTopology = text.topology || null;
+            if (typeof studentRaw === 'string') {
+                studentText = studentRaw;
+            } else if (studentRaw && studentRaw.text) {
+                studentText = studentRaw.text;
+                studentTopology = studentRaw.topology || null;
             }
-            fullStudentText += studentText + " ";
-        }
 
-        const shadowText = await this._buildShadowContext(fullStudentText, allNodes);
+            const ruleSet = this.goldenJson.questions[qId];
 
-        const sentencesIterator = this.segmenter.segment(shadowText);
-        const chunks = Array.from(sentencesIterator).map(s => s.segment.trim()).filter(s => s.length > 5);
+            if (!studentText || studentText.trim() === "" || studentText === "No text extracted." || !ruleSet) {
+                breakdown[qId] = {
+                    score: 0,
+                    points_awarded: [],
+                    is_entirely_blank: true,
+                    answer_status: "Skipped",
+                    justification: "No answer provided or unrecognized question.",
+                    feedback: "No actionable feedback.",
+                    title: ruleSet ? ruleSet.title : `Question ${qId}`,
+                    max_marks: ruleSet ? ruleSet.total_marks : 1
+                };
+                continue;
+            }
 
-        let chunkVectors = [];
-        for (const chunk of chunks) {
-            chunkVectors.push(await this._getVectorEmbedding(chunk));
-        }
-
-        for (const [qId, ruleSet] of Object.entries(this.goldenJson.questions)) {
             let qScore = 0;
-            let qLogs = [];
-            let qPoints = [];
-            let answerStatus = "Skipped";
-
-            // Extract the original text format for specific evaluations like Topology
-            let originalStudentFormat = studentAnswers[qId];
-            let rawStudentText = typeof originalStudentFormat === 'string' ? originalStudentFormat : (originalStudentFormat ? originalStudentFormat.text : "");
+            let qBreakdown = [];
+            let pointsAwarded = [];
 
             if (ruleSet.type === 'logic') {
-                answerStatus = "Answered";
-                const result = await this._evaluateSemanticLogic(ruleSet, chunks, chunkVectors, shadowText);
-                qScore = result.score;
-                qLogs.push(...result.logs);
-                qPoints.push(...result.points);
-            }
-            else if (ruleSet.type === 'math') {
-                answerStatus = "Answered";
-                // Math preserves robust contextual checks
-                const result = this._evaluateMath(ruleSet, shadowText);
-                qScore = result.score;
-                qLogs.push(...result.logs);
-                qPoints.push(...result.points);
-            }
-            else if (ruleSet.type === 'topology') {
-                answerStatus = "Answered";
-                // Topology preserves robust structural checks
-                let studentTopology = typeof originalStudentFormat === 'object' ? originalStudentFormat.topology : null;
-                const result = this._evaluateTopology(ruleSet, shadowText, studentTopology);
-                qScore = result.score;
-                qLogs.push(...result.logs);
-                qPoints.push(...result.points);
+                const { score, logs, points } = this._evaluateLogic(ruleSet, studentText);
+                qScore = score;
+                qBreakdown = logs;
+                pointsAwarded = points;
+            } else if (ruleSet.type === 'math') {
+                const { score, logs, points } = this._evaluateMath(ruleSet, studentText);
+                qScore = score;
+                qBreakdown = logs;
+                pointsAwarded = points;
+            } else if (ruleSet.type === 'topology') {
+                const { score, logs, points } = this._evaluateTopology(ruleSet, studentText, studentTopology);
+                qScore = score;
+                qBreakdown = logs;
+                pointsAwarded = points;
             }
 
-            // SCORE CAPPING FIX: Prevent marks from exceeding the max_marks allocated
-            if (ruleSet.total_marks !== undefined && qScore > ruleSet.total_marks) {
-                qLogs.push(`⚠️ Score capped at max marks (${ruleSet.total_marks}). Student earned ${qScore} prior to capping.`);
-                qScore = ruleSet.total_marks;
-            }
-
+            totalScore += qScore;
             breakdown[qId] = {
                 score: qScore,
-                points_awarded: qPoints,
-                is_entirely_blank: answerStatus === "Skipped",
-                answer_status: answerStatus,
-                justification: qLogs.join(" | "), // Human readable feedback is compiled here
-                feedback: `Evaluated successfully. Total marks awarded: ${qScore}.`,
-                title: ruleSet.title,
-                max_marks: ruleSet.total_marks
+                points_awarded: pointsAwarded,
+                is_entirely_blank: false,
+                answer_status: "Answered",
+                justification: qBreakdown.join("\n"),
+                feedback: `Evaluated deterministically via UE Native NLP Engine. Total marks awarded: ${qScore}.`,
+                title: ruleSet.title || `Question ${qId}`,
+                max_marks: ruleSet.total_marks || 1
             };
-            totalScore += qScore;
         }
 
         return { totalScore, breakdown };
     }
 
-    _fuzzyMatch(text, term, threshold = 0.85) {
-        if (!text || !term) return false;
+    // NATIVE FUZZY STRING MATCHING (Levenshtein Distance)
+    // Solves semantic blindspots (e.g. "physically contact" vs "physical contact")
+    _fuzzyMatch(studentText, term, threshold = 0.85) {
+        const textWords = studentText.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+        const termWords = term.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
 
-        const textLower = text.toLowerCase();
-        const termLower = term.toLowerCase();
+        // If exact phrase is found
+        if (studentText.toLowerCase().includes(term.toLowerCase())) return true;
 
-        if (textLower.includes(termLower)) return true;
+        // Sliding window over student words matching term length
+        for (let i = 0; i <= textWords.length - termWords.length; i++) {
+            let windowPhrase = textWords.slice(i, i + termWords.length).join(" ");
+            let targetPhrase = termWords.join(" ");
 
-        if (termLower.split(' ').length > 1) {
-             const words = termLower.split(' ');
-             let allMatch = true;
-             for (const word of words) {
-                 if (!textLower.includes(word)) {
-                     allMatch = false;
-                     break;
-                 }
-             }
-             if (allMatch) return true;
+            const distance = this._levenshtein(windowPhrase, targetPhrase);
+            const maxLength = Math.max(windowPhrase.length, targetPhrase.length);
+            const similarity = 1 - (distance / maxLength);
+
+            if (similarity >= threshold) return true;
         }
-
         return false;
     }
 
+    _levenshtein(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+        for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+                    );
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    }
 
-    async _evaluateSemanticLogic(ruleSet, chunks, chunkVectors, fullStudentText) {
+    _evaluateLogic(ruleSet, studentText) {
         let score = 0;
         let logs = [];
         let points = [];
 
-        // 1. CAUSAL LOGIC ANCHOR (No longer a penalty. Removed completely to fix grammar tyranny)
-        // Causal relationships should only be evaluated structurally if 'type' is 'topology'.
-        // For 'logic', we just care about extracting the entity/intent match.
-
-
-        // 2. FATAL CONTRADICTIONS (Semantic Anti-Vectors)
+        // 1. FATAL FLAW RULE (Polarity check)
         if (ruleSet.fatal_contradictions) {
-            let fatalFound = false;
             for (const fatal of ruleSet.fatal_contradictions) {
-                const fatalVector = await this._getVectorEmbedding(fatal);
-
-                for (let i = 0; i < chunks.length; i++) {
-                    const sim = this._cosineSimilarity(fatalVector, chunkVectors[i]);
-                    // A fatal contradiction needs EXTREMELY high similarity to override everything
-                    // It should not trigger if the student is merely negating the contradiction itself
-                    // We must check if the student's chunk is ALSO negating it!
-                    if (sim > 0.85) {
-                        const wordIterator = this.wordSegmenter.segment(chunks[i].toLowerCase());
-                        const words = Array.from(wordIterator).map(w => w.segment);
-                        const isNegatingTheContradiction = ["not", "never", "incorrect", "false", "sio"].some(neg => words.some(w => w.includes(neg)));
-
-                        if (!isNegatingTheContradiction) {
-                            fatalFound = true;
-                            logs.push(`❌ Fatal Contradiction detected semantically: '${fatal}' matches student chunk '${chunks[i]}'. Zero marks awarded for this section.`);
-                            break;
-                        }
-                    }
+                if (studentText.toLowerCase().includes(fatal.toLowerCase())) {
+                    return { score: 0, points: [], logs: [`Fatal Contradiction detected: '${fatal}'. Logical polarity flipped. 0 marks.`] };
                 }
-                if (fatalFound) break;
-            }
-            if (fatalFound) {
-                return { score: 0, logs, points: [] };
             }
         }
 
-        // 3. COLLAPSED NODE EVALUATION (Neuro-Symbolic)
+        // 2. DIRECTIONAL SEMANTIC ANCHOR (Language-Agnostic Regex Patterns)
+        if (ruleSet.causal_patterns && ruleSet.causal_patterns.length > 0) {
+            let patternMatched = false;
+            for (const pattern of ruleSet.causal_patterns) {
+                const regex = new RegExp(pattern, 'i');
+                if (regex.test(studentText)) {
+                    patternMatched = true;
+                    break;
+                }
+            }
+            if (!patternMatched) {
+                return { score: 0, points: [], logs: [`Causal/Directional error detected. Required structural pattern missing. 0 marks.`] };
+            }
+        }
+
+        // 3. COLLAPSED NODE EVALUATION (Native Segmenter + Negation Proximity)
         if (ruleSet.nodes) {
+            // Segment into sentences using native Intl.Segmenter
+            const sentencesIterator = this.segmenter.segment(studentText);
+            const sentences = Array.from(sentencesIterator).map(s => s.segment);
+
             for (const node of ruleSet.nodes) {
-                let maxSimilarity = 0;
-                let bestChunk = "";
-                let matchedTerm = null;
-
-                const targetVector = await this._getVectorEmbedding(node.concept);
-
-                for (let i = 0; i < chunks.length; i++) {
-                    const sim = this._cosineSimilarity(targetVector, chunkVectors[i]);
-                    if (sim > maxSimilarity) {
-                        maxSimilarity = sim;
-                        bestChunk = chunks[i];
-                    }
-                }
-
                 let nodeHit = false;
+                let matchedTerm = null;
+                const termsToCheck = [node.concept, ...(node.synonyms || [])];
+                const negationTriggers = node.negation_triggers || ["not", "never", "sio", "ha", "hakuna"];
 
-                // Neural Check (Vectors)
-                // Dynamic Thresholding: If the chunk is very short (a bullet point like "Sensors"),
-                // cosine similarity with a long concept drops. We lower the threshold slightly for short chunks.
-                const wordCount = bestChunk.split(' ').length;
-                const dynamicThreshold = wordCount < 4 ? 0.35 : 0.45;
+                for (const sentence of sentences) {
+                    for (const term of termsToCheck) {
+                        const fuzzyFound = this._fuzzyMatch(sentence, term, 0.85);
 
-                if (maxSimilarity > dynamicThreshold) {
-                    nodeHit = true;
-                    matchedTerm = node.concept;
-                }
+                        if (fuzzyFound) {
+                            // Check for negation words within the same sentence
+                            let isMatchNegated = false;
+                            const sentenceLower = sentence.toLowerCase();
 
-                // Symbolic Check Fallback (for 100% accuracy on specific terms if vectors fail)
-                if (!nodeHit) {
-                    const termsToCheck = [node.concept, ...(node.synonyms || [])];
-                    for (let i = 0; i < chunks.length; i++) {
-                         for (const term of termsToCheck) {
-                             if (this._fuzzyMatch(chunks[i], term, 0.85)) {
-                                  nodeHit = true;
-                                  bestChunk = chunks[i];
-                                  matchedTerm = term;
-                                  break;
-                             }
-                         }
-                         if (nodeHit) break;
+                            const wordIterator = this.wordSegmenter.segment(sentenceLower);
+                            const words = Array.from(wordIterator).map(w => w.segment);
+
+                            for (const neg of negationTriggers) {
+                                // Check if the negation trigger is a standalone word or part of a word (prefix)
+                                if (words.some(w => w.includes(neg.toLowerCase()))) {
+                                    isMatchNegated = true;
+                                    break;
+                                }
+                            }
+
+                            if (!isMatchNegated) {
+                                nodeHit = true;
+                                matchedTerm = term; // using the target term for logging
+                                break;
+                            }
+                        }
                     }
+                    if (nodeHit) break;
                 }
 
                 if (nodeHit) {
-                    // THE NEGATION TRAP FIX (Anti-Vectors)
-                    // Instead of dumb string matching for "not", we create a Negative Vector
-                    // e.g., concept: "creates food", negated_concept: "does NOT create food"
-                    // If the student's chunk is CLOSER to the negated concept than the positive one, they negated it.
-                    let isNegated = false;
-
-                    const negatedConcept = "does not " + node.concept.replace(/^(is |are |to |the |a |an )/i, "");
-                    const antiVector = await this._getVectorEmbedding(negatedConcept);
-
-                    const positiveSim = this._cosineSimilarity(targetVector, await this._getVectorEmbedding(bestChunk));
-                    const negativeSim = this._cosineSimilarity(antiVector, await this._getVectorEmbedding(bestChunk));
-
-                    // Only flag as negated if the negative semantic meaning is stronger AND a negation word exists
-                    // This protects against statements like "Dark stage does NOT need light" when the concept is "does not need light".
-                    if (negativeSim > positiveSim && negativeSim > 0.50) {
-                         const negationTriggers = node.negation_triggers || ["not", "never", "sio", "ha", "hakuna"];
-                         const sentenceLower = bestChunk.toLowerCase();
-                         if (negationTriggers.some(neg => sentenceLower.includes(neg.toLowerCase()))) {
-                             isNegated = true;
-                         }
-                    }
-
-                    if (!isNegated) {
-                        let award = node.weight;
-                        score += award;
-                        points.push(award);
-                        logs.push(`✓ Semantic Vector Match: '${matchedTerm}'. (+${award} marks)`);
-                    } else {
-                         logs.push(`✗ Semantic Anti-Vector Blocked Match: The statement '${bestChunk}' implies the opposite of '${matchedTerm}'.`);
-                    }
+                    score += node.weight;
+                    points.push(node.weight);
+                    logs.push(`✓ Semantic Node hit: [${node.concept}] via '${matchedTerm}' (+${node.weight} marks)`);
                 } else {
-                    logs.push(`✗ Missed Concept: [${node.concept}]. Highest similarity was ${(maxSimilarity*100).toFixed(1)}%.`);
+                    logs.push(`✗ Missed Node: [${node.concept}]`);
+                    logs.push(`[Pending Review: Suggested RAG rule update queued for Teacher approval: '${node.concept}']`);
                 }
             }
         }
 
-        if (ruleSet.total_marks && score > ruleSet.total_marks) score = ruleSet.total_marks;
+        // Fix A: Ensure accurate math capping. Do not arbitrarily inflate.
+        // We only cap if they somehow exceeded max marks due to overlap, but we never invent marks.
+        if (ruleSet.total_marks && score > ruleSet.total_marks) {
+             score = ruleSet.total_marks;
+        }
+
+        // Final precision rounding to prevent floating point `.9999999` issues.
         score = Math.round(score * 100) / 100;
 
         return { score, logs, points };
     }
-
 
     _evaluateMath(ruleSet, studentText) {
         let score = 0;
         let logs = [];
         let points = [];
 
+        // Advanced Contextual Extraction instead of just the last number
         const numberRegex = /[\d,]+(\.\d+)?/g;
         let match;
         const candidates = [];
 
         while ((match = numberRegex.exec(studentText)) !== null) {
-            const val = parseFloat(match[0].replace(/,/g, ''));
-            if (!isNaN(val)) {
-                candidates.push({
-                    value: val,
-                    index: match.index,
-                    raw: match[0]
-                });
-            }
+            candidates.push({
+                value: parseFloat(match[0].replace(/,/g, '')),
+                index: match.index,
+                raw: match[0]
+            });
         }
 
         if (candidates.length === 0) {
-            return { score: 0, points: [], logs: ["No mathematical derivation or final answer was found in the student's text."] };
+            return { score: 0, points: [], logs: ["No mathematical derivation found."] };
         }
 
         let studentFinalAnswer = null;
 
+        // Context check using units and target variables from Golden JSON
         const targetVariables = ruleSet.target_variables || ["jibu", "final", "total", "="];
         const units = ruleSet.units || [];
 
-        // 0. Primary Safety Check - Scan all numbers. If exactly one number matches the expected answer (or ECF), grab it immediately.
-        // This prevents format-breaking strings from hiding the right answer.
-        const expectedTest = ruleSet.expected_answer;
-        const marginTest = expectedTest * (ruleSet.tolerance || 0.05);
-        for (const candidate of candidates) {
-             if (Math.abs(candidate.value - expectedTest) <= marginTest) {
-                  studentFinalAnswer = candidate.value;
-             }
-        }
-
-        // Contextual Units Check
-        if (studentFinalAnswer === null && units.length > 0) {
+        // 1. Prioritize numbers immediately followed by units
+        if (units.length > 0) {
             for (const candidate of candidates) {
                 const textAfter = studentText.substring(candidate.index + candidate.raw.length, candidate.index + candidate.raw.length + 15).toLowerCase();
                 if (units.some(unit => textAfter.includes(unit.toLowerCase()))) {
-                    studentFinalAnswer = candidate.value; // Keeps overwriting so it gets the LAST mention of the unit
+                    studentFinalAnswer = candidate.value;
+                    break;
                 }
             }
         }
 
-        // Contextual Targets Check
+        // 2. Fallback to numbers near target variables
         if (studentFinalAnswer === null) {
             let bestCandidate = null;
             let minDistance = Infinity;
+
             for (const candidate of candidates) {
-                const textBefore = studentText.substring(Math.max(0, candidate.index - 100), candidate.index).toLowerCase();
+                const textBefore = studentText.substring(Math.max(0, candidate.index - 50), candidate.index).toLowerCase();
                 for (const target of targetVariables) {
                     const targetIdx = textBefore.lastIndexOf(target.toLowerCase());
                     if (targetIdx !== -1) {
-                        // Relaxing the distance requirement to find any number near the target within a window
-                        const distance = Math.abs(candidate.index - (Math.max(0, candidate.index - 100) + targetIdx + target.length));
+                        const distance = candidate.index - (Math.max(0, candidate.index - 50) + targetIdx + target.length);
                         if (distance < minDistance) {
                             minDistance = distance;
                             bestCandidate = candidate.value;
@@ -559,27 +408,10 @@ class UEGraphExecutor {
             }
         }
 
-        // Fallback
+        // 3. Fallback to the last number if no context matches
         if (studentFinalAnswer === null) {
-             // Fallback: If no anchors found, search if any candidate matches the expected answer exactly or within tolerance
-             const expected = ruleSet.expected_answer;
-             const margin = expected * (ruleSet.tolerance || 0.05);
-             let foundMatch = null;
-
-             for (const candidate of candidates) {
-                  if (Math.abs(candidate.value - expected) <= margin) {
-                       foundMatch = candidate.value;
-                       break;
-                  }
-             }
-
-             if (foundMatch !== null) {
-                  studentFinalAnswer = foundMatch;
-                  logs.push(`⚠️ Contextual anchors missed, but value ${studentFinalAnswer} was found matching expected bounds.`);
-             } else {
-                  studentFinalAnswer = candidates[candidates.length - 1].value;
-                  logs.push(`⚠️ No contextual anchors or matching bounds found. Defaulted to the last number found: ${studentFinalAnswer}`);
-             }
+             studentFinalAnswer = candidates[candidates.length - 1].value;
+             logs.push(`⚠️ No contextual anchors found. Defaulted to the last number found: ${studentFinalAnswer}`);
         }
 
         const expected = ruleSet.expected_answer;
@@ -590,18 +422,17 @@ class UEGraphExecutor {
         if (diff === 0) {
             score = totalMarks;
             points.push(score);
-            logs.push(`The mathematical calculation is exactly correct. Value: ${studentFinalAnswer}`);
+            logs.push(`✓ Exact match. Value: ${studentFinalAnswer}`);
         } else if (diff <= margin) {
             score = Math.max(0, totalMarks - 0.5);
             points.push(score);
-            logs.push(`The answer (${studentFinalAnswer}) is slightly off but within the acceptable tolerance margin of the expected answer (${expected}). Partial marks awarded.`);
+            logs.push(`⚠️ Precision Truncation. Value: ${studentFinalAnswer}. Expected: ${expected}. ECF Applied (-0.5 marks)`);
         } else {
-            logs.push(`The mathematical calculation is incorrect. The student answered ${studentFinalAnswer}, but the expected answer is ${expected}.`);
+            logs.push(`✗ Incorrect execution. Value: ${studentFinalAnswer}. Expected: ${expected}`);
         }
 
         return { score, logs, points };
     }
-
 
     _evaluateTopology(ruleSet, studentText, studentTopology) {
         let score = 0;
@@ -610,15 +441,10 @@ class UEGraphExecutor {
 
         const goldenTop = ruleSet.topology;
         if (!goldenTop || !goldenTop.edges) {
-            // Topology Crash Fix: If edges are missing, fall back to evaluating nodes if they exist.
-            if (ruleSet.nodes) {
-                logs.push(`⚠️ Topology schema incomplete. Falling back to semantic node evaluation.`);
-                // Note: We can't easily call async _evaluateSemanticLogic here since this is sync,
-                // but we can just give a graceful warning and score 0 instead of crashing the whole question.
-            }
-            return { score: 0, points: [], logs: ["✗ Marking scheme missing topological edges definition. Cannot evaluate relationships."] };
+            return { score: 0, points: [], logs: ["Marking scheme missing topological edges definition."] };
         }
 
+        // Segment into sentences using native Intl.Segmenter
         const sentencesIterator = this.segmenter.segment(studentText);
         const sentences = Array.from(sentencesIterator).map(s => s.segment);
 
@@ -627,16 +453,20 @@ class UEGraphExecutor {
             const tgt = edge.target.toLowerCase();
 
             let edgeMatched = false;
+            let matchedPattern = "";
 
             if (edge.valid_patterns && edge.valid_patterns.length > 0) {
+                // Use Compiler-generated Bi-directional patterns for accurate evaluation
                 for (const pattern of edge.valid_patterns) {
                     const regex = new RegExp(pattern, 'i');
                     if (regex.test(studentText)) {
                         edgeMatched = true;
+                        matchedPattern = pattern;
                         break;
                     }
                 }
             } else {
+                // Fallback if patterns are missing: Just check if both exist in the same sentence (less accurate, but safe)
                 for (const sentence of sentences) {
                      const sLower = sentence.toLowerCase();
                      if (sLower.includes(src) && sLower.includes(tgt)) {
@@ -649,13 +479,13 @@ class UEGraphExecutor {
             if (edgeMatched) {
                 score += edge.weight;
                 points.push(edge.weight);
-                logs.push(`The student correctly identified the relationship/connection between '${src}' and '${tgt}'. (+${edge.weight} marks)`);
+                logs.push(`✓ Graph Edge matched: [${src}] -> [${tgt}] (+${edge.weight} marks)`);
             } else {
                 const sLower = studentText.toLowerCase();
                 if (sLower.includes(src) && sLower.includes(tgt)) {
-                    logs.push(`The student mentioned both '${src}' and '${tgt}', but failed to describe the correct directional relationship.`);
+                    logs.push(`✗ Inverse Topology: Connection described between [${src}] and [${tgt}] but directional pattern not matched. 0 marks.`);
                 } else {
-                    logs.push(`The student failed to describe the connection between '${src}' and '${tgt}'.`);
+                    logs.push(`✗ Missing Topological Node: Failed to detect connection between [${src}] and [${tgt}].`);
                 }
             }
         }

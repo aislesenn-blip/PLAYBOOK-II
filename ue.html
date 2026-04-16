@@ -3,15 +3,50 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Playbook - UE Neuro-Symbolic Engine (Beta)</title>
+<title>Playbook - UE Mode</title>
 <link href="css/style.css" rel="stylesheet"/>
 <style>
+    /* Styling adjustments specific to UE layout but matching brand */
     .ue-card {
         background: var(--surface-color);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
         padding: 1.5rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        margin-bottom: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .ue-card.active {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .ue-step-badge {
+        background: var(--primary-color);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    .ue-header-text {
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .ue-description {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
         margin-bottom: 1.5rem;
     }
 
@@ -33,36 +68,46 @@
     .log-info { color: #60a5fa; }
 </style>
 </head>
-<body style="overflow: auto; background-color: var(--bg-color);">
-<div class="app-container" style="display: flex; flex-direction: column; min-height: 100vh;">
-
+<body>
+<div class="app-container">
+<!-- Minimalist Top Navigation -->
 <nav class="top-nav">
-<div class="nav-content max-w-7xl mx-auto flex justify-between items-center" style="padding: 0 1rem; width: 100%; max-width: 100%;">
+<div class="nav-content max-w-7xl mx-auto flex justify-between items-center">
 <div class="flex items-center gap-2">
 <div class="nav-logo"><img src="icons/playbook-icon.png" alt="Playbook Icon" class="logo-icon"> Playbook</div>
+<button aria-label="Toggle navigation" class="hamburger-menu" style="display: none;">
+<svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24">
+<line x1="3" x2="21" y1="12" y2="12"></line>
+<line x1="3" x2="21" y1="6" y2="6"></line>
+<line x1="3" x2="21" y1="18" y2="18"></line>
+</svg>
+</button>
 <ul class="nav-links flex gap-1 items-center">
 <li><a href="index.html">Dashboard</a></li>
 <li><a href="upload.html">Upload Exams</a></li>
-<li><a class="active" href="ue.html" style="color: var(--primary-color); font-weight: 600;">UE Mode (Paste)</a></li>
-</ul>
+<li><a class="active" href="ue.html" style="color: var(--primary-color); font-weight: 600;">UE Mode</a></li>
+<li class="mobile-signout-li" style="display: none;"><a class="mobile-signout" href="#" id="mobile-signout-btn">Sign Out</a></li></ul>
 </div>
 <div class="flex items-center gap-1 nav-actions">
 <a class="nav-icon-link" href="manual.html">User Manual</a>
+<a class="nav-icon-link" href="settings.html">Settings</a>
 <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
 </div>
 </div>
 </nav>
 
-<main class="main-content max-w-7xl mx-auto" style="padding: 2rem; width: 100%;">
-    <header class="mb-2">
-        <h1>Ultimate Engine (Full Integration)</h1>
-        <p>Run the Neuro-Symbolic Vector Engine natively with Gemini AI Document Parsing (PDFs/Images).</p>
-    </header>
+<main class="main-content max-w-5xl mx-auto" style="padding-top: 2rem;">
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem;">
+        <div>
+            <h1 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary);">Ultimate Engine</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Compile marking schemes into determinist graphs and execute at millisecond speeds.</p>
+        </div>
+    </div>
 
     <!-- INPUT PHASE -->
     <div id="input-phase">
         <!-- Session Info -->
-        <div class="card mb-2">
+        <div class="card mb-2" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
             <div class="flex gap-2" style="align-items: flex-start; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 250px;">
                     <label for="session-name" style="font-weight: 500; display: block; margin-bottom: 0.25rem;">Session Name</label>
@@ -79,95 +124,73 @@
 
         <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
             <!-- Marking Scheme Input -->
-            <div class="card flex-col">
+            <div class="card flex-col" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
                 <div class="flex justify-between items-center w-100">
-                    <h3 class="mb-1">1. The Marking Scheme</h3>
+                    <h3 class="mb-1">1. The Marking Scheme (JSON)</h3>
                 </div>
                 <div style="display: block; width: 100%;">
-                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste your rules below or upload a .txt, .pdf, or image to let the AI instantly standardize it.</p>
-                    <textarea class="form-control" id="ue-scheme-text" placeholder="Paste your raw marking scheme here..." style="height: 150px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
-                    <div class="flex justify-between items-center">
-                        <label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
-                            Upload Document
-                            <input accept=".txt, .pdf, .doc, .docx, image/png, image/jpeg, image/jpg" id="scheme-file" style="display: none;" type="file"/>
-                        </label>
-                        <button class="btn" id="optimize-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Auto-Format Scheme</button>
-                    </div>
-                </div>
-                <div id="optimized-scheme-container" style="display: none; width: 100%; margin-top: 1rem;">
-                    <p style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.5rem;">Review the finalized rules:</p>
-                    <textarea class="form-control" id="optimized-scheme-text" required style="height: 200px; resize: vertical; border-color: var(--success-color);"></textarea>
-                    <div class="flex justify-between mt-1">
-                        <button class="btn btn-secondary" id="reset-scheme-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;" type="button">Reset</button>
-                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste the structured Golden JSON produced by your external 'Axiomatic Compiler' prompt.</p>
+                    <textarea class="form-control" id="ue-scheme-text" placeholder='{"questions": {"Q1": {...}}}' style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm); font-family: monospace;"></textarea>
                 </div>
             </div>
 
-            <!-- Upload Scanned Exam -->
-            <div class="card flex-col items-center">
-                <h3 class="mb-1 w-100 text-left">2. Student Exam Document</h3>
-                <div class="upload-zone" id="upload-zone" style="width: 100%; border: 2px dashed var(--border-color); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: background-color 0.2s;">
-                    <svg fill="none" height="48" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" style="color: var(--text-secondary); margin-bottom: 1rem;" viewbox="0 0 24 24" width="48">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="17 8 12 3 7 8"></polyline>
-                        <line x1="12" x2="12" y1="3" y2="15"></line>
-                    </svg>
-                    <p style="font-size: 1rem; color: var(--text-primary); font-weight: 500; margin-bottom: 0.25rem;">Click or drag to upload exam</p>
-                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0;">PDF or Image files only</p>
-                    <input accept="application/pdf, image/png, image/jpeg, image/jpg" id="student-file" style="display: none;" type="file"/>
+            <!-- Student Answer Input -->
+            <div class="card flex-col" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                <div class="flex justify-between items-center w-100">
+                    <h3 class="mb-1">2. Isolated Student Answers (JSON)</h3>
                 </div>
-                <div id="file-list" style="width: 100%; margin-top: 1rem; font-size: 0.9rem;">
-                    <!-- Uploaded file will appear here -->
+                <div style="display: block; width: 100%;">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste the extracted student answers mapped by Question IDs.</p>
+                    <textarea class="form-control" id="ue-student-text" placeholder='{"Q1": "Chloroplast", "Q2": "Chlorophyll"}' style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm); font-family: monospace;"></textarea>
                 </div>
             </div>
         </div>
 
         <div class="text-center mt-2">
-            <button class="btn" id="start-ue-btn" style="padding: 1rem 3rem; font-size: 1.1rem; width: 100%; max-width: 400px;">Run AI OCR & Engine</button>
+            <button class="btn" id="start-ue-btn" style="padding: 1rem 3rem; font-size: 1.1rem; width: 100%; max-width: 400px; margin: 0 auto; display: block;">Execute Deterministic Grading</button>
         </div>
     </div>
 
-    <!-- PROCESSING PHASE (Loading Screen) -->
-    <div id="processing-phase" style="display: none; height: 70vh; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-        <svg class="playbook-loader" height="100" viewbox="0 0 600 100" width="600" xmlns="http://www.w3.org/2000/svg">
-            <!-- P -->
-            <path class="playbook-path" d="M100,80 V20 H120 Q140,20 140,35 Q140,50 120,50 H100" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-            <!-- L -->
-            <path class="playbook-path" d="M160,20 V80 H190" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-            <!-- A -->
-            <path class="playbook-path" d="M210,80 L230,20 L250,80 M215,60 H245" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-            <!-- Y -->
-            <path class="playbook-path" d="M270,20 L290,50 L310,20 M290,50 V80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-            <!-- B -->
-            <path class="playbook-path" d="M330,80 V20 H350 Q365,20 365,35 Q365,50 350,50 H330 M330,50 H355 Q370,50 370,65 Q370,80 355,80 H330" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-            <!-- O -->
-            <path class="playbook-path" d="M380,20 Q360,20 360,50 Q360,80 380,80 Q400,80 400,50 Q400,20 380,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-            <!-- O -->
-            <path class="playbook-path" d="M440,20 Q420,20 420,50 Q420,80 440,80 Q460,80 460,50 Q460,20 440,20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-            <!-- K -->
-            <path class="playbook-path" d="M480,80 V20 M480,50 L520,20 M480,50 L520,80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
-        </svg>
-        <h2 id="loading-status" style="margin-top: 1.5rem;">Analyzing Exam...</h2>
-        <p id="loading-detail">Playbook is converting documents and running Vector Math.</p>
-        <div id="realtime-log-container" style="display: block; width: 80%; max-width: 600px; margin-top: 2rem; text-align: left; background: #fff; padding: 1rem; border-radius: 4px; box-shadow: var(--shadow); max-height: 200px; overflow-y: auto;">
-            <h4 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-primary);">Execution Log</h4>
-            <ul id="realtime-log" style="list-style-type: none; padding-left: 0; margin-bottom: 0; font-size: 0.85rem; color: var(--text-secondary);">
-            </ul>
-        </div>
+    <!-- TERMINAL OUTPUT -->
+    <div class="terminal-output" id="ue-terminal" style="display: none; margin-bottom: 2rem;">
+        <p>> Engine Initialized. Waiting for execution...</p>
     </div>
 
 </main>
 </div>
 
+<!-- Mobile Bottom Navigation -->
+<nav class="mobile-nav">
+<a class="mobile-tab" href="index.html">
+<svg fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+<span>Home</span>
+</a>
+<a class="mobile-tab" href="upload.html">
+<svg fill="none" viewBox="0 0 24 24"><rect height="18" rx="2" ry="2" width="18" x="3" y="3"></rect><line x1="12" x2="12" y1="8" y2="16"></line><line x1="8" x2="16" y1="12" y2="12"></line></svg>
+<span>Upload</span>
+</a>
+<a class="mobile-tab active" href="ue.html" style="color: var(--primary-color);">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+<span>UE</span>
+</a>
+<a class="mobile-tab" href="analytics.html">
+<svg fill="none" viewBox="0 0 24 24"><line x1="18" x2="18" y1="20" y2="10"></line><line x1="12" x2="12" y1="20" y2="4"></line><line x1="6" x2="6" y1="20" y2="14"></line></svg>
+<span>Stats</span>
+</a>
+</nav>
+
 <!-- Scripts -->
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-</script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+<!-- Playbook Scripts -->
 <script src="js/db.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/ue_engine.js"></script>
+
 <script src="js/ue.js"></script>
 </body>
 </html>

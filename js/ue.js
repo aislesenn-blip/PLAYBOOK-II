@@ -1,6 +1,3 @@
-// js/ue.js
-// Frontend Logic for the UE Integration Mode (OCR + Vector Grading)
-
 document.addEventListener("DOMContentLoaded", async () => {
     // Check Auth
     let sessionUser;
@@ -13,19 +10,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const startBtn = document.getElementById("start-ue-btn");
     const schemeText = document.getElementById("ue-scheme-text");
-    const studentFileInput = document.getElementById("student-file");
-    const uploadZone = document.getElementById("upload-zone");
-    const fileListEl = document.getElementById("file-list");
-    const schemeFileInput = document.getElementById("scheme-file");
-    const optimizeSchemeBtn = document.getElementById("optimize-scheme-btn");
-
-    const inputPhase = document.getElementById("input-phase");
-    const processingPhase = document.getElementById("processing-phase");
-    const realtimeLog = document.getElementById("realtime-log");
-    const loadingStatus = document.getElementById("loading-status");
-    const loadingDetail = document.getElementById("loading-detail");
-
-    let uploadedStudentFiles = []; // Expects { file: File, base64Images: [] }
+    const studentText = document.getElementById("ue-student-text");
+    const terminal = document.getElementById("ue-terminal");
 
     // Setup Target Classes (Dummy for sandbox, logic for DB)
     const classSelect = document.getElementById("target-class");
@@ -45,308 +31,94 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    // Handle Marking Scheme Optimization
-    optimizeSchemeBtn.addEventListener("click", async () => {
-        const rawText = schemeText.value.trim();
-        if (!rawText) {
-            alert("Please paste the marking scheme text or upload a document first.");
-            return;
-        }
-
-        optimizeSchemeBtn.disabled = true;
-        optimizeSchemeBtn.innerText = "Formatting JSON...";
-
-        try {
-            const goldenJson = await window.compileGoldenJSON(localStorage.getItem('PLAYBOOK_GEMINI_API_KEY') || 'mock-key', rawText);
-
-            document.getElementById("optimized-scheme-text").value = JSON.stringify(goldenJson, null, 2);
-            document.getElementById("optimized-scheme-container").style.display = "block";
-            schemeText.parentElement.style.display = "none";
-        } catch (e) {
-            console.error(e);
-            alert("Failed to auto-format scheme: " + e.message);
-        } finally {
-            optimizeSchemeBtn.disabled = false;
-            optimizeSchemeBtn.innerText = "Auto-Format Scheme";
-        }
-    });
-
-    document.getElementById("reset-scheme-btn").addEventListener("click", () => {
-        document.getElementById("optimized-scheme-container").style.display = "none";
-        schemeText.parentElement.style.display = "block";
-        document.getElementById("optimized-scheme-text").value = "";
-    });
-
-    // Scheme File Upload handler
-    schemeFileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const fileName = file.name.toLowerCase();
-        const fileType = file.type;
-        const parentLabel = schemeFileInput.parentElement;
-
-        if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-            try {
-                parentLabel.innerText = 'Extracting PDF...';
-
-                // Native PDF text extraction
-                const arrayBuffer = await file.arrayBuffer();
-                const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
-                const pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-                let fullText = "";
-                for (let i = 1; i <= pdfDoc.numPages; i++) {
-                    const page = await pdfDoc.getPage(i);
-                    const textContent = await page.getTextContent();
-                    const pageText = textContent.items.map(item => item.str).join(" ");
-                    fullText += pageText + "\n";
-                }
-                schemeText.value = fullText;
-
-            } catch (err) {
-                console.error("PDF Extraction failed, falling back to OCR", err);
-                alert("Could not extract raw text. Please use AI Vision.");
-            } finally {
-                parentLabel.innerText = 'Upload Document';
-                parentLabel.appendChild(schemeFileInput);
-            }
-        } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-            // Handle Images natively via OCR
-            try {
-                parentLabel.innerText = 'Running OCR on Image...';
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    const base64Image = event.target.result;
-                    try {
-                        const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
-                        schemeText.value = fullText;
-                    } catch (ocrError) {
-                        console.error("OCR Failed:", ocrError);
-                        alert("Failed to extract text from image via OCR.");
-                    } finally {
-                        parentLabel.innerText = 'Upload Document';
-                        parentLabel.appendChild(schemeFileInput);
-                    }
-                };
-                reader.readAsDataURL(file);
-            } catch (err) {
-                 console.error(err);
-            }
-        } else if (fileType.includes('text') || fileName.endsWith('.txt')) {
-             try {
-                parentLabel.innerText = 'Reading Text...';
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                     schemeText.value = event.target.result;
-                     parentLabel.innerText = 'Upload Document';
-                     parentLabel.appendChild(schemeFileInput);
-                };
-                reader.readAsText(file);
-             } catch(err) {
-                 console.error(err);
-             }
-        }
-    });
-
-    // Drag and Drop Student Exams
-    uploadZone.addEventListener('click', () => studentFileInput.click());
-    uploadZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadZone.style.backgroundColor = 'var(--bg-color)';
-    });
-    uploadZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        uploadZone.style.backgroundColor = 'transparent';
-    });
-    uploadZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadZone.style.backgroundColor = 'transparent';
-        if (e.dataTransfer.files.length) {
-            handleStudentFiles(e.dataTransfer.files);
-        }
-    });
-    studentFileInput.addEventListener('change', (e) => {
-        if (e.target.files.length) {
-            handleStudentFiles(e.target.files);
-        }
-    });
-
-    async function handleStudentFiles(files) {
-        // Clear previous
-        uploadedStudentFiles = [];
-        fileListEl.innerHTML = "";
-
-        for (let i=0; i<files.length; i++) {
-            const file = files[i];
-            const li = document.createElement("div");
-            li.style.marginBottom = "0.5rem";
-            li.innerHTML = `<strong>${file.name}</strong> (Pending Processing)`;
-            fileListEl.appendChild(li);
-
-            // Convert to Base64 Images for Gemini
-            let base64Images = [];
-            const fileType = file.type;
-            const fileName = file.name.toLowerCase();
-
-            try {
-                if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-                    li.innerHTML = `<strong>${file.name}</strong> (Rasterizing PDF...)`;
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
-                    const pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-
-                    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                        const page = await pdfDoc.getPage(pageNum);
-                        const viewport = page.getViewport({ scale: 1.5 });
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-                        ctx.fillStyle = '#FFFFFF';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                        base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
-                    }
-                } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-                    li.innerHTML = `<strong>${file.name}</strong> (Reading Image...)`;
-                    base64Images = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onload = (event) => resolve([event.target.result]);
-                        reader.readAsDataURL(file);
-                    });
-                } else {
-                     li.innerHTML = `<span style="color: red;"><strong>${file.name}</strong> (Unsupported format)</span>`;
-                     continue;
-                }
-
-                uploadedStudentFiles.push({ file, base64Images });
-                li.innerHTML = `<span style="color: var(--success-color);"><strong>${file.name}</strong> (Ready)</span>`;
-
-            } catch (e) {
-                console.error(e);
-                li.innerHTML = `<span style="color: red;"><strong>${file.name}</strong> (Failed to process)</span>`;
-            }
-        }
-    }
-
-
-    function appendLog(msg, type="info") {
-        const li = document.createElement("li");
-        li.style.marginBottom = "0.25rem";
-        const time = new Date().toLocaleTimeString();
-        if (type === "warn") li.style.color = "#d97706";
-        if (type === "error") li.style.color = "#dc2626";
-        if (type === "success") li.style.color = "#16a34a";
-        li.textContent = `[${time}] ${msg}`;
-        realtimeLog.appendChild(li);
-        realtimeLog.parentElement.scrollTop = realtimeLog.parentElement.scrollHeight;
+    function logTerminal(msg, type="info") {
+        terminal.style.display = "block";
+        const p = document.createElement("p");
+        if (type === "warn") p.className = "log-warn";
+        else if (type === "error") p.className = "log-error";
+        else p.className = "log-info";
+        p.textContent = `> ${msg}`;
+        terminal.appendChild(p);
+        terminal.scrollTop = terminal.scrollHeight;
     }
 
     startBtn.addEventListener("click", async () => {
-        let schemeSource = document.getElementById("optimized-scheme-text").value.trim();
-        if (!schemeSource) schemeSource = schemeText.value.trim();
-
-        if (!schemeSource) {
-            alert("Please provide the Marking Scheme (Text or JSON).");
-            return;
-        }
-        if (uploadedStudentFiles.length === 0) {
-             alert("Please upload at least one student exam (PDF or Image).");
-             return;
-        }
-
-        const sessionName = document.getElementById("session-name").value.trim() || "Local Test Session";
+        const rawScheme = schemeText.value.trim();
+        const rawStudent = studentText.value.trim();
+        const sessionName = document.getElementById("session-name").value.trim() || "Manual Test Session";
         const courseId = classSelect.value || null;
 
-        // Transition UI
-        inputPhase.style.display = "none";
-        processingPhase.style.display = "flex";
-        realtimeLog.innerHTML = "";
-
-        appendLog("Initializing AI OCR and Neuro-Symbolic Vector Engine...");
-
-        let goldenJson;
-        try {
-            // Check if it's already JSON
-            if (schemeSource.startsWith('{')) {
-                goldenJson = JSON.parse(schemeSource);
-                appendLog("Valid Golden JSON detected.");
-            } else {
-                 throw new Error("Not JSON");
-            }
-        } catch(e) {
-            appendLog("Raw text detected. Compiling to Golden JSON...", "warn");
-            try {
-                goldenJson = await window.compileGoldenJSON(localStorage.getItem('PLAYBOOK_GEMINI_API_KEY') || 'mock-key', schemeSource);
-                appendLog("Golden JSON compiled successfully.", "success");
-            } catch (err) {
-                 appendLog("Fatal: Failed to compile marking scheme: " + err.message, "error");
-                 loadingStatus.textContent = "Execution Failed";
-                 return;
-            }
+        if (!rawScheme || !rawStudent) {
+            alert("Please paste both the Marking Scheme JSON and the Student Answers JSON.");
+            return;
         }
 
-        const engine = new window.UEGraphExecutor(goldenJson);
+        let goldenJson;
+        let studentAnswersJson;
+        try {
+            goldenJson = JSON.parse(rawScheme);
+        } catch(e) {
+            alert("Invalid JSON format in the Marking Scheme box. Ensure it is strict JSON.");
+            return;
+        }
 
         try {
+            studentAnswersJson = JSON.parse(rawStudent);
+        } catch(e) {
+            alert("Invalid JSON format in the Student Answers box. Ensure it is strictly { 'Q1': 'text' }.");
+            return;
+        }
+
+        startBtn.disabled = true;
+        startBtn.textContent = "Executing Vectors...";
+        terminal.innerHTML = "";
+        logTerminal("Initializing Neuro-Symbolic Engine...");
+
+        try {
+            // Initialize Engine
+            const engine = new window.UEGraphExecutor(goldenJson);
+
+            logTerminal("Running Sliding Window Chunking and Vector Math...");
+
+            // Format for engine matching: The frontend will pass {"questions": { "Q1": "...", "Q2": "..." }}
+            // We pass it directly into execute
+            const results = await engine.execute(studentAnswersJson);
+
+            logTerminal(`Execution Complete. Score: ${results.totalScore}. Saving to DB...`, "success");
+
             // 1. Create a dummy/real session in the DB
             let sessionId = "sandbox-session-" + Date.now();
             if (window.PlaybookDB && typeof window.PlaybookDB.createSession === 'function') {
-                const sess = await window.PlaybookDB.createSession(sessionName, courseId, 'sandbox'); // Assuming sandbox id if course_id missing
+                const sess = await window.PlaybookDB.createSession(sessionName, courseId, 'sandbox');
                 if (sess) sessionId = sess.session_id;
             }
 
-            // Loop through uploaded exams
-            for (let i = 0; i < uploadedStudentFiles.length; i++) {
-                const doc = uploadedStudentFiles[i];
-                loadingStatus.textContent = `Processing Student ${i+1}/${uploadedStudentFiles.length}`;
-                appendLog(`Running AI OCR Extractor on ${doc.file.name}...`);
+            // Save to DB
+            let regNo = `REG-${Date.now()}`;
+            let stuName = "Manual Upload Student";
 
-                // OCR Extraction via AI
-                // The AI returns an array of students (usually 1 if it's a single exam doc)
-                const aiExtractedData = await window.PlaybookAI.extractStudentExamsUE(doc.base64Images, goldenJson);
-
-                for (const student of aiExtractedData) {
-                     const stuName = student.student_name || "Unknown Student";
-                     const regNo = student.student_id || `REG-${Date.now()}`;
-                     appendLog(`Extracted Identity: ${stuName} (${regNo})`, "success");
-
-                     // Run the Graph Execution
-                     appendLog(`Running Semantic Vector Executions for ${stuName}...`);
-                     const results = await engine.execute(student.questions);
-
-                     appendLog(`Grading complete! Deterministic Score: ${results.totalScore}`, "success");
-
-                     // Save to DB
-                     if (window.PlaybookDB && typeof window.PlaybookDB.saveStudentGradeUE === 'function') {
-                         await window.PlaybookDB.saveStudentGradeUE(sessionId, regNo, stuName, results);
-                         appendLog(`Saved results to database.`);
-                     } else {
-                         // Mock save for sandbox viewing
-                         localStorage.setItem(`sandbox_ue_result_${sessionId}`, JSON.stringify({
-                              studentName: stuName,
-                              studentId: regNo,
-                              totalScore: results.totalScore,
-                              breakdown: results.breakdown
-                         }));
-                     }
-                }
+            if (window.PlaybookDB && typeof window.PlaybookDB.saveStudentGradeUE === 'function') {
+                await window.PlaybookDB.saveStudentGradeUE(sessionId, regNo, stuName, results);
+                logTerminal(`Saved results to database. Redirecting...`);
+            } else {
+                localStorage.setItem(`sandbox_ue_result_${sessionId}`, JSON.stringify({
+                    studentName: stuName,
+                    studentId: regNo,
+                    totalScore: results.totalScore,
+                    breakdown: results.breakdown
+                }));
             }
 
-            loadingStatus.textContent = "Grading Complete!";
-            loadingDetail.textContent = "Taking you to the Review screen to check the results...";
-
             setTimeout(() => {
-                // If in a real environment, go to review.html. In pure sandbox, we might simulate it.
-                // For now, we redirect exactly as upload.html does.
                 window.location.href = `review.html?session=${sessionId}`;
-            }, 2500);
+            }, 1500);
 
         } catch (error) {
             console.error(error);
-            appendLog(`Fatal Runtime Error: ${error.message}`, "error");
-            loadingStatus.textContent = "Execution Failed";
+            logTerminal(`Fatal Error: ${error.message}`, "error");
+        } finally {
+            startBtn.disabled = false;
+            startBtn.textContent = "Execute Deterministic Grading";
         }
     });
-
 });
