@@ -84,10 +84,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const fileName = file.name.toLowerCase();
         const fileType = file.type;
+        const parentLabel = schemeFileInput.parentElement;
 
         if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
             try {
-                schemeFileInput.parentElement.innerText = 'Extracting PDF...';
+                parentLabel.innerText = 'Extracting PDF...';
 
                 // Native PDF text extraction
                 const arrayBuffer = await file.arrayBuffer();
@@ -106,9 +107,44 @@ document.addEventListener("DOMContentLoaded", async () => {
                 console.error("PDF Extraction failed, falling back to OCR", err);
                 alert("Could not extract raw text. Please use AI Vision.");
             } finally {
-                schemeFileInput.parentElement.innerText = 'Upload Document';
-                schemeFileInput.parentElement.appendChild(schemeFileInput);
+                parentLabel.innerText = 'Upload Document';
+                parentLabel.appendChild(schemeFileInput);
             }
+        } else if (fileType.startsWith('image/') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+            // Handle Images natively via OCR
+            try {
+                parentLabel.innerText = 'Running OCR on Image...';
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const base64Image = event.target.result;
+                    try {
+                        const fullText = await window.PlaybookAI.extractMarkingSchemeOCR([base64Image]);
+                        schemeText.value = fullText;
+                    } catch (ocrError) {
+                        console.error("OCR Failed:", ocrError);
+                        alert("Failed to extract text from image via OCR.");
+                    } finally {
+                        parentLabel.innerText = 'Upload Document';
+                        parentLabel.appendChild(schemeFileInput);
+                    }
+                };
+                reader.readAsDataURL(file);
+            } catch (err) {
+                 console.error(err);
+            }
+        } else if (fileType.includes('text') || fileName.endsWith('.txt')) {
+             try {
+                parentLabel.innerText = 'Reading Text...';
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                     schemeText.value = event.target.result;
+                     parentLabel.innerText = 'Upload Document';
+                     parentLabel.appendChild(schemeFileInput);
+                };
+                reader.readAsText(file);
+             } catch(err) {
+                 console.error(err);
+             }
         }
     });
 
