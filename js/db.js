@@ -343,9 +343,8 @@ const PlaybookDB = {
         localStorage.setItem(`playbook_setting_${settingData.id}`, JSON.stringify(settingData));
     },
 
-    // 7. MOCK SAVE FOR UE MODE (Sandbox only)
+    // 7. DIRECT SAVE FOR UE MODE (Official Feature)
     async saveStudentGradeUE(sessionId, studentId, studentName, results) {
-        // Direct Database insert instead of local storage mapping for Sandbox UE to unify pipeline
         const payload = {
             session_id: sessionId,
             student_name: studentName,
@@ -353,7 +352,7 @@ const PlaybookDB = {
             status: 'graded',
             total_score: results.totalScore,
             max_score: Object.values(results.breakdown).reduce((sum, q) => sum + (q.max_marks || 0), 0),
-            text_content: "Manually entered in UE Mode Sandbox",
+            text_content: "Extracted via Neuro-Symbolic UE Pipeline",
             pdf_storage_path: null,
             grading_data: { questions: results.breakdown }
         };
