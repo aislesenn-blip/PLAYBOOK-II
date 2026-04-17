@@ -208,21 +208,40 @@ class UEGraphExecutor {
         return { totalScore, breakdown };
     }
 
-    // LOCAL LLM OLLAMA INTEGRATION (The Vector Space Anchor)
+    // SILICONFLOW EMBEDDING INTEGRATION (High Dimensional Vector Space)
     async _getEmbedding(text) {
-        // Safe fallback if local model is offline
         try {
-            const response = await fetch("http://localhost:11434/api/embeddings", {
+            // Retrieve the API key dynamically from localStorage (cached by ai.js or db.js during session init)
+            const apiKey = localStorage.getItem('PLAYBOOK_SILICONFLOW_API_KEY');
+
+            if (!apiKey) {
+                throw new Error("SiliconFlow API Key not found in local storage.");
+            }
+
+            const response = await fetch("https://api.siliconflow.cn/v1/embeddings", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
                 body: JSON.stringify({
-                    model: "nomic-embed-text", // Lightweight robust embedding model
-                    prompt: text
+                    model: "BAAI/bge-m3", // Multilingual high-dimensional embedding model
+                    input: text,
+                    encoding_format: "float"
                 })
             });
-            if (!response.ok) throw new Error("Local Ollama Embedding failed.");
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(`SiliconFlow Embedding failed: ${response.status} - ${errData?.error?.message}`);
+            }
+
             const data = await response.json();
-            return data.embedding;
+            if (data && data.data && data.data.length > 0) {
+                return data.data[0].embedding;
+            }
+            throw new Error("Invalid embedding response format.");
+
         } catch (error) {
             console.warn("Vector Model unreachable. Falling back to Fuzzy Matrix Math.", error);
             return null; // Signals the engine to fallback to Levenshtein Distance

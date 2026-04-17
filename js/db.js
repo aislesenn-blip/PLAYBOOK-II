@@ -82,10 +82,14 @@ const PlaybookDB = {
         return data;
     },
 
-    async saveInstitutionSecret(institutionId, apiKey) {
+    async saveInstitutionSecret(institutionId, geminiKey, siliconKey) {
+        const payload = { institution_id: institutionId };
+        if (geminiKey !== undefined) payload.gemini_api_key = geminiKey;
+        if (siliconKey !== undefined) payload.siliconflow_api_key = siliconKey;
+
         const { error } = await supabaseClient
             .from('institution_secrets')
-            .upsert({ institution_id: institutionId, gemini_api_key: apiKey });
+            .upsert(payload);
         if (error) throw error;
     },
 
@@ -341,25 +345,25 @@ const PlaybookDB = {
 
     // 7. MOCK SAVE FOR UE MODE (Sandbox only)
     async saveStudentGradeUE(sessionId, studentId, studentName, results) {
-        try {
-            let existingData = localStorage.getItem(`ue_sessions_${sessionId}`) || "[]";
-            let students = JSON.parse(existingData);
+        // Direct Database insert instead of local storage mapping for Sandbox UE to unify pipeline
+        const payload = {
+            session_id: sessionId,
+            student_name: studentName,
+            registration_number: studentId,
+            status: 'graded',
+            total_score: results.totalScore,
+            max_score: Object.values(results.breakdown).reduce((sum, q) => sum + (q.max_marks || 0), 0),
+            text_content: "Manually entered in UE Mode Sandbox",
+            pdf_storage_path: null,
+            grading_data: { questions: results.breakdown }
+        };
 
-            students.push({
-                submission_id: `sub-${Date.now()}`,
-                student_id: studentId,
-                student_name: studentName,
-                marks_awarded_by_ai: results.totalScore,
-                review_status: 'graded',
-                grade_breakdown: results.breakdown
-            });
+        const { error } = await supabaseClient
+            .from('exam_submissions')
+            .insert(payload);
 
-            localStorage.setItem(`ue_sessions_${sessionId}`, JSON.stringify(students));
-            return true;
-        } catch (error) {
-            console.error('Error saving UE Grade:', error);
-            throw error;
-        }
+        if (error) throw error;
+        return true;
     }
 };
 

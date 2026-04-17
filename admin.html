@@ -39,16 +39,22 @@
         <!-- API Configuration Card -->
         <section class="card mb-2">
             <h2 class="mb-1">Global AI Configuration</h2>
-            <p class="mb-2" style="color: var(--text-secondary);">Configure the Google AI Studio API Key for your entire institution. Teachers will automatically use this key for grading and will not need to manage their own.</p>
+            <p class="mb-2" style="color: var(--text-secondary);">Configure the API Keys for your entire institution. Teachers will automatically use these keys for generation and execution.</p>
 
             <form id="admin-api-form">
                 <div class="form-group">
-                    <label class="form-label">Institution Google AI Studio API Key</label>
+                    <label class="form-label">Google AI Studio API Key (Generation)</label>
                     <div class="flex gap-1 items-center">
                         <input type="password" id="admin-api-key" class="form-control" placeholder="AIzaSy..." style="max-width: 400px;" required>
-                        <button type="submit" class="btn" style="width: auto;">Save Global Key</button>
                     </div>
                 </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label class="form-label">SiliconFlow API Key (Vector Mathematics)</label>
+                    <div class="flex gap-1 items-center">
+                        <input type="password" id="admin-silicon-key" class="form-control" placeholder="sk-..." style="max-width: 400px;">
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="margin-top: 1rem; width: auto;">Save Global Keys</button>
                 <div id="api-status" style="margin-top: var(--spacing-xs); font-size: 0.9rem; font-weight: 600;"></div>
             </form>
         </section>

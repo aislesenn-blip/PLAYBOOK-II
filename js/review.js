@@ -19,52 +19,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const nextBtn = document.getElementById('next-btn');
 
     try {
-        if (sessionId.startsWith('sandbox-session-')) {
-            session = { id: sessionId, name: 'Offline UE Sandbox Session' };
-            students = [];
-        } else {
-            session = await window.PlaybookDB.getSession(sessionId);
-            if (!session) throw new Error("Session not found");
+        session = await window.PlaybookDB.getSession(sessionId);
+        if (!session) throw new Error("Session not found");
 
-            try {
-                students = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
-            } catch(e) {
-                students = [];
-            }
+        try {
+            students = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
+        } catch(e) {
+            students = [];
         }
 
         document.getElementById('session-title').textContent = session.name;
-
-        // UE MODE SANDBOX FALLBACK
-        if (students.length === 0) {
-            // Check both standard DB-backed local storage and offline manual sandbox storage
-            const ueDataStr = localStorage.getItem(`ue_sessions_${sessionId}`);
-            const sandboxDataStr = localStorage.getItem(`sandbox_ue_result_${sessionId}`);
-
-            if (ueDataStr) {
-                const rawUE = JSON.parse(ueDataStr);
-                // Map the UE structure to what Review.js expects
-                students = rawUE.map(s => ({
-                    submission_id: s.submission_id,
-                    studentName: s.student_name,
-                    registrationNumber: s.student_id,
-                    marksAwardedByAi: s.marks_awarded_by_ai,
-                    reviewStatus: s.review_status,
-                    gradeBreakdown: s.grade_breakdown
-                }));
-            } else if (sandboxDataStr) {
-                const s = JSON.parse(sandboxDataStr);
-                students = [{
-                    submission_id: "sandbox-sub-1",
-                    studentName: s.studentName,
-                    registrationNumber: s.studentId,
-                    marksAwardedByAi: s.totalScore,
-                    reviewStatus: 'completed',
-                    gradeBreakdown: s.breakdown || [],
-                    textContent: JSON.stringify(s.breakdown, null, 2)
-                }];
-            }
-        }
 
         if (students.length === 0) {
             document.getElementById('grading-items-container').innerHTML = '<p style="text-align: center; padding: 2rem;">No grading data found. Ensure submissions exist and have been processed by the AI.</p>';
