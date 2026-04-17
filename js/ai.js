@@ -880,16 +880,30 @@ You are the UE Mass-Extractor for an Examination Board.
 Locate and transcribe the exact answer for the following list of Question IDs from the provided student document:
 [ ${questionsToExtract.join(", ")} ]
 
-*** INSTRUCTIONS ***
-1. For each Question ID listed, find where the student answered it and transcribe their exact text, math, or steps.
-2. If the student did not explicitly write anything for a question, output "No text extracted."
-3. For diagram questions, describe the drawn nodes and connection logic.
-4. Output ONLY valid JSON mapping the Question ID to the transcribed answer string.
+*** STRICT INSTRUCTIONS ***
+1. For each Question ID listed, find where the student answered it and transcribe their EXACT text, math, or steps. Do not summarize or correct spelling.
+2. If the student did not explicitly write anything for a question, output EXACTLY "No text extracted."
+3. For diagram questions, describe the drawn nodes and connection logic literally.
+4. DO NOT reference the Marking Scheme or try to evaluate if the student is correct. Your job is ONLY transcription.
+5. Output ONLY valid JSON mapping the Question ID to the transcribed answer string.
 
-*** SCHEMA ***
+*** FEW-SHOT EXAMPLES ***
+
+[INPUT IMAGE]: A student wrote "1(a) The powerhouse is the mitochonria. (b) [Blank space]"
+[TARGET IDs]: ["Q1_A", "Q1_B"]
+
+[OUTPUT JSON]
 {
-  "Q1": "The student wrote: '...'",
-  "Q2": "No text extracted."
+  "Q1_A": "The powerhouse is the mitochonria.",
+  "Q1_B": "No text extracted."
+}
+
+[INPUT IMAGE]: Student crossed out their first answer for Q3 and wrote "Q3: 45 kg" next to it.
+[TARGET IDs]: ["Q3"]
+
+[OUTPUT JSON]
+{
+  "Q3": "45 kg"
 }
 `;
 
