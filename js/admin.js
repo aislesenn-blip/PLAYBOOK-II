@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Display Current API Key Status
     const apiInput = document.getElementById('admin-api-key');
+    const siliconInput = document.getElementById('admin-silicon-key');
     const statusDiv = document.getElementById('api-status');
 
     let institutionSecret = null;
@@ -32,12 +33,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error fetching institution secrets:", e);
     }
 
-    if (institutionSecret && institutionSecret.gemini_api_key && institutionSecret.gemini_api_key !== '') {
-        apiInput.value = institutionSecret.gemini_api_key;
-        statusDiv.textContent = 'Status: Active ✔️ (Teachers can grade)';
+    let geminiConfigured = false;
+    let siliconConfigured = false;
+
+    if (institutionSecret) {
+        if (institutionSecret.gemini_api_key && institutionSecret.gemini_api_key !== '') {
+            apiInput.value = institutionSecret.gemini_api_key;
+            geminiConfigured = true;
+        }
+        if (institutionSecret.siliconflow_api_key && institutionSecret.siliconflow_api_key !== '') {
+            siliconInput.value = institutionSecret.siliconflow_api_key;
+            siliconConfigured = true;
+        }
+    }
+
+    if (geminiConfigured && siliconConfigured) {
+        statusDiv.textContent = 'Status: All APIs Active ✔️ (Generation & Vectors Ready)';
+        statusDiv.style.color = 'var(--success-color)';
+    } else if (geminiConfigured) {
+        statusDiv.textContent = 'Status: Partial ✔️ (Gemini Active, SiliconFlow Missing. Vectors will fallback)';
         statusDiv.style.color = 'var(--success-color)';
     } else {
-        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until configured)';
+        statusDiv.textContent = 'Status: Missing ❌ (Teachers cannot grade until Google AI configured)';
         statusDiv.style.color = 'var(--error-color)';
     }
 
@@ -45,12 +62,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiForm = document.getElementById('admin-api-form');
     apiForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const newKey = apiInput.value.trim();
+        const newGeminiKey = apiInput.value.trim();
+        const newSiliconKey = siliconInput.value.trim();
 
-        if (newKey) {
+        if (newGeminiKey || newSiliconKey) {
             try {
                 // Update institution secret record securely
-                await window.PlaybookDB.saveInstitutionSecret(institution.id, newKey);
+                await window.PlaybookDB.saveInstitutionSecret(
+                    institution.id,
+                    newGeminiKey || undefined,
+                    newSiliconKey || undefined
+                );
 
                 statusDiv.textContent = 'Status: Active ✔️ (Key updated successfully)';
                 statusDiv.style.color = 'var(--success-color)';

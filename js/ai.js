@@ -240,6 +240,14 @@ async function getSecureKey() {
         if (!secret || !secret.gemini_api_key) {
             throw new Error("No Google AI Studio API key found in the secure vault. Ask an Admin to configure it.");
         }
+
+        // Cache SiliconFlow key for synchronous use in ue_engine.js
+        if (secret.siliconflow_api_key) {
+            localStorage.setItem('PLAYBOOK_SILICONFLOW_API_KEY', secret.siliconflow_api_key);
+        } else {
+            localStorage.removeItem('PLAYBOOK_SILICONFLOW_API_KEY');
+        }
+
         return secret.gemini_api_key;
     } catch (e) {
         // Fallback check for Playwright environment directly using a localStorage mocked API key if DB fails

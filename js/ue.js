@@ -1,12 +1,15 @@
 document.addEventListener("DOMContentLoaded", async () => {
-    // Check Auth
-    let sessionUser;
-    if (typeof window.requireAuth === 'function') {
-        sessionUser = window.requireAuth(['professor', 'admin']);
-        if (!sessionUser) return; // User is redirected
-    } else {
-        console.warn("Auth disabled or unavailable in sandbox.");
-        sessionUser = { user_id: 'sandbox-teacher' };
+    // 1. Strict Auth Check (Matches Upload Navigation)
+    const sessionUser = requireAuth(['professor', 'admin']);
+    if (!sessionUser) return;
+
+    // Cache the API keys so UE Engine can use them
+    if (typeof window.PlaybookAI !== 'undefined' && typeof window.PlaybookAI.getSecureKey === 'function') {
+        try {
+            await window.PlaybookAI.getSecureKey();
+        } catch(e) {
+            console.warn("Could not pre-fetch API keys. Engine might fail if not cached.", e);
+        }
     }
 
     const startBtn = document.getElementById("start-ue-btn");
@@ -87,36 +90,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             logTerminal(`Execution Complete. Score: ${results.totalScore}. Saving to DB...`, "success");
 
-            // 1. Create a real session in the DB
+            // 1. Create a real session in the DB (Fully authenticated)
             let sessionId = "sandbox-session-" + Date.now();
-            if (window.PlaybookDB && typeof window.PlaybookDB.saveSession === 'function') {
-                const sess = await window.PlaybookDB.saveSession({
-                    name: sessionName,
-                    course_id: courseId,
-                    publish_status: 'draft'
-                });
-                if (sess) sessionId = sess.id;
-            }
+            const sess = await window.PlaybookDB.saveSession({
+                name: sessionName,
+                course_id: courseId,
+                professor_id: sessionUser.user_id, // Vital for RLS
+                publish_status: 'draft',
+                total_submissions: 1
+            });
+            if (sess) sessionId = sess.id;
 
             // Save to DB
             let regNo = `REG-${Date.now()}`;
             let stuName = "Manual Upload Student";
 
-            if (window.PlaybookDB && typeof window.PlaybookDB.saveStudentGradeUE === 'function') {
-                await window.PlaybookDB.saveStudentGradeUE(sessionId, regNo, stuName, results);
-                logTerminal(`Saved results to database. Redirecting...`);
-            } else {
-                try {
-                    localStorage.setItem(`sandbox_ue_result_${sessionId}`, JSON.stringify({
-                        studentName: stuName,
-                        studentId: regNo,
-                        totalScore: results.totalScore,
-                        breakdown: results.breakdown
-                    }));
-                } catch(e) {
-                    console.warn("Could not save to localStorage", e);
-                }
-            }
+            await window.PlaybookDB.saveStudentGradeUE(sessionId, regNo, stuName, results);
+            logTerminal(`Saved results to database. Redirecting...`);
 
             setTimeout(() => {
                 window.location.href = `review.html?session=${sessionId}`;
