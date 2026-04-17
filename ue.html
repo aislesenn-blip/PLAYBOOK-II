@@ -126,10 +126,16 @@
             <!-- Marking Scheme Input -->
             <div class="card flex-col" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
                 <div class="flex justify-between items-center w-100">
-                    <h3 class="mb-1">1. The Marking Scheme (JSON)</h3>
+                    <h3 class="mb-1">1. The Marking Scheme</h3>
+                </div>
+                <div style="display: block; width: 100%; margin-bottom: 1rem;">
+                    <label class="btn btn-secondary" style="display: inline-block; cursor: pointer; text-align: center; width: 100%;">
+                        Upload PDF / Image Scheme
+                        <input type="file" id="ue-scheme-upload" accept=".pdf,image/*,.docx,.txt" style="display: none;">
+                    </label>
+                    <p id="ue-scheme-status" style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">Or paste raw JSON below:</p>
                 </div>
                 <div style="display: block; width: 100%;">
-                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste the structured Golden JSON produced by your external 'Axiomatic Compiler' prompt.</p>
                     <textarea class="form-control" id="ue-scheme-text" placeholder='{"questions": {"Q1": {...}}}' style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm); font-family: monospace;"></textarea>
                 </div>
             </div>
@@ -137,10 +143,16 @@
             <!-- Student Answer Input -->
             <div class="card flex-col" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
                 <div class="flex justify-between items-center w-100">
-                    <h3 class="mb-1">2. Isolated Student Answers (JSON)</h3>
+                    <h3 class="mb-1">2. Student Exam Upload</h3>
+                </div>
+                <div style="display: block; width: 100%; margin-bottom: 1rem;">
+                    <label class="btn btn-secondary" style="display: inline-block; cursor: pointer; text-align: center; width: 100%;">
+                        Upload Student PDF / Image
+                        <input type="file" id="ue-student-upload" accept=".pdf,image/*" style="display: none;">
+                    </label>
+                    <p id="ue-student-status" style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">Or paste isolated JSON below:</p>
                 </div>
                 <div style="display: block; width: 100%;">
-                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste the extracted student answers mapped by Question IDs.</p>
                     <textarea class="form-control" id="ue-student-text" placeholder='{"Q1": "Chloroplast", "Q2": "Chlorophyll"}' style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm); font-family: monospace;"></textarea>
                 </div>
             </div>

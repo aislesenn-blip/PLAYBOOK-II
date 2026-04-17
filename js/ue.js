@@ -14,10 +14,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const startBtn = document.getElementById("start-ue-btn");
     const schemeText = document.getElementById("ue-scheme-text");
+    const schemeUpload = document.getElementById("ue-scheme-upload");
+    const schemeStatus = document.getElementById("ue-scheme-status");
+
     const studentText = document.getElementById("ue-student-text");
+    const studentUpload = document.getElementById("ue-student-upload");
+    const studentStatus = document.getElementById("ue-student-status");
+
     const terminal = document.getElementById("ue-terminal");
 
-    // Setup Target Classes (Dummy for sandbox, logic for DB)
+    // File to Base64 Helper
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+    // Setup Target Classes
     const classSelect = document.getElementById("target-class");
     if (window.PlaybookDB && typeof window.PlaybookDB.getCourses === 'function') {
         try {
@@ -46,46 +60,125 @@ document.addEventListener("DOMContentLoaded", async () => {
         terminal.scrollTop = terminal.scrollHeight;
     }
 
+    // Auto-Process Scheme Upload
+    schemeUpload.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        schemeStatus.textContent = "Extracting scheme text...";
+        try {
+            let extractedText = "";
+            if (file.name.endsWith('.pdf')) {
+                extractedText = await window.PlaybookAI.extractTextFromPDF(file);
+            } else if (file.name.endsWith('.docx')) {
+                extractedText = await window.PlaybookAI.extractTextFromWord(file);
+            } else if (file.type.startsWith('image/')) {
+                const base64 = await fileToBase64(file);
+                extractedText = await window.PlaybookAI.extractMarkingSchemeOCR([base64]);
+            }
+
+            schemeStatus.textContent = "Formatting via AI Compiler...";
+            const optimized = await window.PlaybookAI.optimizeMarkingScheme(extractedText);
+
+            schemeStatus.textContent = "Compiling Golden JSON...";
+            const goldenJson = await window.compileGoldenJSON(await window.PlaybookAI.getSecureKey(), optimized);
+
+            schemeText.value = JSON.stringify(goldenJson, null, 2);
+            schemeStatus.textContent = "Golden JSON compiled successfully!";
+            schemeStatus.style.color = "var(--success-color)";
+        } catch (error) {
+            schemeStatus.textContent = "Compilation Error: " + error.message;
+            schemeStatus.style.color = "var(--error-color)";
+        }
+    });
+
+    // Handle Execution
     startBtn.addEventListener("click", async () => {
-        const rawScheme = schemeText.value.trim();
-        const rawStudent = studentText.value.trim();
+        let rawScheme = schemeText.value.trim();
+        let rawStudent = studentText.value.trim();
         const sessionName = document.getElementById("session-name").value.trim() || "Manual Test Session";
         const courseId = classSelect.value || null;
 
-        if (!rawScheme || !rawStudent) {
-            alert("Please paste both the Marking Scheme JSON and the Student Answers JSON.");
-            return;
-        }
+        startBtn.disabled = true;
+        startBtn.textContent = "Processing Documents...";
+        terminal.innerHTML = "";
 
         let goldenJson;
         let studentAnswersJson;
-        try {
-            goldenJson = JSON.parse(rawScheme);
-        } catch(e) {
-            alert("Invalid JSON format in the Marking Scheme box. Ensure it is strict JSON.");
-            return;
-        }
 
         try {
-            studentAnswersJson = JSON.parse(rawStudent);
-        } catch(e) {
-            alert("Invalid JSON format in the Student Answers box. Ensure it is strictly { 'Q1': 'text' }.");
-            return;
-        }
+            // Validate Scheme
+            if (!rawScheme) throw new Error("Marking scheme is required. Paste JSON or upload a document.");
+            try {
+                goldenJson = JSON.parse(rawScheme);
+            } catch(e) {
+                throw new Error("Invalid JSON format in the Marking Scheme box. Ensure it was compiled correctly.");
+            }
 
-        startBtn.disabled = true;
-        startBtn.textContent = "Executing Vectors...";
-        terminal.innerHTML = "";
-        logTerminal("Initializing Neuro-Symbolic Engine...");
+            // Process Student Document if uploaded
+            const studentFile = studentUpload.files[0];
+            let studentNameStr = "Manual Upload Student";
+            let studentRegNoStr = `REG-${Date.now()}`;
 
-        try {
-            // Initialize Engine
+            if (studentFile && !rawStudent) {
+                logTerminal("Extracting logic from uploaded student exam...", "info");
+                let base64Payload = null;
+
+                if (studentFile.name.endsWith('.pdf')) {
+                    const arrayBuffer = await studentFile.arrayBuffer();
+                    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+                    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+                    let base64Images = [];
+                    for (let i = 1; i <= pdfDoc.numPages; i++) {
+                        const page = await pdfDoc.getPage(i);
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                        base64Images.push(canvas.toDataURL('image/jpeg', 0.8));
+                    }
+                    base64Payload = base64Images;
+                } else if (studentFile.type.startsWith('image/')) {
+                    base64Payload = [await fileToBase64(studentFile)];
+                }
+
+                logTerminal("Sending chunks to PlaybookAI Mass-Extractor...", "info");
+                const extractionResults = await window.PlaybookAI.extractStudentExamsUE(base64Payload, goldenJson);
+
+                const studentData = extractionResults[0];
+                if (studentData.student_name) studentNameStr = studentData.student_name;
+                if (studentData.student_id) studentRegNoStr = studentData.student_id;
+
+                // UE mapping structure
+                studentAnswersJson = studentData.questions.reduce((acc, q) => {
+                    acc[q.questionId] = q.extracted_text;
+                    return acc;
+                }, {});
+
+                studentText.value = JSON.stringify(studentAnswersJson, null, 2);
+                studentStatus.textContent = "Extraction complete!";
+                studentStatus.style.color = "var(--success-color)";
+            } else if (rawStudent) {
+                try {
+                    studentAnswersJson = JSON.parse(rawStudent);
+                } catch(e) {
+                    throw new Error("Invalid JSON format in the Student Answers box.");
+                }
+            } else {
+                throw new Error("Please upload a student exam or paste their JSON answers.");
+            }
+
+            logTerminal("Initializing Neuro-Symbolic Engine...");
             const engine = new window.UEGraphExecutor(goldenJson);
 
-            logTerminal("Running Sliding Window Chunking and Vector Math...");
+            logTerminal("Running Sliding Window Chunking and Vector Math via SiliconFlow...");
 
-            // Format for engine matching: The frontend will pass {"questions": { "Q1": "...", "Q2": "..." }}
-            // We pass it directly into execute
+            // Format for engine matching
             const results = await engine.execute(studentAnswersJson);
 
             logTerminal(`Execution Complete. Score: ${results.totalScore}. Saving to DB...`, "success");
@@ -101,11 +194,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
             if (sess) sessionId = sess.id;
 
-            // Save to DB
-            let regNo = `REG-${Date.now()}`;
-            let stuName = "Manual Upload Student";
-
-            await window.PlaybookDB.saveStudentGradeUE(sessionId, regNo, stuName, results);
+            // Save to DB using the extracted or generated names
+            await window.PlaybookDB.saveStudentGradeUE(sessionId, studentRegNoStr, studentNameStr, results);
             logTerminal(`Saved results to database. Redirecting...`);
 
             setTimeout(() => {
