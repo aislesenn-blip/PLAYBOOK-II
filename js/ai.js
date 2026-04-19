@@ -911,7 +911,7 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
     let attempt = 0;
     let extractionMap = {};
 
-    while (true) {
+    while (attempt < 3) {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s for full document parse
@@ -944,6 +944,10 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
         } catch (error) {
             attempt++;
             console.warn(`[Infinite Retry] Single-Pass Extraction attempt ${attempt} failed:`, error.message);
+            if (attempt >= 3) {
+                console.error("Failed to extract student exams after 3 attempts.");
+                break;
+            }
             const baseDelay = 5000;
             let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
             if (backoffTime > 60000) backoffTime = 60000;

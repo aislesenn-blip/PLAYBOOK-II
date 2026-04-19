@@ -96,8 +96,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     startBtn.addEventListener("click", async () => {
         let rawScheme = schemeText.value.trim();
         let rawStudent = studentText.value.trim();
-        const sessionName = document.getElementById("session-name").value.trim() || "Manual Test Session";
+        const sessionName = document.getElementById("session-name").value.trim();
         const courseId = classSelect.value || null;
+
+        if (!sessionName || !courseId) {
+            alert('Please select a Target Class and provide a Session Name before executing.');
+            return;
+        }
 
         startBtn.disabled = true;
         startBtn.textContent = "Processing Documents...";
@@ -108,11 +113,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         try {
             // Validate Scheme
-            if (!rawScheme) throw new Error("Marking scheme is required. Paste JSON or upload a document.");
+            if (!rawScheme) {
+                logTerminal("Marking scheme is required. Please paste JSON or upload a document.", "error");
+                throw new Error("Marking scheme is required.");
+            }
             try {
                 goldenJson = JSON.parse(rawScheme);
             } catch(e) {
-                throw new Error("Invalid JSON format in the Marking Scheme box. Ensure it was compiled correctly.");
+                logTerminal("Invalid JSON format in the Marking Scheme box. Ensure it was compiled correctly.", "error");
+                throw new Error("Invalid JSON format in Marking Scheme.");
             }
 
             // Process Student Document if uploaded
@@ -121,6 +130,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             let studentRegNoStr = `REG-${Date.now()}`;
 
             if (studentFile && !rawStudent) {
+                // Strict File Type Validation mirroring upload.js
+                const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+                if (!validTypes.includes(studentFile.type)) {
+                    logTerminal(`Invalid file type selected: ${studentFile.name}. Only PDF and images are supported.`, "error");
+                    throw new Error("Invalid file type.");
+                }
+
                 logTerminal("Extracting logic from uploaded student exam...", "info");
                 let base64Payload = null;
 

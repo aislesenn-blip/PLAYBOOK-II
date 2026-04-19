@@ -79,7 +79,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // For demo purposes, we also store it in localStorage
                 // so the Web Worker can use it directly just like the old version
-                localStorage.setItem('PLAYBOOK_API_KEY', newKey);
+                if (newGeminiKey) localStorage.setItem('PLAYBOOK_API_KEY', newGeminiKey);
+                if (newSiliconKey) localStorage.setItem('PLAYBOOK_SILICONFLOW_API_KEY', newSiliconKey);
 
                 alert("Global Institution Key saved securely to the encrypted vault.");
             } catch (err) {
