@@ -345,7 +345,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     justification: data.justification || "",
                     feedback: data.feedback || "",
                     isEntirelyBlank: data.is_entirely_blank,
-                    score: data.score
+                    score: data.score,
+                    max_marks: data.max_marks
                 }))
             };
         }
