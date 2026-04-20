@@ -218,7 +218,7 @@ class UEGraphExecutor {
                 throw new Error("SiliconFlow API Key not found in local storage.");
             }
 
-            const response = await fetch("https://api.siliconflow.com/v1/embeddings", {
+            const response = await fetch("https://api.siliconflow.cn/v1/embeddings", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -232,7 +232,12 @@ class UEGraphExecutor {
             });
 
             if (!response.ok) {
-                const errData = await response.json();
+                let errData;
+                try {
+                    errData = await response.json();
+                } catch (e) {
+                    errData = { error: { message: "Could not parse error response" } };
+                }
                 throw new Error(`SiliconFlow Embedding failed: ${response.status} - ${errData?.error?.message}`);
             }
 
