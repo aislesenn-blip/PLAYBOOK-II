@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+
     let session, students;
     let currentIndex = 0;
 
@@ -19,14 +20,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const nextBtn = document.getElementById('next-btn');
 
     try {
-        session = await window.PlaybookDB.getSession(sessionId);
-        if (!session) throw new Error("Session not found");
+        if (sessionId.startsWith('sandbox-session-')) {
+            // UE MODE SANDBOX FALLBACK
+            const mockSessionData = localStorage.getItem(sessionId) || localStorage.getItem('ue_sessions_' + sessionId) || localStorage.getItem('sandbox_ue_result_' + sessionId);
+            if (!mockSessionData) {
+                // If not found in localStorage, perhaps it's a real session but prefixed with sandbox?
+                // The memory says it should "intercept IDs starting with sandbox-session- to prevent querying Supabase"
+                // Let's create a mock session to avoid breaking.
+                session = { id: sessionId, name: 'UE Sandbox Session', course_id: 'sandbox' };
 
-        try {
-            students = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
-        } catch(e) {
-            students = [];
+                // For submissions, look for any sandbox results in localStorage
+                const allKeys = Object.keys(localStorage);
+                const sandboxKeys = allKeys.filter(k => k.startsWith('sandbox_ue_result_'));
+                if (sandboxKeys.length > 0) {
+                    students = sandboxKeys.map(k => JSON.parse(localStorage.getItem(k)));
+                } else {
+                    students = [];
+                }
+            } else {
+                 const parsedData = JSON.parse(mockSessionData);
+                 session = parsedData.session || { id: sessionId, name: 'UE Sandbox Session' };
+                 students = parsedData.students || [parsedData];
+            }
+        } else {
+            session = await window.PlaybookDB.getSession(sessionId);
+            if (!session) throw new Error("Session not found");
+
+            try {
+                students = await window.PlaybookDB.getSubmissionsBySession(sessionId) || [];
+            } catch(e) {
+                students = [];
+            }
         }
+
 
         document.getElementById('session-title').textContent = session.name;
 
@@ -333,20 +359,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         // --- END APPEALS INTEGRATION ---
 
-        // UE MODE DATA NORMALIZATION
-        // In UE mode, results are stored in gradeBreakdown and marksAwardedByAi
-        if (!student.grading && student.gradeBreakdown) {
+                // UE MODE DATA NORMALIZATION
+        // In UE mode, results might be stored differently depending on sandbox mode or DB.
+        if (!student.grading && student.grading_data && student.grading_data.questions) {
             student.grading = {
-                totalScore: student.marksAwardedByAi,
+                totalScore: student.total_score,
+                maxScore: student.max_score,
+                questions: student.grading_data.questions
+            };
+        } else if (!student.grading && student.gradeBreakdown) {
+            student.grading = {
+                totalScore: student.marksAwardedByAi || student.totalScore || 0,
                 maxScore: Object.values(student.gradeBreakdown).reduce((sum, q) => sum + (q.max_marks || 0), 0),
-                questions: Object.entries(student.gradeBreakdown).map(([id, data]) => ({
-                    questionTitle: data.title || id,
-                    pointsAwarded: data.points_awarded || [],
-                    justification: data.justification || "",
-                    feedback: data.feedback || "",
-                    isEntirelyBlank: data.is_entirely_blank,
-                    score: data.score
-                }))
+                questions: student.gradeBreakdown
             };
         }
 
