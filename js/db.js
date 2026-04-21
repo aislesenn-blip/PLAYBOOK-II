@@ -349,7 +349,7 @@ const PlaybookDB = {
             session_id: sessionId,
             student_name: studentName,
             registration_number: studentId,
-            status: 'graded',
+            status: 'completed',
             total_score: results.totalScore,
             max_score: Object.values(results.breakdown).reduce((sum, q) => sum + (q.max_marks || 0), 0),
             text_content: "Extracted via Neuro-Symbolic UE Pipeline",

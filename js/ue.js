@@ -172,7 +172,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // UE mapping structure
                 studentAnswersJson = studentData.questions.reduce((acc, q) => {
-                    acc[q.questionId] = q.extracted_text;
+                    acc[q.questionId] = q.text;
                     return acc;
                 }, {});
 
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             logTerminal(`Execution Complete. Score: ${results.totalScore}. Saving to DB...`, "success");
 
             // 1. Create a real session in the DB (Fully authenticated)
-            let sessionId = "sandbox-session-" + Date.now();
+            let sessionId;
             const sess = await window.PlaybookDB.saveSession({
                 name: sessionName,
                 course_id: courseId,
