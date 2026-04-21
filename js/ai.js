@@ -1,7 +1,7 @@
 // js/ai.js
 // Playbook Central Intelligence Engine (Client-Side Distributed Processing)
 
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const CF_WORKER_URL = "https://gemini-grader.useinstafy.workers.dev";
 
 const PASS1_SYSTEM_PROMPT = `
 You are the Master Mapper for an Examination Board. Your job is to scan the provided exam document, extract the student's identity, and identify EVERY question from the marking scheme that the student attempted.
@@ -453,11 +453,11 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
             const currentParts = [...userParts, { text: promptText }];
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000);
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
 
             let response;
             try {
-                response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                response = await fetch(CF_WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -492,7 +492,7 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
                 console.error(`Failed to extract Question ${questionId} after 3 attempts. Returning fallback.`);
                 return "No text extracted.";
             }
-            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
+            let backoffTime = 2000; // Flat 2 seconds delay
             await delay(backoffTime);
         }
     }
@@ -507,11 +507,11 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
 
             let response;
             try {
-                response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                response = await fetch(CF_WORKER_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -579,7 +579,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 };
             }
 
-            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
+            let backoffTime = 2000; // Flat 2 seconds delay
             await delay(backoffTime);
         }
     }
@@ -618,7 +618,10 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                 throw new Error("Invalid input format for student exam data.");
             }
 
-            const mapResponse = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+            const mapController = new AbortController();
+            const mapTimeoutId = setTimeout(() => mapController.abort(), 120000);
+
+            const mapResponse = await fetch(CF_WORKER_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -636,8 +639,10 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
                         maxOutputTokens: 8192,
                         responseMimeType: "application/json"
                     }
-                })
+                }),
+                signal: mapController.signal
             });
+            clearTimeout(mapTimeoutId);
 
             if (!mapResponse.ok) {
                 const errorText = await mapResponse.text();
@@ -654,7 +659,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             // PASS 1B & 2: PARALLEL EXTRACTION & GRADING PROCESSING (The "Brain")
             const questions = parsedMap.questions || [];
-            const semaphore = new Semaphore(6);
+            const semaphore = new Semaphore(20);
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
@@ -692,8 +697,8 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             attempt++;
             console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
 
-            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
-            console.log(`Self-Healing Loop activated: Retrying in 5 seconds...`);
+            let backoffTime = 2000; // Flat 2 seconds delay
+            console.log(`Self-Healing Loop activated: Retrying in 2 seconds...`);
             await delay(backoffTime);
         }
     }
@@ -740,18 +745,21 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
             if (chunks.length === 0) chunks.push(rawText);
 
             const apiKey = await getSecureKey();
-            const optimizeSemaphore = new Semaphore(6);
+            const optimizeSemaphore = new Semaphore(20);
 
             const chunkPromises = chunks.map(async (chunkText, index) => {
                 let attempt = 0;
                 while (true) {
                     await optimizeSemaphore.acquire();
                     try {
-                        const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 120000);
+                        const response = await fetch(CF_WORKER_URL, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
+                            signal: controller.signal,
                             body: JSON.stringify({
                                 systemInstruction: {
                                     parts: [{ text: OPTIMIZE_PROMPT }]
@@ -766,6 +774,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                                 }
                             })
                         });
+                        clearTimeout(timeoutId);
 
                         if (!response.ok) {
                             const errorText = await response.text();
@@ -783,7 +792,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                         attempt++;
                         console.warn(`Optimization Chunk ${index} Attempt ${attempt} failed: ${error.message}`);
 
-                        let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
+                        let backoffTime = 2000; // Flat 2 seconds delay
                         await delay(backoffTime);
                     } finally {
                         optimizeSemaphore.release();
@@ -823,7 +832,9 @@ async function extractMarkingSchemeOCR(base64Images) {
                 }
             });
 
-            const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
+            const response = await fetch(CF_WORKER_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -837,8 +848,10 @@ async function extractMarkingSchemeOCR(base64Images) {
                         temperature: 0.0,
                         maxOutputTokens: 8192
                     }
-                })
+                }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -852,8 +865,8 @@ async function extractMarkingSchemeOCR(base64Images) {
             attempt++;
             console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
 
-            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
-            console.log(`Self-Healing Loop activated for OCR: Retrying in 5 seconds...`);
+            let backoffTime = 2000; // Flat 2 seconds delay
+            console.log(`Self-Healing Loop activated for OCR: Retrying in 2 seconds...`);
             await delay(backoffTime);
         }
     }
@@ -928,9 +941,9 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
     while (attempt < 3) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for full document parse
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s for full document parse
 
-            const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+            const response = await fetch(CF_WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -962,7 +975,7 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
                 console.error("Failed to extract student exams after 3 attempts.");
                 break;
             }
-            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
+            let backoffTime = 2000; // Flat 2 seconds delay
             await delay(backoffTime);
         }
     }
@@ -980,14 +993,18 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
     let studentName = "Unknown Student";
     try {
         const idPrompt = "Scan this document and output a JSON object with 'student_id' and 'student_name'. If you cannot find them, output 'Unknown'.";
-        const idResponse = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        const idResponse = await fetch(CF_WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ role: "user", parts: [...userParts, { text: idPrompt }] }],
                 generationConfig: { temperature: 0.0, responseMimeType: "application/json" }
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (idResponse.ok) {
             const idData = await idResponse.json();
             const idParsed = parseLLMJSON(idData.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
