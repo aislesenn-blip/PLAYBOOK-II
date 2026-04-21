@@ -714,16 +714,20 @@ You are an elite educational engineer. Rewrite this raw marking scheme into the 
 CRITICAL MANDATES:
 
 1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
-2. STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
+2. STRICT HIERARCHY & SECTIONS: Every single question/sub-question MUST have its own block. Do not merge sub-questions. If the raw text contains Section headers (e.g., Section A, Section B), you MUST precede the questions in that section with a strict section marker block: [SECTION: X]. If no sections are found, assume [SECTION: GENERAL].
 3. ATOMIC CRITERIA: Break down paragraph answers into explicit, atomic, true/false grading criteria. Each criterion must represent exactly one independently gradable concept.
 4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
 
 === PLAYBOOK STANDARD FORMAT EXAMPLE ===
+[SECTION: A]
+
 Question 1a: Definition (Max: 3 marks)
 
 Criterion_1: States "conversion of light energy to chemical energy" (1 mark)
 Criterion_2: Explicitly writes "Chlorophyll" (1 mark)
 Criterion_3: Mentions "Water" (1 mark)
+
+[SECTION: B]
 
 Question 1b: Diagram (Max: 2 marks)
 
