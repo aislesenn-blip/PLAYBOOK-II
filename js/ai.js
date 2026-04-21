@@ -453,7 +453,7 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
             const currentParts = [...userParts, { text: promptText }];
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            const timeoutId = setTimeout(() => controller.abort(), 45000);
 
             let response;
             try {
@@ -492,9 +492,7 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
                 console.error(`Failed to extract Question ${questionId} after 3 attempts. Returning fallback.`);
                 return "No text extracted.";
             }
-            const baseDelay = 4000;
-            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
+            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
             await delay(backoffTime);
         }
     }
@@ -509,7 +507,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
 
             let response;
             try {
@@ -581,11 +579,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 };
             }
 
-            // Capped Exponential backoff with jitter
-            const baseDelay = 4000;
-            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
-
+            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
             await delay(backoffTime);
         }
     }
@@ -660,7 +654,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             // PASS 1B & 2: PARALLEL EXTRACTION & GRADING PROCESSING (The "Brain")
             const questions = parsedMap.questions || [];
-            const semaphore = new Semaphore(4); // Throttled to 4 to prevent Google AI 503 'Service Unavailable / Spikes in demand' errors
+            const semaphore = new Semaphore(6);
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
@@ -698,10 +692,8 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             attempt++;
             console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
 
-            let backoffTime = attempt * 3000;
-            if (backoffTime > 60000) backoffTime = 60000;
-
-            console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
+            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
+            console.log(`Self-Healing Loop activated: Retrying in 5 seconds...`);
             await delay(backoffTime);
         }
     }
@@ -748,7 +740,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
             if (chunks.length === 0) chunks.push(rawText);
 
             const apiKey = await getSecureKey();
-            const optimizeSemaphore = new Semaphore(4); // Run multiple chunks safely, scaled back to prevent 503s
+            const optimizeSemaphore = new Semaphore(6);
 
             const chunkPromises = chunks.map(async (chunkText, index) => {
                 let attempt = 0;
@@ -791,8 +783,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                         attempt++;
                         console.warn(`Optimization Chunk ${index} Attempt ${attempt} failed: ${error.message}`);
 
-                        let backoffTime = attempt * 3000;
-                        if (backoffTime > 60000) backoffTime = 60000;
+                        let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
                         await delay(backoffTime);
                     } finally {
                         optimizeSemaphore.release();
@@ -861,10 +852,8 @@ async function extractMarkingSchemeOCR(base64Images) {
             attempt++;
             console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
 
-            let backoffTime = attempt * 3000;
-            if (backoffTime > 60000) backoffTime = 60000;
-
-            console.log(`Self-Healing Loop activated for OCR: Retrying in ${backoffTime / 1000} seconds...`);
+            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
+            console.log(`Self-Healing Loop activated for OCR: Retrying in 5 seconds...`);
             await delay(backoffTime);
         }
     }
@@ -939,7 +928,7 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
     while (attempt < 3) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s for full document parse
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for full document parse
 
             const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: 'POST',
@@ -973,9 +962,7 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
                 console.error("Failed to extract student exams after 3 attempts.");
                 break;
             }
-            const baseDelay = 5000;
-            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
+            let backoffTime = 5000; // Flat 5 seconds delay instead of exponential
             await delay(backoffTime);
         }
     }
