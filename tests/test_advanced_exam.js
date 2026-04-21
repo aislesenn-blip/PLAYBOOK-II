@@ -108,22 +108,24 @@ const studentDavidMsuya = {
 const executor = new UEGraphExecutor(goldenJSON);
 
 console.log("\n========================================================");
+(async () => {
 console.log("👩‍🎓 GRADING: Sofia Tarimo (Advanced Vocabulary Student)");
 console.log("========================================================");
-const resSofia = executor.execute(studentSofiaTarimo);
+const resSofia = await executor.execute(studentSofiaTarimo);
 console.log(`TOTAL SCORE: ${resSofia.totalScore}`);
 Object.keys(studentSofiaTarimo).forEach(q => console.log(`[${q}] Score: ${resSofia.breakdown[q].score} => Logs: ${resSofia.breakdown[q].justification.replace(/\n/g, ' | ')}`));
 
 console.log("\n========================================================");
 console.log("🤦‍♀️ GRADING: Neema Chacha (Contradiction & Logic Failure Student)");
 console.log("========================================================");
-const resNeema = executor.execute(studentNeemaChacha);
+const resNeema = await executor.execute(studentNeemaChacha);
 console.log(`TOTAL SCORE: ${resNeema.totalScore}`);
 Object.keys(studentNeemaChacha).forEach(q => console.log(`[${q}] Score: ${resNeema.breakdown[q].score} => Logs: ${resNeema.breakdown[q].justification.replace(/\n/g, ' | ')}`));
 
 console.log("\n========================================================");
 console.log("🤷‍♂️ GRADING: David Msuya (Redundant Answers / Padding Student)");
 console.log("========================================================");
-const resDavid = executor.execute(studentDavidMsuya);
+const resDavid = await executor.execute(studentDavidMsuya);
 console.log(`TOTAL SCORE: ${resDavid.totalScore}`);
 Object.keys(studentDavidMsuya).forEach(q => console.log(`[${q}] Score: ${resDavid.breakdown[q].score} => Logs: ${resDavid.breakdown[q].justification.replace(/\n/g, ' | ')}`));
+})();
