@@ -453,7 +453,7 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
             const currentParts = [...userParts, { text: promptText }];
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
 
             let response;
             try {
@@ -509,7 +509,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
 
             let response;
             try {
@@ -660,7 +660,7 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
 
             // PASS 1B & 2: PARALLEL EXTRACTION & GRADING PROCESSING (The "Brain")
             const questions = parsedMap.questions || [];
-            const semaphore = new Semaphore(15); // Increased to 15 for faster processing on Paid Tier 1
+            const semaphore = new Semaphore(6); // Throttled to 6 for optimal speed without 429/503 errors
 
             const gradingPromises = questions.map(async (q) => {
                 if (q.answer_status === "Skipped") {
@@ -748,7 +748,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
             if (chunks.length === 0) chunks.push(rawText);
 
             const apiKey = await getSecureKey();
-            const optimizeSemaphore = new Semaphore(15); // Increased to 15 for faster chunking on Paid Tier 1
+            const optimizeSemaphore = new Semaphore(6); // Throttled to 6 to prevent limits
 
             const chunkPromises = chunks.map(async (chunkText, index) => {
                 let attempt = 0;
@@ -939,7 +939,7 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
     while (attempt < 3) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s for full document parse
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s for full document parse
 
             const response = await fetch(`${API_URL}/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: 'POST',
