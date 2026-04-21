@@ -218,7 +218,7 @@ class UEGraphExecutor {
                 throw new Error("SiliconFlow API Key not found in local storage.");
             }
 
-            const response = await fetch("https://api.siliconflow.cn/v1/embeddings", {
+            const response = await fetch("https://api.siliconflow.com/v1/embeddings", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
