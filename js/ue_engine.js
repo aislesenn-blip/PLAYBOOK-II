@@ -212,10 +212,10 @@ class UEGraphExecutor {
     async _getEmbedding(text) {
         try {
             // Retrieve the API key dynamically from localStorage (cached by ai.js or db.js during session init)
-            const apiKey = localStorage.getItem('PLAYBOOK_SILICONFLOW_API_KEY');
+            const apiKey = typeof localStorage !== "undefined" ? localStorage.getItem('PLAYBOOK_SILICONFLOW_API_KEY') : null;
 
             if (!apiKey) {
-                throw new Error("SiliconFlow API Key not found in local storage.");
+                return null;
             }
 
             const response = await fetch("https://api.siliconflow.com/v1/embeddings", {
