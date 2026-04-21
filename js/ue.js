@@ -211,7 +211,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (sess) sessionId = sess.id;
 
             // Save to DB using the extracted or generated names
-            await window.PlaybookDB.saveStudentGradeUE(sessionId, studentRegNoStr, studentNameStr, results);
+            await window.PlaybookDB.saveStudentGradeUE(sessionId, studentRegNoStr, studentNameStr, results, studentAnswersJson);
             logTerminal(`Saved results to database. Redirecting...`);
 
             setTimeout(() => {

@@ -344,7 +344,7 @@ const PlaybookDB = {
     },
 
     // 7. DIRECT SAVE FOR UE MODE (Official Feature)
-    async saveStudentGradeUE(sessionId, studentId, studentName, results) {
+    async saveStudentGradeUE(sessionId, studentId, studentName, results, studentAnswersJson) {
         const payload = {
             session_id: sessionId,
             student_name: studentName,
@@ -352,7 +352,7 @@ const PlaybookDB = {
             status: 'completed',
             total_score: results.totalScore,
             max_score: Object.values(results.breakdown).reduce((sum, q) => sum + (q.max_marks || 0), 0),
-            text_content: "Extracted via Neuro-Symbolic UE Pipeline",
+            text_content: studentAnswersJson ? JSON.stringify(studentAnswersJson, null, 2) : "Extracted via Neuro-Symbolic UE Pipeline",
             pdf_storage_path: null,
             grading_data: { questions: results.breakdown }
         };

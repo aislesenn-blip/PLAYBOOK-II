@@ -73,6 +73,7 @@ Example: If the rubric awards 0.5 marks for "defined gravity" and 1.5 marks for 
 Let the external system handle summing the array and clamping it to the max score.
 If the student's answer is blank or completely wrong, output 'is_entirely_blank': true and 'points_awarded': [].
 CRITICAL JSON RULE: You MUST use standard double quotes (") for all JSON keys and string boundaries. Use single quotes (') for quotes inside strings.
+You must rigidly escape all backslashes and double quotes in student answers.
 Do not use <think> tags.
 
 *** THE "MICRO-LESSON" FEEDBACK PROTOCOL ***
@@ -269,6 +270,9 @@ function parseLLMJSON(content) {
 
     // Preemptively strip <think> tags which cause JSON truncation
     content = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+    // Escape unescaped backslashes before attempting JSON.parse
+    content = content.replace(/\\([^"\\\/bfnrtu])/g, '\\\\$1');
 
     // STEP 1: Extract ONLY the JSON object, ignoring any conversational filler text before or after
     // Custom brace-counting JSON extractor to guarantee perfect extraction
@@ -484,6 +488,10 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
         } catch (error) {
             attempt++;
             console.warn(`[Infinite Retry] extractSingleQuestion attempt ${attempt} failed for Question ${questionId}:`, error.message);
+            if (attempt >= 3) {
+                console.error(`Failed to extract Question ${questionId} after 3 attempts. Returning fallback.`);
+                return "No text extracted.";
+            }
             const baseDelay = 4000;
             let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
             if (backoffTime > 60000) backoffTime = 60000;
@@ -560,6 +568,19 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
             attempt++;
             console.warn(`[Infinite Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}:`, error.message);
             
+            if (attempt >= 3) {
+                console.error(`Failed to grade Question ${questionData.questionId} after 3 attempts. Returning fallback.`);
+                return {
+                    ...questionData,
+                    points_awarded: [],
+                    total_correct_points_found: 0,
+                    is_entirely_blank: true,
+                    justification: "Error grading.",
+                    constructive_feedback: "Failed to evaluate.",
+                    criteria_evaluations: []
+                };
+            }
+
             // Capped Exponential backoff with jitter
             const baseDelay = 4000;
             let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
