@@ -365,13 +365,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             student.grading = {
                 totalScore: student.total_score,
                 maxScore: student.max_score,
-                questions: student.grading_data.questions
+                questions: Array.isArray(student.grading_data.questions) ? student.grading_data.questions : Object.values(student.grading_data.questions)
             };
         } else if (!student.grading && student.gradeBreakdown) {
             student.grading = {
                 totalScore: student.marksAwardedByAi || student.totalScore || 0,
                 maxScore: Object.values(student.gradeBreakdown).reduce((sum, q) => sum + (q.max_marks || 0), 0),
-                questions: student.gradeBreakdown
+                questions: Array.isArray(student.gradeBreakdown) ? student.gradeBreakdown : Object.values(student.gradeBreakdown)
             };
         }
 
