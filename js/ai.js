@@ -492,9 +492,7 @@ async function extractSingleQuestion(apiKey, questionId, userParts) {
                 console.error(`Failed to extract Question ${questionId} after 3 attempts. Returning fallback.`);
                 return "No text extracted.";
             }
-            const baseDelay = 4000;
-            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
+            let backoffTime = 1000; // Fixed 1 second delay for Paid Tier
             await delay(backoffTime);
         }
     }
@@ -581,11 +579,7 @@ async function gradeSingleQuestion(apiKey, questionData, markingSchemeText) {
                 };
             }
 
-            // Capped Exponential backoff with jitter
-            const baseDelay = 4000;
-            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
-
+            let backoffTime = 1000; // Fixed 1 second delay for Paid Tier
             await delay(backoffTime);
         }
     }
@@ -698,10 +692,8 @@ async function gradeBatchExams(base64PDF, markingSchemeText, examInstructions = 
             attempt++;
             console.warn(`Playbook Engine Attempt ${attempt} failed: ${error.message}`);
 
-            let backoffTime = attempt * 3000;
-            if (backoffTime > 60000) backoffTime = 60000;
-
-            console.log(`Self-Healing Loop activated: Retrying in ${backoffTime / 1000} seconds...`);
+            let backoffTime = 1000; // Fixed 1 second delay for Paid Tier
+            console.log(`Self-Healing Loop activated: Retrying in 1 second...`);
             await delay(backoffTime);
         }
     }
@@ -791,8 +783,7 @@ Criterion_2: An arrow is drawn pointing into the leaf and is labeled "Sunlight" 
                         attempt++;
                         console.warn(`Optimization Chunk ${index} Attempt ${attempt} failed: ${error.message}`);
 
-                        let backoffTime = attempt * 3000;
-                        if (backoffTime > 60000) backoffTime = 60000;
+                        let backoffTime = 1000; // Fixed 1 second delay for Paid Tier
                         await delay(backoffTime);
                     } finally {
                         optimizeSemaphore.release();
@@ -861,10 +852,8 @@ async function extractMarkingSchemeOCR(base64Images) {
             attempt++;
             console.warn(`OCR Attempt ${attempt} failed: ${error.message}`);
 
-            let backoffTime = attempt * 3000;
-            if (backoffTime > 60000) backoffTime = 60000;
-
-            console.log(`Self-Healing Loop activated for OCR: Retrying in ${backoffTime / 1000} seconds...`);
+            let backoffTime = 1000; // Fixed 1 second delay for Paid Tier
+            console.log(`Self-Healing Loop activated for OCR: Retrying in 1 second...`);
             await delay(backoffTime);
         }
     }
@@ -973,9 +962,7 @@ Locate and transcribe the exact answer for the following list of Question IDs fr
                 console.error("Failed to extract student exams after 3 attempts.");
                 break;
             }
-            const baseDelay = 5000;
-            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
+            let backoffTime = 1000; // Fixed 1 second delay for Paid Tier
             await delay(backoffTime);
         }
     }
