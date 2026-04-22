@@ -95,30 +95,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function processQueue(meta) {
-        const { sessionId, markingSchemeText, explicitMaxMarks, storagePath } = meta;
+        const { sessionId, explicitMaxMarks, storagePath } = meta;
         let totalStudentsGraded = await window.PlaybookQueue.getCompletedCount(sessionId);
-        let sessionTotalScore = 0; // In a full implementation, we'd persist the running total, or just let the dashboard recalculate it. For now we just query existing submissions.
-
-        // Fetch existing score to resume correctly
-        try {
-            const { data } = await window.supabaseClient.from('exam_submissions').select('total_score').eq('session_id', sessionId);
-            if (data) {
-                sessionTotalScore = data.reduce((sum, s) => sum + s.total_score, 0);
-                totalStudentsGraded = data.length; // More accurate
-            }
-        } catch(e) {}
 
         let nextChunk = await window.PlaybookQueue.getNextPendingChunk(sessionId);
 
         while (nextChunk) {
             const pendingCount = await window.PlaybookQueue.getPendingCount(sessionId);
 
-            // UI Update for Live Review Theater & Queue
-            statusEl.textContent = `Grading Student ${totalStudentsGraded + 1}...`;
-            detailEl.textContent = `${pendingCount} students remaining in queue. Analyzing pages via Playbook API.`;
+            // Create DB record as 'pending'
+            let studentSubmissionId = null;
+            try {
+                // To keep it simple, we use the OCR images or text logic previously handled locally,
+                // but since the Edge Function currently expects text_content (from PDF parsing),
+                // we'll pass the base64 or text as needed.
+                // Wait, the edge function expects text_content, but upload.js was passing base64 arrays to PlaybookAI.
+                // The new architecture requires passing the payload to the Edge function via DB insertion.
+                const { data, error } = await window.supabaseClient.from('exam_submissions').insert({
+                    session_id: sessionId,
+                    student_name: `Unknown Student ${totalStudentsGraded + 1}`,
+                    registration_number: `ID-UNKNOWN-${totalStudentsGraded + 1}`,
+                    pdf_storage_path: storagePath,
+                    total_score: 0,
+                    max_score: explicitMaxMarks,
+                    text_content: JSON.stringify(nextChunk.images), // Store base64 for Edge to process if it expects it, or OCR it here
+                    status: 'pending'
+                }).select();
 
-            // If we have at least 1 graded, show the review button
-            if (totalStudentsGraded > 0 && !document.getElementById('live-review-btn')) {
+                if (error) throw error;
+                studentSubmissionId = data[0].id;
+            } catch (err) {
+                console.error("Failed to insert pending submission", err);
+                alert("Failed to initialize submission.");
+                overlay.classList.remove('active');
+                return;
+            }
+
+            // Start Live Review Theater Button
+            if (!document.getElementById('live-review-btn')) {
                 const btn = document.createElement('a');
                 btn.id = 'live-review-btn';
                 btn.href = `review.html?session=${sessionId}`;
@@ -128,62 +142,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                 btn.style.backgroundColor = '#10b981'; // green-500
                 btn.textContent = 'Review Graded Students Now (Opens in new tab)';
                 detailEl.parentNode.appendChild(btn);
-
-                // Also update the session status to needs_review immediately
-                try {
-                    await window.supabaseClient.from('sessions').update({
-                        status: 'needs_review'
-                    }).eq('id', sessionId);
-                } catch(e) {}
             }
 
             try {
-                const examInstructions = meta.examInstructions || "";
-                const explicitMaxMarks = meta.explicitMaxMarks || 100;
-                let gradedStudents = await window.PlaybookAI.gradeBatchExams(nextChunk.images, markingSchemeText, examInstructions, explicitMaxMarks);
+                // Trigger the Edge Function
+                await window.PlaybookAI.triggerCloudGrading(studentSubmissionId);
 
-                for (let i = 0; i < gradedStudents.length; i++) {
-                    const student = gradedStudents[i];
-                    let studentTotal = 0;
+                // Listen for completion
+                await new Promise((resolve, reject) => {
+                    const channel = window.PlaybookAI.listenForGradingCompletion(
+                        studentSubmissionId,
+                        (msg) => {
+                            statusEl.textContent = `Grading Student ${totalStudentsGraded + 1}...`;
+                            detailEl.textContent = msg;
+                        },
+                        (gradingData, score) => {
+                            console.log(`Student ${studentSubmissionId} completed with score: ${score}`);
+                            resolve();
+                        },
+                        (errMsg) => {
+                            reject(new Error(errMsg));
+                        }
+                    );
+                });
 
-                    const parsedQuestions = student.questions || student.evaluations || student.results || [];
-                    if (parsedQuestions && Array.isArray(parsedQuestions)) {
-                        parsedQuestions.forEach(q => {
-                            let qScore = parseFloat(q.score) || parseFloat(q.marks_awarded) || 0;
-                            // Clamp individual question score to its max possible marks (if provided by AI)
-                            const qMax = parseFloat(q.max) || parseFloat(q.max_score) || parseFloat(q.max_marks) || parseFloat(q.total_marks);
-                            if (!isNaN(qMax) && qMax > 0 && qScore > qMax) {
-                                qScore = qMax;
-                                q.score = qScore; // Update the object so review UI reflects the clamped score
-                            }
-                            studentTotal += qScore;
-                        });
-                    }
-
-                    // Global clamp: Student total cannot exceed the explicit maximum marks for the entire exam
-                    if (studentTotal > explicitMaxMarks) {
-                        studentTotal = explicitMaxMarks;
-                    }
-
-                    await window.supabaseClient.from('exam_submissions').insert({
-                        session_id: sessionId,
-                        student_name: student.name !== undefined ? student.name : student.studentName || `Unknown Student ${totalStudentsGraded + i + 1}`,
-                        registration_number: student.id !== undefined ? student.id : student.registrationNumber || `ID-UNKNOWN-${totalStudentsGraded + i + 1}`,
-                        pdf_storage_path: storagePath,
-                        total_score: studentTotal,
-                        max_score: explicitMaxMarks,
-                        grading_data: { questions: parsedQuestions },
-                        status: 'completed',
-                        completed_at: new Date().toISOString()
-                    });
-
-                    sessionTotalScore += studentTotal;
-                }
-
-                totalStudentsGraded += gradedStudents.length;
+                totalStudentsGraded++;
                 await window.PlaybookQueue.markChunkCompleted(nextChunk.id);
             } catch (aiErr) {
-                console.error("AI Error on chunk", nextChunk.id, aiErr);
+                console.error("Cloud Engine Error on chunk", nextChunk.id, aiErr);
                 alert(`Grading paused due to an error on chunk ${nextChunk.id}. Please try resuming the session later. Error: ${aiErr.message}`);
                 overlay.classList.remove('active');
                 return; // Break out to preserve the pending chunk for resumption
@@ -196,12 +182,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusEl.textContent = 'Wrapping up...';
         detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
 
-        const sessionAverage = totalStudentsGraded > 0 ? (sessionTotalScore / totalStudentsGraded) : 0;
-        await window.supabaseClient.from('sessions').update({
-            status: 'needs_review',
-            total_students: totalStudentsGraded,
-            average_score: sessionAverage
-        }).eq('id', sessionId);
+        // Update session average natively by querying
+        try {
+             const { data } = await window.supabaseClient.from('exam_submissions').select('total_score').eq('session_id', sessionId);
+             if (data && data.length > 0) {
+                 const sessionTotalScore = data.reduce((sum, s) => sum + s.total_score, 0);
+                 const sessionAverage = sessionTotalScore / data.length;
+                 await window.supabaseClient.from('sessions').update({
+                     status: 'needs_review',
+                     total_students: totalStudentsGraded,
+                     average_score: sessionAverage
+                 }).eq('id', sessionId);
+             }
+        } catch(e) {}
 
         await window.PlaybookQueue.deleteMeta(sessionId);
 
