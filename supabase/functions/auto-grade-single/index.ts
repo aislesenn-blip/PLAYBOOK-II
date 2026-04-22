@@ -452,8 +452,34 @@ async function processGrading(supabase: any, submission: any) {
     }
 
     const googleAIApiKey = secrets.gemini_api_key
-    const studentText = submission.text_content
     const sessionId = submission.sessions.id
+
+    // Parse studentText to see if it's an array of base64 images or plain text
+    let studentContent = submission.text_content;
+    let isVisionMode = false;
+    let imageParts: any[] = [];
+
+    try {
+        const parsedContent = JSON.parse(studentContent);
+        if (Array.isArray(parsedContent)) {
+            isVisionMode = true;
+            // Format base64 images for Gemini inlineData
+            parsedContent.forEach((imageUrl: string) => {
+                const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+                if (matches) {
+                    imageParts.push({
+                        inlineData: {
+                            mimeType: matches[1],
+                            data: matches[2]
+                        }
+                    });
+                }
+            });
+        }
+    } catch(e) {
+        // It's standard text
+    }
+
 
     // DB Caching for Optimized Scheme
     let optimizedScheme = "";
@@ -507,7 +533,13 @@ async function processGrading(supabase: any, submission: any) {
 
 
     // MAP REDUCE AI GRADING
-    const gradingResult = await gradeBatchExamsCloud(studentText, rawInstructions, optimizedScheme, googleAIApiKey)
+    const gradingResult = await gradeBatchExamsCloud(
+        isVisionMode ? imageParts : studentContent,
+        rawInstructions,
+        optimizedScheme,
+        googleAIApiKey,
+        isVisionMode
+    )
 
     await supabase
       .from('exam_submissions')
@@ -579,14 +611,21 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
     }
 }
 
-async function gradeBatchExamsCloud(studentText: string, rawInstructions: string, optimizedScheme: string, apiKey: string) {
-    // Context Caching Strategy: Move the heavy payload (Marking Scheme & Exam Text) into the System Prompt
-    const contextHeavySystemPrompt1 = `${PASS1_SYSTEM_PROMPT}\n\n[CONTEXTUAL CACHE DATA]\nMarking Scheme:\n${optimizedScheme}\n\nStudent Exam Submission:\n---\n${studentText || '[NO CONTENT]'}\n---`;
+async function gradeBatchExamsCloud(studentContent: any, rawInstructions: string, optimizedScheme: string, apiKey: string, isVisionMode: boolean) {
+
+    let pass1SystemPrompt = `${PASS1_SYSTEM_PROMPT}\n\n[CONTEXTUAL CACHE DATA]\nMarking Scheme:\n${optimizedScheme}`;
+    let pass1UserPrompt: any = "Analyze the exam structure.";
+
+    if (isVisionMode) {
+        pass1UserPrompt = [...studentContent, { text: "Analyze the exam structure." }];
+    } else {
+        pass1SystemPrompt += `\n\nStudent Exam Submission:\n---\n${studentContent || '[NO CONTENT]'}\n---`;
+    }
 
     // 1. Pass 1: Segmentation (Map - Skeleton Only)
     let mapDataStr;
     try {
-        mapDataStr = await fetchGoogleAI(apiKey, contextHeavySystemPrompt1, "Analyze the exam structure.", "Playbook Autopilot Map", true);
+        mapDataStr = await fetchGoogleAI(apiKey, pass1SystemPrompt, pass1UserPrompt, "Playbook Autopilot Map", true);
     } catch(e: any) {
          throw new Error("Pass 1 Map failed: " + e.message);
     }
@@ -614,11 +653,16 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
         await semaphore.acquire();
         try {
             // Phase 1B: Extract transcription explicitly for this question
-            // Context Caching: Move exam payload to System Prompt
-            const contextHeavyExtractPrompt = `${PASS1B_EXTRACTION_PROMPT}\n\n[CONTEXTUAL CACHE DATA]\nStudent Exam Submission:\n---\n${studentText || '[NO CONTENT]'}\n---`;
-            const extractTarget = `Locate and transcribe the exact answer for Question ID: ${q.questionId}`;
+            let extractSystemPrompt = PASS1B_EXTRACTION_PROMPT;
+            let extractUserPrompt: any = `Locate and transcribe the exact answer for Question ID: ${q.questionId}`;
 
-            const transcriptionJSON = await fetchGoogleAI(apiKey, contextHeavyExtractPrompt, extractTarget, "Playbook Pass1B Transcription", true);
+            if (isVisionMode) {
+                extractUserPrompt = [...studentContent, { text: extractUserPrompt }];
+            } else {
+                extractSystemPrompt += `\n\n[CONTEXTUAL CACHE DATA]\nStudent Exam Submission:\n---\n${studentContent || '[NO CONTENT]'}\n---`;
+            }
+
+            const transcriptionJSON = await fetchGoogleAI(apiKey, extractSystemPrompt, extractUserPrompt, "Playbook Pass1B Transcription", true);
             const parsedTranscription = parseLLMJSON(transcriptionJSON);
             q.student_answer_transcription = parsedTranscription.student_answer_transcription || "No text extracted.";
 
