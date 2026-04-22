@@ -870,11 +870,79 @@ async function extractMarkingSchemeOCR(base64Images) {
     }
 }
 
+// -----------------------------------------------------------------------------
+// NEW CLOUD ENGINE BRIDGE (True Parallelism & Realtime UI)
+// -----------------------------------------------------------------------------
+
+/**
+ * Triggers the Supabase Edge Function to perform True Parallel grading (6 seconds).
+ * Replaces the old slow client-side `gradeBatchExams`.
+ */
+async function triggerCloudGrading(submissionId) {
+    if (!submissionId) throw new Error("Submission ID is required to trigger Cloud Grading.");
+    console.log(`🚀 Kutuma mtihani [${submissionId}] kwenye Cloud Engine...`);
+
+    try {
+        const { data, error } = await window.supabaseClient.functions.invoke('auto-grade-single', {
+            body: JSON.stringify({ submission_id: submissionId })
+        });
+
+        if (error) {
+            console.error("Cloud Grading imefeli kuanza:", error);
+            throw error;
+        }
+
+        console.log("✅ Cloud Engine inafanya kazi yake. Kusikiliza matokeo Live...");
+        return { success: true, message: "Processing started on Cloud." };
+    } catch (e) {
+        console.error("Error triggering cloud grading:", e);
+        throw e;
+    }
+}
+
+/**
+ * Listens for realtime database updates to update the UI instantly without polling.
+ * Call this in your review/upload screen when grading starts.
+ */
+function listenForGradingCompletion(submissionId, onProgress, onComplete, onError) {
+    if (!window.supabaseClient) {
+        console.error("Supabase client not initialized.");
+        return;
+    }
+
+    const channel = window.supabaseClient
+        .channel(`grading-status-${submissionId}`)
+        .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'exam_submissions', filter: `id=eq.${submissionId}` },
+            (payload) => {
+                const status = payload.new.status;
+                console.log(`Live Update kutoka Cloud: Status = ${status}`);
+
+                if (status === 'processing' && typeof onProgress === 'function') {
+                    onProgress("Cloud AI inachambua na kusahihisha maswali yako kwa mpigo...");
+                }
+                else if (status === 'completed' && typeof onComplete === 'function') {
+                    onComplete(payload.new.grading_data, payload.new.total_score);
+                    window.supabaseClient.removeChannel(channel); // Clean up
+                }
+                else if (status === 'failed' && typeof onError === 'function') {
+                    onError(payload.new.error_log || "Kuna shida mtandaoni. AI imeshindwa.");
+                    window.supabaseClient.removeChannel(channel);
+                }
+            }
+        )
+        .subscribe();
+
+    return channel;
+}
+
+
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, triggerCloudGrading, listenForGradingCompletion };
 } else {
-            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, triggerCloudGrading, listenForGradingCompletion };
 }
 
 // EXPOSE EXTRACTOR TO UE
