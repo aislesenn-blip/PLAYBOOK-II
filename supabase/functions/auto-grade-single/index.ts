@@ -396,6 +396,7 @@ serve(async (req) => {
           id,
           course_id,
           exam_instructions,
+          optimized_marking_scheme,
           professor_id,
           courses!inner (
             institution_id
@@ -452,9 +453,61 @@ async function processGrading(supabase: any, submission: any) {
 
     const googleAIApiKey = secrets.gemini_api_key
     const studentText = submission.text_content
+    const sessionId = submission.sessions.id
+
+    // DB Caching for Optimized Scheme
+    let optimizedScheme = "";
+    // Only attempt to parse if the column actually exists and has data
+    if (submission.sessions.optimized_marking_scheme) {
+        try {
+             // In Supabase, JSONB can come back as a string or object.
+             optimizedScheme = typeof submission.sessions.optimized_marking_scheme === 'string'
+                ? JSON.parse(submission.sessions.optimized_marking_scheme)
+                : submission.sessions.optimized_marking_scheme;
+             console.log("✅ Using cached optimized marking scheme from DB");
+        } catch(e) {
+            console.warn("Failed to parse cached optimized scheme, will regenerate.");
+        }
+    }
+
+    if (!optimizedScheme && rawInstructions && rawInstructions.length > 20) {
+        console.log("⚙️ Generating new optimized marking scheme...");
+        try {
+            // Edge Function L9 Chunking Optimization (Parallel Fan-Out)
+            const chunks = rawInstructions.split(/(?=\n*Question\s*\d)/i).filter((c: string) => c.trim().length > 0);
+            if (chunks.length === 0) chunks.push(rawInstructions);
+
+            const optimizeSemaphore = new Semaphore(20);
+            const chunkPromises = chunks.map(async (chunkText: string, index: number) => {
+                await optimizeSemaphore.acquire();
+                try {
+                    let res = await fetchGoogleAI(googleAIApiKey, OPTIMIZE_PROMPT, chunkText, `Optimizer Chunk ${index}`, false);
+                    return { index, text: res.replace(/^```[^\n]*\n|\n```$/g, '') };
+                } finally {
+                    optimizeSemaphore.release();
+                }
+            });
+
+            const results = await Promise.all(chunkPromises);
+            results.sort((a, b) => a.index - b.index);
+            optimizedScheme = results.map(r => r.text).join("\n\n");
+
+            // Cache it back to the DB to save 15s on all future submissions
+            const updatePayload: any = { optimized_marking_scheme: optimizedScheme };
+            await supabase.from('sessions').update(updatePayload).eq('id', sessionId);
+            console.log("💾 Optimized scheme cached to DB successfully.");
+
+        } catch (e: any) {
+            console.warn("Scheme optimization failed, falling back to raw scheme. Error:", e.message);
+            optimizedScheme = rawInstructions;
+        }
+    } else if (!optimizedScheme) {
+        optimizedScheme = rawInstructions;
+    }
+
 
     // MAP REDUCE AI GRADING
-    const gradingResult = await gradeBatchExamsCloud(studentText, rawInstructions, googleAIApiKey)
+    const gradingResult = await gradeBatchExamsCloud(studentText, rawInstructions, optimizedScheme, googleAIApiKey)
 
     await supabase
       .from('exam_submissions')
@@ -526,42 +579,14 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
     }
 }
 
-async function gradeBatchExamsCloud(studentText: string, rawInstructions: string, apiKey: string) {
-    // 0. Optimize Scheme
-    let optimizedScheme = rawInstructions;
-    if (rawInstructions && rawInstructions.length > 20) {
-        try {
-            // Edge Function L9 Chunking Optimization (Parallel Fan-Out)
-            const chunks = rawInstructions.split(/(?=\n*Question\s*\d)/i).filter(c => c.trim().length > 0);
-            if (chunks.length === 0) chunks.push(rawInstructions);
-
-            const optimizeSemaphore = new Semaphore(20);
-            const chunkPromises = chunks.map(async (chunkText, index) => {
-                await optimizeSemaphore.acquire();
-                try {
-                    let res = await fetchGoogleAI(apiKey, OPTIMIZE_PROMPT, chunkText, `Optimizer Chunk ${index}`, false);
-                    return { index, text: res.replace(/^```[^\n]*\n|\n```$/g, '') };
-                } finally {
-                    optimizeSemaphore.release();
-                }
-            });
-
-            const results = await Promise.all(chunkPromises);
-            results.sort((a, b) => a.index - b.index);
-            optimizedScheme = results.map(r => r.text).join("\n\n");
-
-        } catch (e: any) {
-            console.warn("Scheme optimization failed, using raw scheme. Error:", e.message);
-        }
-    }
+async function gradeBatchExamsCloud(studentText: string, rawInstructions: string, optimizedScheme: string, apiKey: string) {
+    // Context Caching Strategy: Move the heavy payload (Marking Scheme & Exam Text) into the System Prompt
+    const contextHeavySystemPrompt1 = `${PASS1_SYSTEM_PROMPT}\n\n[CONTEXTUAL CACHE DATA]\nMarking Scheme:\n${optimizedScheme}\n\nStudent Exam Submission:\n---\n${studentText || '[NO CONTENT]'}\n---`;
 
     // 1. Pass 1: Segmentation (Map - Skeleton Only)
-    let promptText = `Here is the marking scheme:\n${optimizedScheme}\n\n`;
-    promptText += `Here is the raw text of this single student's digital exam submission:\n\n---\n${studentText || '[NO CONTENT]'}\n---`;
-
     let mapDataStr;
     try {
-        mapDataStr = await fetchGoogleAI(apiKey, PASS1_SYSTEM_PROMPT, promptText, "Playbook Autopilot Map", true);
+        mapDataStr = await fetchGoogleAI(apiKey, contextHeavySystemPrompt1, "Analyze the exam structure.", "Playbook Autopilot Map", true);
     } catch(e: any) {
          throw new Error("Pass 1 Map failed: " + e.message);
     }
@@ -588,9 +613,12 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 
         await semaphore.acquire();
         try {
-            // Phase 1B: Extract transcription explicitly for this question to avoid Pass 1 bulk token truncation
-            const extractPrompt = `Locate and transcribe the exact answer for Question ID: ${q.questionId}\n\nHere is the raw text of this single student's digital exam submission:\n\n---\n${studentText || '[NO CONTENT]'}\n---`;
-            const transcriptionJSON = await fetchGoogleAI(apiKey, PASS1B_EXTRACTION_PROMPT, extractPrompt, "Playbook Pass1B Transcription", true);
+            // Phase 1B: Extract transcription explicitly for this question
+            // Context Caching: Move exam payload to System Prompt
+            const contextHeavyExtractPrompt = `${PASS1B_EXTRACTION_PROMPT}\n\n[CONTEXTUAL CACHE DATA]\nStudent Exam Submission:\n---\n${studentText || '[NO CONTENT]'}\n---`;
+            const extractTarget = `Locate and transcribe the exact answer for Question ID: ${q.questionId}`;
+
+            const transcriptionJSON = await fetchGoogleAI(apiKey, contextHeavyExtractPrompt, extractTarget, "Playbook Pass1B Transcription", true);
             const parsedTranscription = parseLLMJSON(transcriptionJSON);
             q.student_answer_transcription = parsedTranscription.student_answer_transcription || "No text extracted.";
 
@@ -612,11 +640,14 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
 async function gradeSingleQuestionCloud(apiKey: string, questionData: any, markingSchemeText: string) {
     let attempt = 0;
 
+    // Context Caching: Move Marking Scheme to System Prompt
+    const contextHeavyPass2Prompt = `${PASS2_SYSTEM_PROMPT}\n\n[CONTEXTUAL CACHE DATA]\nMarking Scheme:\n${markingSchemeText}`;
+
     while (true) {
         try {
-            const promptText = `Marking Scheme for context:\n${markingSchemeText}\n\nEvaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
+            const promptText = `Evaluate the following student's answer for Question ${questionData.questionId}:\nMax Marks: ${questionData.max_marks}\nAnswer: ${questionData.student_answer_transcription}`;
 
-            const rawContent = await fetchGoogleAI(apiKey, PASS2_SYSTEM_PROMPT, promptText, "Playbook Autopilot Reduce", true);
+            const rawContent = await fetchGoogleAI(apiKey, contextHeavyPass2Prompt, promptText, "Playbook Autopilot Reduce", true);
             const parsed = parseLLMJSON(rawContent);
 
             if (parsed.points_awarded === undefined && parsed.total_correct_points_found === undefined && parsed.is_entirely_blank === undefined) {
