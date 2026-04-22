@@ -520,9 +520,7 @@ async function fetchGoogleAI(apiKey: string, systemPrompt: string, userContent: 
             attempt++;
             console.warn(`[Infinite Retry] fetchGoogleAI attempt ${attempt} failed for ${title}: ${error.message}`);
 
-            let backoffTime = 4000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
-
+            let backoffTime = 2000; // Flat 2 second delay for Edge Serverless Paid Tier
             await delay(backoffTime);
         }
     }
@@ -533,15 +531,25 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     let optimizedScheme = rawInstructions;
     if (rawInstructions && rawInstructions.length > 20) {
         try {
-            // Edge Function L9 Chunking Optimization
+            // Edge Function L9 Chunking Optimization (Parallel Fan-Out)
             const chunks = rawInstructions.split(/(?=\n*Question\s*\d)/i).filter(c => c.trim().length > 0);
             if (chunks.length === 0) chunks.push(rawInstructions);
-            let combined = "";
-            for (let i = 0; i < chunks.length; i++) {
-                let res = await fetchGoogleAI(apiKey, OPTIMIZE_PROMPT, chunks[i], "Playbook Autopilot Optimizer", false);
-                combined += res.replace(/^```[^\n]*\n|\n```$/g, '') + "\n\n";
-            }
-            optimizedScheme = combined;
+
+            const optimizeSemaphore = new Semaphore(20);
+            const chunkPromises = chunks.map(async (chunkText, index) => {
+                await optimizeSemaphore.acquire();
+                try {
+                    let res = await fetchGoogleAI(apiKey, OPTIMIZE_PROMPT, chunkText, `Optimizer Chunk ${index}`, false);
+                    return { index, text: res.replace(/^```[^\n]*\n|\n```$/g, '') };
+                } finally {
+                    optimizeSemaphore.release();
+                }
+            });
+
+            const results = await Promise.all(chunkPromises);
+            results.sort((a, b) => a.index - b.index);
+            optimizedScheme = results.map(r => r.text).join("\n\n");
+
         } catch (e: any) {
             console.warn("Scheme optimization failed, using raw scheme. Error:", e.message);
         }
@@ -565,7 +573,8 @@ async function gradeBatchExamsCloud(studentText: string, rawInstructions: string
     const questions = parsedMap.questions || [];
 
     // 2. Pass 1B & Pass 2: Parallel Extraction & Grading (Reduce)
-    const semaphore = new Semaphore(4); // Throttled to 4 to prevent Google AI 503 'Service Unavailable / Spikes in demand' errors
+    // Serverless Fan-Out: Increased to 50 for True Parallelism on Paid Tier Edge Function
+    const semaphore = new Semaphore(50);
     const gradingPromises = questions.map(async (q: any) => {
         if (q.answer_status === "Skipped") {
             return {
@@ -627,11 +636,7 @@ async function gradeSingleQuestionCloud(apiKey: string, questionData: any, marki
             attempt++;
             console.warn(`[Infinite Retry] gradeSingleQuestion attempt ${attempt} failed for Question ${questionData.questionId}: ${error.message}`);
 
-            // Exponential backoff capped at ~60 seconds to prevent massive delays
-            const baseDelay = 4000;
-            let backoffTime = baseDelay * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 2000);
-            if (backoffTime > 60000) backoffTime = 60000;
-
+            let backoffTime = 2000; // Flat 2 second delay for Edge Serverless
             await delay(backoffTime);
         }
     }
