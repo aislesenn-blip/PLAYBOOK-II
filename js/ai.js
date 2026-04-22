@@ -884,7 +884,7 @@ async function triggerCloudGrading(submissionId) {
 
     try {
         const { data, error } = await window.supabaseClient.functions.invoke('auto-grade-single', {
-            body: JSON.stringify({ submission_id: submissionId })
+            body: { submission_id: submissionId } // Pass as an object, Supabase client handles JSON.stringify
         });
 
         if (error) {
