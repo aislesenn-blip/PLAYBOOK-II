@@ -86,153 +86,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    window.resumeSession = async function resumeSession(meta) {
-        overlay.classList.add('active');
-        statusEl.textContent = 'Resuming Session...';
-        detailEl.textContent = `Preparing to grade remaining exams for ${meta.sessionName}...`;
-
-        await processQueue(meta);
-    }
-
-    async function processQueue(meta) {
-        const { sessionId, explicitMaxMarks, storagePath } = meta;
-        let totalStudentsGraded = await window.PlaybookQueue.getCompletedCount(sessionId);
-
-        let nextChunk = await window.PlaybookQueue.getNextPendingChunk(sessionId);
-
-        while (nextChunk) {
-            const pendingCount = await window.PlaybookQueue.getPendingCount(sessionId);
-
-            // Create DB record as 'pending'
-            let studentSubmissionId = null;
-            try {
-                // To keep it simple, we use the OCR images or text logic previously handled locally,
-                // but since the Edge Function currently expects text_content (from PDF parsing),
-                // we'll pass the base64 or text as needed.
-                // Wait, the edge function expects text_content, but upload.js was passing base64 arrays to PlaybookAI.
-                // The new architecture requires passing the payload to the Edge function via DB insertion.
-                const { data, error } = await window.supabaseClient.from('exam_submissions').insert({
-                    session_id: sessionId,
-                    student_name: `Unknown Student ${totalStudentsGraded + 1}`,
-                    registration_number: `ID-UNKNOWN-${totalStudentsGraded + 1}`,
-                    pdf_storage_path: storagePath,
-                    total_score: 0,
-                    max_score: explicitMaxMarks,
-                    text_content: JSON.stringify(nextChunk.images), // Store base64 for Edge to process if it expects it, or OCR it here
-                    status: 'pending'
-                }).select();
-
-                if (error) throw error;
-                studentSubmissionId = data[0].id;
-            } catch (err) {
-                console.error("Failed to insert pending submission", err);
-                alert("Failed to initialize submission.");
-                overlay.classList.remove('active');
-                return;
-            }
-
-            // Start Live Review Theater Button
-            if (!document.getElementById('live-review-btn')) {
-                const btn = document.createElement('a');
-                btn.id = 'live-review-btn';
-                btn.href = `review.html?session=${sessionId}`;
-                btn.target = '_blank';
-                btn.className = 'btn';
-                btn.style.marginTop = '1rem';
-                btn.style.backgroundColor = '#10b981'; // green-500
-                btn.textContent = 'Review Graded Students Now (Opens in new tab)';
-                detailEl.parentNode.appendChild(btn);
-            }
-
-            try {
-                // Trigger the Edge Function
-                await window.PlaybookAI.triggerCloudGrading(studentSubmissionId);
-
-                // Listen for completion
-                await new Promise((resolve, reject) => {
-                    const channel = window.PlaybookAI.listenForGradingCompletion(
-                        studentSubmissionId,
-                        (msg) => {
-                            statusEl.textContent = `Grading Student ${totalStudentsGraded + 1}...`;
-                            detailEl.textContent = msg;
-                        },
-                        (gradingData, score) => {
-                            console.log(`Student ${studentSubmissionId} completed with score: ${score}`);
-                            resolve();
-                        },
-                        (errMsg) => {
-                            reject(new Error(errMsg));
-                        }
-                    );
-                });
-
-                totalStudentsGraded++;
-                await window.PlaybookQueue.markChunkCompleted(nextChunk.id);
-            } catch (aiErr) {
-                console.error("Cloud Engine Error on chunk", nextChunk.id, aiErr);
-                alert(`Grading paused due to an error on chunk ${nextChunk.id}. Please try resuming the session later. Error: ${aiErr.message}`);
-                overlay.classList.remove('active');
-                return; // Break out to preserve the pending chunk for resumption
-            }
-
-            nextChunk = await window.PlaybookQueue.getNextPendingChunk(sessionId);
-        }
-
-        // Finished all chunks
-        statusEl.textContent = 'Wrapping up...';
-        detailEl.textContent = `Successfully graded ${totalStudentsGraded} students in total.`;
-
-        // Update session average natively by querying
-        try {
-             const { data } = await window.supabaseClient.from('exam_submissions').select('total_score').eq('session_id', sessionId);
-             if (data && data.length > 0) {
-                 const sessionTotalScore = data.reduce((sum, s) => sum + s.total_score, 0);
-                 const sessionAverage = sessionTotalScore / data.length;
-                 await window.supabaseClient.from('sessions').update({
-                     status: 'needs_review',
-                     total_students: totalStudentsGraded,
-                     average_score: sessionAverage
-                 }).eq('id', sessionId);
-             }
-        } catch(e) {}
-
-        await window.PlaybookQueue.deleteMeta(sessionId);
-
-        statusEl.textContent = 'Grading Complete!';
-        detailEl.textContent = 'Taking you to the Review screen to check the results...';
-
-        setTimeout(() => {
-            window.location.href = `review.html?session=${sessionId}`;
-        }, 3000);
-    }
-
-
-
-    const sessionUser = requireAuth(['professor', 'admin']);
-    if (!sessionUser) return;
-
-    // --- CHECK FOR PENDING SESSION IN QUEUE ---
-    try {
-        if (window.PlaybookQueue) {
-            const pending = await window.PlaybookQueue.getFirstPendingSession();
-            if (pending) {
-                const resume = confirm(`You have an unfinished grading session ("${pending.meta.sessionName}") with ${pending.pendingCount} exams remaining. Would you like to resume it now?\n\nClick OK to resume, or Cancel to start a new session (the old one will be cleared from your local browser).`);
-                if (resume) {
-                    resumeSession(pending.meta);
-                    return; // Stop normal init
-                } else {
-                    await window.PlaybookQueue.deleteAllChunksForSession(pending.meta.sessionId);
-                    await window.PlaybookQueue.deleteMeta(pending.meta.sessionId);
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Queue check failed:", e);
-    }
-
-
-    const form = document.getElementById('upload-form');
-    const schemeFileInput = document.getElementById('scheme-file');
     const examsFileInput = document.getElementById('exams-file');
 
     // Smart Pre-Processor Logic
@@ -483,10 +336,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusEl.textContent = 'Grading Engine Active...';
             detailEl.textContent = 'Playbook AI is analyzing the document. Please do not close this window.';
 
-            // 4. Edge-Bound Cloud Processing (20 Second Magic)
-            // The frontend keeps splitting the PDF via pdf.js to respect token limits per exam paper,
-            // but instead of sending it to a slow local queue, it sends ALL student chunks to the Edge Network instantly.
-
+            // 4. Distributed Client-Side Processing
             // Convert PDF to Base64 Images natively using pdf.js to guarantee model compatibility (e.g. GPT-4o)
             const arrayBuffer = await examsFile.arrayBuffer();
 
@@ -527,6 +377,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const inkCoverage = nonWhitePixels / Math.floor(pixelBuffer.length / 10);
                 return inkCoverage < 0.01; // Less than 1% dark pixels in the center means blank
             }
+
+            let sessionTotalScore = 0;
+            let totalStudentsGraded = 0;
 
             // Step A: Group pages into chunks by blank page detection
             statusEl.textContent = 'Scanning Document...';
@@ -579,67 +432,43 @@ document.addEventListener('DOMContentLoaded', async () => {
                 studentChunks.push(currentStudentPages);
             }
 
+
+            // Step B: Edge Processing Migration
+            // We bypass the slow local IndexedDB queue and write directly to Supabase.
+            // The Supabase Edge Network uses Database Webhooks to trigger True Parallelism.
+            statusEl.textContent = 'Routing to Edge Servers...';
+            detailEl.textContent = `Offloading ${studentChunks.length} students to Playbook Cloud Network...`;
+
             // Save the AI-formatted marking scheme to the session row so the teacher can view it later
             await window.supabaseClient.from('sessions').update({
                 exam_instructions: markingSchemeText,
                 total_students: studentChunks.length
             }).eq('id', savedSession.id);
 
-            statusEl.textContent = 'Routing to Edge Servers...';
-            detailEl.textContent = `Offloading ${studentChunks.length} students to Playbook Cloud Network...`;
-
-            // Create submission rows
+            // We must insert into 'exam_submissions' in chunks or concurrently to fire the webhooks
             const submissionPromises = studentChunks.map(async (chunkImages, index) => {
-                const { data, error } = await window.supabaseClient.from('exam_submissions').insert({
+                const { error } = await window.supabaseClient.from('exam_submissions').insert({
                     session_id: savedSession.id,
                     student_name: `Student ${index + 1}`,
                     registration_number: `ID-UNKNOWN-${index + 1}`,
                     pdf_storage_path: storagePath,
                     total_score: 0,
                     max_score: explicitMaxMarks,
-                    text_content: JSON.stringify(chunkImages), // Store base64 array as text_content for the Edge Function
+                    text_content: JSON.stringify(chunkImages), // Array of base64 images
                     status: 'pending'
-                }).select();
-
+                });
                 if (error) throw error;
-                return data[0].id;
             });
 
-            const submissionIds = await Promise.all(submissionPromises);
+            await Promise.all(submissionPromises);
 
+            // Step C: Redirect to Review (Live Dashboard)
             statusEl.textContent = 'Edge Computations Active...';
-            detailEl.textContent = 'True Parallel Grading initiated. Expected time: < 20 seconds.';
+            detailEl.textContent = 'True Parallel Grading initiated in the cloud. You can safely close this window or wait for the redirect.';
 
-            // Trigger Edge Function for each submission concurrently
-            const edgePromises = submissionIds.map(subId =>
-                window.PlaybookAI.triggerCloudGrading(subId)
-            );
-
-            // Wait for all cloud functions to finish
-            await Promise.allSettled(edgePromises);
-
-            // Update session average natively by querying
-            try {
-                 const { data } = await window.supabaseClient.from('exam_submissions').select('total_score').eq('session_id', savedSession.id);
-                 if (data && data.length > 0) {
-                     const sum = data.reduce((acc, curr) => acc + (curr.total_score || 0), 0);
-                     const avg = sum / data.length;
-                     await window.supabaseClient.from('sessions').update({
-                         status: 'completed',
-                         average_score: avg
-                     }).eq('id', savedSession.id);
-                 }
-            } catch(e) {
-                console.error("Failed to update average natively", e);
-            }
-
-            statusEl.textContent = 'Wrapping up...';
-            detailEl.textContent = `Successfully completed edge processing.`;
-
-            // Redirect to class details page to view results
             setTimeout(() => {
                 window.location.href = `class_detail.html?course_id=${courseId}`;
-            }, 1500);
+            }, 3000);
 
         } catch (error) {
             // Attempt to mark session as failed

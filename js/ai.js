@@ -714,20 +714,16 @@ You are an elite educational engineer. Rewrite this raw marking scheme into the 
 CRITICAL MANDATES:
 
 1. NO DATA LOSS: Preserve every alternative answer and exact mark allocation.
-2. STRICT HIERARCHY & SECTIONS: Every single question/sub-question MUST have its own block. Do not merge sub-questions. If the raw text contains Section headers (e.g., Section A, Section B), you MUST precede the questions in that section with a strict section marker block: [SECTION: X]. If no sections are found, assume [SECTION: GENERAL].
+2. STRICT HIERARCHY: Every single question/sub-question MUST have its own block. Do not merge sub-questions.
 3. ATOMIC CRITERIA: Break down paragraph answers into explicit, atomic, true/false grading criteria. Each criterion must represent exactly one independently gradable concept.
 4. Output ONLY the structured text. No markdown block wrapping (\`\`\`).
 
 === PLAYBOOK STANDARD FORMAT EXAMPLE ===
-[SECTION: A]
-
 Question 1a: Definition (Max: 3 marks)
 
 Criterion_1: States "conversion of light energy to chemical energy" (1 mark)
 Criterion_2: Explicitly writes "Chlorophyll" (1 mark)
 Criterion_3: Mentions "Water" (1 mark)
-
-[SECTION: B]
 
 Question 1b: Diagram (Max: 2 marks)
 
@@ -870,79 +866,11 @@ async function extractMarkingSchemeOCR(base64Images) {
     }
 }
 
-// -----------------------------------------------------------------------------
-// NEW CLOUD ENGINE BRIDGE (True Parallelism & Realtime UI)
-// -----------------------------------------------------------------------------
-
-/**
- * Triggers the Supabase Edge Function to perform True Parallel grading (6 seconds).
- * Replaces the old slow client-side `gradeBatchExams`.
- */
-async function triggerCloudGrading(submissionId) {
-    if (!submissionId) throw new Error("Submission ID is required to trigger Cloud Grading.");
-    console.log(`🚀 Kutuma mtihani [${submissionId}] kwenye Cloud Engine...`);
-
-    try {
-        const { data, error } = await window.supabaseClient.functions.invoke('auto-grade-single', {
-            body: { submission_id: submissionId } // Pass as an object, Supabase client handles JSON.stringify
-        });
-
-        if (error) {
-            console.error("Cloud Grading imefeli kuanza:", error);
-            throw error;
-        }
-
-        console.log("✅ Cloud Engine inafanya kazi yake. Kusikiliza matokeo Live...");
-        return { success: true, message: "Processing started on Cloud." };
-    } catch (e) {
-        console.error("Error triggering cloud grading:", e);
-        throw e;
-    }
-}
-
-/**
- * Listens for realtime database updates to update the UI instantly without polling.
- * Call this in your review/upload screen when grading starts.
- */
-function listenForGradingCompletion(submissionId, onProgress, onComplete, onError) {
-    if (!window.supabaseClient) {
-        console.error("Supabase client not initialized.");
-        return;
-    }
-
-    const channel = window.supabaseClient
-        .channel(`grading-status-${submissionId}`)
-        .on(
-            'postgres_changes',
-            { event: 'UPDATE', schema: 'public', table: 'exam_submissions', filter: `id=eq.${submissionId}` },
-            (payload) => {
-                const status = payload.new.status;
-                console.log(`Live Update kutoka Cloud: Status = ${status}`);
-
-                if (status === 'processing' && typeof onProgress === 'function') {
-                    onProgress("Cloud AI inachambua na kusahihisha maswali yako kwa mpigo...");
-                }
-                else if (status === 'completed' && typeof onComplete === 'function') {
-                    onComplete(payload.new.grading_data, payload.new.total_score);
-                    window.supabaseClient.removeChannel(channel); // Clean up
-                }
-                else if (status === 'failed' && typeof onError === 'function') {
-                    onError(payload.new.error_log || "Kuna shida mtandaoni. AI imeshindwa.");
-                    window.supabaseClient.removeChannel(channel);
-                }
-            }
-        )
-        .subscribe();
-
-    return channel;
-}
-
-
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, triggerCloudGrading, listenForGradingCompletion };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 } else {
-            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, triggerCloudGrading, listenForGradingCompletion };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
 }
 
 // EXPOSE EXTRACTOR TO UE
