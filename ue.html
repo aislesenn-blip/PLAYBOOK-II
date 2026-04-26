@@ -99,68 +99,66 @@
 <main class="main-content max-w-5xl mx-auto" style="padding-top: 2rem;">
     <div class="flex justify-between items-center" style="margin-bottom: 2rem;">
         <div>
-            <h1 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary);">Ultimate Engine</h1>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Compile marking schemes into determinist graphs and execute at millisecond speeds.</p>
+            <h1 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary);">Holistic Engine</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Grade entire exams holistically with Deep AI Context Analysis.</p>
         </div>
     </div>
 
     <!-- INPUT PHASE -->
     <div id="input-phase">
-        <!-- Session Info -->
-        <div class="card mb-2" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-            <div class="flex gap-2" style="align-items: flex-start; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 250px;">
-                    <label for="session-name" style="font-weight: 500; display: block; margin-bottom: 0.25rem;">Session Name</label>
-                    <input type="text" id="session-name" class="form-control" placeholder="e.g. Midterm 2024 (Optional)">
+        <form id="upload-form">
+            <div class="form-group" style="display: flex; gap: var(--spacing-md);">
+                <div style="flex: 1;">
+                    <label class="form-label" for="session-name">Session Name (e.g. HIST 202 - Midterm)</label>
+                    <input class="form-control" id="session-name" placeholder="Enter session name..." required="" type="text"/>
                 </div>
-                <div style="flex: 1; min-width: 250px;">
-                    <label for="target-class" style="font-weight: 500; display: block; margin-bottom: 0.25rem;">Target Class</label>
-                    <select id="target-class" class="form-control">
+                <div style="flex: 1;">
+                    <label class="form-label" for="target-class">Target Class</label>
+                    <select class="form-control" id="target-class" required="">
                         <option value="">-- Select Class --</option>
                     </select>
                 </div>
             </div>
-        </div>
 
-        <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
-            <!-- Marking Scheme Input -->
-            <div class="card flex-col" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-                <div class="flex justify-between items-center w-100">
-                    <h3 class="mb-1">1. The Marking Scheme</h3>
+            <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--spacing-md);">
+                <!-- Marking Scheme Section -->
+                <div class="card flex-col">
+                    <div class="flex justify-between items-center w-100">
+                        <h3 class="mb-1">1. Marking Scheme &amp; Logic</h3>
+                    </div>
+
+                    <div id="raw-scheme-container" style="width: 100%;">
+                        <textarea class="form-control" id="ue-scheme-text" placeholder="Paste your raw marking scheme here..." style="height: 250px; resize: vertical; margin-bottom: var(--spacing-sm);"></textarea>
+                        <div class="flex justify-between items-center">
+                            <label class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem; cursor: pointer;">
+                                Upload Document
+                                <input accept=".txt, .pdf, .doc, .docx, image/png, image/jpeg, image/jpg" id="ue-scheme-upload" style="display: none;" type="file"/>
+                            </label>
+                        </div>
+                        <p id="ue-scheme-status" style="font-size: 0.8rem; color: var(--text-secondary); text-align: left; margin-top: 0.5rem;">Or paste raw Scheme above</p>
+                    </div>
                 </div>
-                <div style="display: block; width: 100%; margin-bottom: 1rem;">
-                    <label class="btn btn-secondary" style="display: inline-block; cursor: pointer; text-align: center; width: 100%;">
-                        Upload PDF / Image Scheme
-                        <input type="file" id="ue-scheme-upload" accept=".pdf,image/*,.docx,.txt" style="display: none;">
-                    </label>
-                    <p id="ue-scheme-status" style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">Or paste raw JSON below:</p>
-                </div>
-                <div style="display: block; width: 100%;">
-                    <textarea class="form-control" id="ue-scheme-text" placeholder='{"questions": {"Q1": {...}}}' style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm); font-family: monospace;"></textarea>
+
+                <!-- Upload Scanned Exams -->
+                <div class="card flex-col items-center">
+                    <h3 class="mb-1">2. Bulk Scanned Exams (.pdf)</h3>
+                    <div class="upload-zone" id="exams-zone" style="width: 100%; border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 2rem; text-align: center; transition: all 0.2s;">
+                        <p class="mb-1" style="font-weight: 500; color: var(--text-primary);">Drag &amp; drop scanned student exam PDF here</p>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">or</p>
+                        <label class="btn btn-secondary mt-1" style="cursor: pointer;">
+                            Browse Files
+                            <input accept="application/pdf, image/png, image/jpeg, image/webp" id="ue-student-upload" style="display: none;" type="file"/>
+                        </label>
+                        <p class="mt-1" id="ue-student-status" style="font-size: 0.8rem; font-weight: bold; color: var(--success-color); margin-top: 1rem;"></p>
+                    </div>
+                    <textarea class="form-control mt-2" id="ue-student-text" placeholder='(Optional) Paste raw student answers here to bypass upload...' style="height: 100px; resize: vertical; margin-bottom: var(--spacing-sm); width: 100%; display: none;"></textarea>
                 </div>
             </div>
 
-            <!-- Student Answer Input -->
-            <div class="card flex-col" style="padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-                <div class="flex justify-between items-center w-100">
-                    <h3 class="mb-1">2. Student Exam Upload</h3>
-                </div>
-                <div style="display: block; width: 100%; margin-bottom: 1rem;">
-                    <label class="btn btn-secondary" style="display: inline-block; cursor: pointer; text-align: center; width: 100%;">
-                        Upload Student PDF / Image
-                        <input type="file" id="ue-student-upload" accept=".pdf,image/*" style="display: none;">
-                    </label>
-                    <p id="ue-student-status" style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">Or paste isolated JSON below:</p>
-                </div>
-                <div style="display: block; width: 100%;">
-                    <textarea class="form-control" id="ue-student-text" placeholder='{"Q1": "Chloroplast", "Q2": "Chlorophyll"}' style="height: 300px; resize: vertical; margin-bottom: var(--spacing-sm); font-family: monospace;"></textarea>
-                </div>
+            <div class="text-center mt-2">
+                <button class="btn" id="start-ue-btn" style="padding: 1rem 3rem; font-size: 1.1rem; cursor: pointer;" type="button">Execute Holistic Grading</button>
             </div>
-        </div>
-
-        <div class="text-center mt-2">
-            <button class="btn" id="start-ue-btn" style="padding: 1rem 3rem; font-size: 1.1rem; width: 100%; max-width: 400px; margin: 0 auto; display: block;">Execute Deterministic Grading</button>
-        </div>
+        </form>
     </div>
 
     <!-- TERMINAL OUTPUT -->

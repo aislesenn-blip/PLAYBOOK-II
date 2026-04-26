@@ -80,11 +80,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             schemeStatus.textContent = "Formatting via AI Compiler...";
             const optimized = await window.PlaybookAI.optimizeMarkingScheme(extractedText);
 
-            schemeStatus.textContent = "Compiling Golden JSON...";
-            const goldenJson = await window.compileGoldenJSON(await window.PlaybookAI.getSecureKey(), optimized);
-
-            schemeText.value = JSON.stringify(goldenJson, null, 2);
-            schemeStatus.textContent = "Golden JSON compiled successfully!";
+            schemeText.value = optimized;
+            schemeStatus.textContent = "Marking Scheme compiled successfully!";
             schemeStatus.style.color = "var(--success-color)";
         } catch (error) {
             schemeStatus.textContent = "Compilation Error: " + error.message;
@@ -192,8 +189,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             logTerminal("Initializing Holistic Exam Engine (Gemini 2.5 Pro)...");
 
             // Format parameters for holistic grading
-            const schemePayload = typeof goldenJson === 'object' ? JSON.stringify(goldenJson) : rawScheme;
-            const studentPayload = typeof studentAnswersJson === 'object' ? JSON.stringify(studentAnswersJson) : rawStudent;
+            const schemePayload = rawScheme;
+            const studentPayload = rawStudent;
 
             logTerminal("Executing Ultra-Precision Holistic Master Prompt...");
             const rawResults = await window.PlaybookAI.gradeExamHolistically(schemePayload, studentPayload);
