@@ -868,9 +868,107 @@ async function extractMarkingSchemeOCR(base64Images) {
 
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, gradeExamHolistically };
 } else {
-            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, gradeExamHolistically };
+}
+
+async function gradeExamHolistically(schemePayload, studentPayload) {
+    const apiKey = await getSecureKey();
+    let attempt = 0;
+    while (attempt < 3) {
+        try {
+            const prompt = `
+You are an elite world-class Examination Evaluation Engine designed to mark academic assessments with accuracy higher than senior professors, national examination boards, and university moderation panels.
+Your task is to perform strict, fair, evidence-based, marking-scheme-anchored assessment of student answers using ONLY the provided exam paper, official marking scheme, and student responses.
+
+You must behave like a hybrid of:
+- Senior University Examiner
+- National Examination Council Chief Marker
+- External Moderator
+- Academic Quality Assurance Auditor
+- Rubric Precision Scoring Engine
+
+Your marking must be: Extremely accurate, Strict but fair, Fully marking-scheme compliant, Resistant to hallucination, Resistant to over-marking, Resistant to under-marking, Resistant to bias, Resistant to wording variation, Resistant to synonym confusion, Resistant to paraphrase differences, Resistant to answer-order differences.
+
+You must NEVER invent marks. You must NEVER assume missing content. You must NEVER reward unsupported claims. You must NEVER punish correct alternative phrasing if conceptually valid. You must NEVER ignore hidden partial credit opportunities if supported by the marking scheme.
+You must think deeply before scoring.
+
+---
+CORE MARKING RULES
+RULE 1: MARKING SCHEME IS SUPREME
+RULE 2: CONCEPT > EXACT WORDING
+RULE 3: PARTIAL CREDIT INTELLIGENCE - If answer is partially correct: award only the exact deserved fraction.
+RULE 4: NO DOUBLE REWARD
+RULE 5: STRICT STRUCTURAL MAPPING
+RULE 6: OPTIONAL QUESTION CONTROL - If exam instructions say “Answer any 3,” enforce it correctly.
+RULE 7: JUSTIFICATION MUST BE SHORT
+
+---
+REQUIRED EXECUTION PROCESS (MANDATORY)
+Follow this exact sequence internally:
+Read full exam structure completely -> Read marking scheme fully -> Map student answers carefully -> Evaluate each answer against scheme -> Apply partial credit precisely.
+
+---
+OUTPUT FORMAT (STRICT JSON REQUIREMENT)
+You must output ONLY raw, valid JSON. No markdown blocks, no conversational text.
+Use this exact schema:
+{
+  "questions": [
+    {
+      "questionId": "1a",
+      "score": 2.5,
+      "max_marks": 3,
+      "justification": "Correct definition given.",
+      "constructive_feedback": "Good job identifying the core concept, but missed the final point.",
+      "points_awarded": [1, 1, 0.5]
+    }
+  ]
+}
+Note: Output 'points_awarded' as an array of float numbers awarded for that specific question so the external system can mathematically aggregate it correctly.
+
+---
+[MARKING SCHEME]
+${schemePayload}
+
+---
+[STUDENT ANSWERS]
+${studentPayload}
+`;
+
+            const requestBody = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    temperature: 0.0,
+                    topP: 0.8,
+                    topK: 10,
+                    maxOutputTokens: 8192,
+                    responseMimeType: "application/json"
+                }
+            };
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody),
+                signal: AbortSignal.timeout(60000)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API Error ${response.status}: ${errText}`);
+            }
+
+            const data = await response.json();
+            const textContent = data.candidates[0].content.parts[0].text;
+            return parseLLMJSON(textContent);
+        } catch (error) {
+            attempt++;
+            console.warn(`[Holistic Engine] Attempt ${attempt} failed:`, error.message);
+            if (attempt >= 3) throw new Error("Holistic Grading Failed after 3 attempts.");
+            await delay(4000);
+        }
+    }
 }
 
 // EXPOSE EXTRACTOR TO UE

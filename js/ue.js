@@ -189,15 +189,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                 throw new Error("Please upload a student exam or paste their JSON answers.");
             }
 
-            logTerminal("Initializing Neuro-Symbolic Engine...");
-            const engine = new window.UEGraphExecutor(goldenJson);
+            logTerminal("Initializing Holistic Exam Engine (Gemini 2.5 Pro)...");
 
-            logTerminal("Running Sliding Window Chunking and Vector Math via SiliconFlow...");
+            // Format parameters for holistic grading
+            const schemePayload = typeof goldenJson === 'object' ? JSON.stringify(goldenJson) : rawScheme;
+            const studentPayload = typeof studentAnswersJson === 'object' ? JSON.stringify(studentAnswersJson) : rawStudent;
 
-            // Format for engine matching
-            const results = await engine.execute(studentAnswersJson);
+            logTerminal("Executing Ultra-Precision Holistic Master Prompt...");
+            const rawResults = await window.PlaybookAI.gradeExamHolistically(schemePayload, studentPayload);
 
-            logTerminal(`Execution Complete. Score: ${results.totalScore}. Saving to DB...`, "success");
+            logTerminal("Applying Strict Math Aggregation via JS Engine...");
+            // Reuse the existing deterministic aggregator
+            const finalData = window.PlaybookAI.calculateDeterministicScores ?
+                window.PlaybookAI.calculateDeterministicScores({ questions: rawResults.questions }, "") :
+                { questions: rawResults.questions, totalScore: rawResults.questions.reduce((sum, q) => sum + (parseFloat(q.score) || 0), 0) };
+
+            logTerminal(`Execution Complete. Total Score Calculated: ${finalData.totalScore || 0}. Saving to DB...`, "success");
 
             // 1. Create a real session in the DB (Fully authenticated)
             let sessionId;
@@ -211,7 +218,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (sess) sessionId = sess.id;
 
             // Save to DB using the extracted or generated names
-            await window.PlaybookDB.saveStudentGradeUE(sessionId, studentRegNoStr, studentNameStr, results, studentAnswersJson);
+            await window.PlaybookDB.saveStudentGradeUE(sessionId, studentRegNoStr, studentNameStr, finalData, studentAnswersJson);
             logTerminal(`Saved results to database. Redirecting...`);
 
             setTimeout(() => {
