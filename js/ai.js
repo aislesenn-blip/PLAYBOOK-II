@@ -868,9 +868,9 @@ async function extractMarkingSchemeOCR(base64Images) {
 
 // Export for both main thread and Web Worker environments
 if (typeof window !== 'undefined') {
-            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, gradeExamHolistically };
+            window.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, gradeExamHolistically, getSecureKey, calculateDeterministicScores };
 } else {
-            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, gradeExamHolistically };
+            self.PlaybookAI = { gradeBatchExams, optimizeMarkingScheme, extractMarkingSchemeOCR, gradeExamHolistically, getSecureKey, calculateDeterministicScores };
 }
 
 async function gradeExamHolistically(schemePayload, studentPayload) {
