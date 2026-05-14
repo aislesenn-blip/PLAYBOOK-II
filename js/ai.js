@@ -287,6 +287,9 @@ function parseLLMJSON(content) {
     // STEP 6: THE FIX: Safe backslash escaping WITHOUT using Negative Lookbehinds
     content = content.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
 
+    // Strict JSON sanitizer to neutralize unescaped control characters
+    content = content.replace(/[\u0000-\u001F]+/g, ' ');
+
     try {
         return JSON.parse(content);
     } catch (e) {
